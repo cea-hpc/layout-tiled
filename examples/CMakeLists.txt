@@ -21,16 +21,14 @@ cmake_minimum_required(VERSION 3.23)
 
 project(layout-tiled-examples LANGUAGES CXX DESCRIPTION "Examples for layout-tiled")
 
-find_package(fmt REQUIRED)
-
 if(NOT TARGET layout_tiled::layout_tiled)
   find_package(layout-tiled REQUIRED)
 endif()
 
-add_executable(simple)
-target_sources(simple PRIVATE simple_test.cpp)
+add_executable(rtr)
+target_sources(rtr PRIVATE layout_right_tiled_right.cpp)
 target_compile_options(
-  simple
+  rtr
   INTERFACE
     -stdlib=libc++
     -Wall
@@ -42,16 +40,16 @@ target_compile_options(
     -Wmissing-include-dirs
     -Wformat=2
 )
-target_compile_features(simple PRIVATE cxx_std_23)
+target_compile_features(rtr PRIVATE cxx_std_23)
 set_target_properties(
-  simple
+  rtr
   PROPERTIES
     CXX_EXTENSIONS
       OFF
 )
 target_link_libraries(
-  simple
+  rtr
   PRIVATE
     layout_tiled::layout_tiled
-    fmt::fmt
 )
+
