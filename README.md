@@ -23,7 +23,7 @@ We propose four tiled layouts (based on Z-order curves):
 3. `layout_left_tiled_right`: tiles are stored in *Layout Left* w.r.t each other, and elements are stored in *Layout Right* within tiles;
 4. `layout_left_tiled_left`: tiles are stored in *Layout Left* w.r.t each other, and elements are stored in *Layout Left* within tiles.
 
-The proposed layouts are currently limited to 2-dimensional `mdspan`s, with tiles of the same rank. Tile dimensions are only supported as runtime parameters.
+The proposed layouts are currently based on [kokkos/mdspan tiled layout example](https://github.com/kokkos/mdspan/blob/stable/examples/tiled_layout/simple_tiled_layout.cpp). They are limited to 2-dimensional `mdspan`s, with tiles of the same rank. Tile extents are only supported as runtime parameters.
 
 ### Goals
 - Support both static _and_ runtime extents for tiles;
@@ -37,6 +37,7 @@ The proposed layouts are currently limited to 2-dimensional `mdspan`s, with tile
 
 ### Pre-requisites
 
+Ensure you have the following software installed on your system:
 - C++23 conforming compiler;
 - C++ standard libray with `std::mdspan` support (e.g., LLVM's `libcxx` v17+);
 - `cmake` v3.23+;
@@ -67,5 +68,5 @@ There is one example per layout:
 ```bash
 cmake -B <BUILDDIR> -Dlayout_tiled_BUILD_EXAMPLES=ON
 cmake --build <BUILDDIR> --target <EXAMPLE>
-./<BUILDDIR>/<EXAMPLE>
+./<BUILDDIR>/examples/<EXAMPLE>
 ```
