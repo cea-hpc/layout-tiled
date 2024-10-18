@@ -53,3 +53,86 @@ target_link_libraries(
     layout_tiled::layout_tiled
 )
 
+add_executable(ltr)
+target_sources(ltr PRIVATE layout_left_tiled_right.cpp)
+target_compile_options(
+  ltr
+  INTERFACE
+    -stdlib=libc++
+    -Wall
+    -Wextra
+    -Wshadow
+    -Wpedantic
+    -Wcast-align
+    -Wconversion
+    -Wmissing-include-dirs
+    -Wformat=2
+)
+target_compile_features(ltr PRIVATE cxx_std_23)
+set_target_properties(
+  ltr
+  PROPERTIES
+    CXX_EXTENSIONS
+      OFF
+)
+target_link_libraries(
+  ltr
+  PRIVATE
+    layout_tiled::layout_tiled
+)
+
+add_executable(rtl)
+target_sources(rtl PRIVATE layout_right_tiled_left.cpp)
+target_compile_options(
+  rtl
+  INTERFACE
+    -stdlib=libc++
+    -Wall
+    -Wextra
+    -Wshadow
+    -Wpedantic
+    -Wcast-align
+    -Wconversion
+    -Wmissing-include-dirs
+    -Wformat=2
+)
+target_compile_features(rtl PRIVATE cxx_std_23)
+set_target_properties(
+  rtl
+  PROPERTIES
+    CXX_EXTENSIONS
+      OFF
+)
+target_link_libraries(
+  rtl
+  PRIVATE
+    layout_tiled::layout_tiled
+)
+
+add_executable(ltl)
+target_sources(ltl PRIVATE layout_left_tiled_left.cpp)
+target_compile_options(
+  ltl
+  INTERFACE
+    -stdlib=libc++
+    -Wall
+    -Wextra
+    -Wshadow
+    -Wpedantic
+    -Wcast-align
+    -Wconversion
+    -Wmissing-include-dirs
+    -Wformat=2
+)
+target_compile_features(ltl PRIVATE cxx_std_23)
+set_target_properties(
+  ltl
+  PROPERTIES
+    CXX_EXTENSIONS
+      OFF
+)
+target_link_libraries(
+  ltl
+  PRIVATE
+    layout_tiled::layout_tiled
+)
