@@ -25,37 +25,8 @@ public:
       assert(exts.extent(0) > 0);
       assert(exts.extent(1) > 0);
     }
-    //------------------------------------------------------------
-    // Helper members (not part of the layout concept)
 
-    constexpr auto nb_row_tiles() const noexcept -> size_type {
-      return extents_.extent(0) / row_tile_size_ + size_type((extents_.extent(0) % row_tile_size_) != 0);
-    }
-
-    constexpr auto nb_col_tiles() const noexcept -> size_type {
-      return extents_.extent(1) / col_tile_size_ + size_type((extents_.extent(1) % col_tile_size_) != 0);
-    }
-
-    constexpr auto tile_size() const noexcept -> size_type {
-      return row_tile_size_ * col_tile_size_;
-    }
-
-    auto tile_offset(size_type row, size_type col) const noexcept -> size_type {
-      // This could probably be more efficient, but for example purposes...
-      auto row_tile = row / row_tile_size_;
-      auto col_tile = col / col_tile_size_;
-      return (row_tile * nb_col_tiles() + col_tile) * tile_size();
-    }
-
-    auto offset_in_tile(size_type row, size_type col) const noexcept -> size_type {
-      auto t_row = row % row_tile_size_;
-      auto t_col = col % col_tile_size_;
-      return t_row * col_tile_size_ + t_col;
-    }
-
-    //------------------------------------------------------------
-    // Required members
-
+    /* --- REQUIRED MEMBERS --- */
     constexpr auto extents() const -> extents_type const& {
       return extents_;
     }
@@ -69,15 +40,15 @@ public:
       return tile_offset(row, col) + offset_in_tile(row, col);
     }
 
-    // Mapping is always unique
+    // Mapping is always unique.
     static constexpr auto is_always_unique() noexcept -> bool {
       return true;
     }
-    // Only exhaustive if extents_.extent(0) % column_tile_size == 0, so not always
+    // Only exhaustive if `extents_.extent(0) % col_tile_size == 0`, so not always.
     static constexpr auto is_always_exhaustive() noexcept -> bool {
       return false;
     }
-    // There is not always a regular stride between elements in a given dimension
+    // There is not always a regular stride between elements in a given dimension.
     static constexpr auto is_always_strided() noexcept -> bool {
       return false;
     }
@@ -85,17 +56,42 @@ public:
     static constexpr auto is_unique() noexcept -> bool {
       return true;
     }
+    // Only exhaustive if extents fit exactly into tile sizes.
     constexpr auto is_exhaustive() const noexcept -> bool {
-      // Only exhaustive if extents fit exactly into tile sizes...
       return (extents_.extent(0) % row_tile_size_ == 0) && (extents_.extent(1) % col_tile_size_ == 0);
     }
-    // There are some circumstances where this is strided, but we're not
-    // concerned about that optimization, so we're allowed to just return false here
+    // There are some circumstances where this is strided, but we're not concerned about that optimization, so
+    // we're allowed to just return false here.
     constexpr auto is_strided() const noexcept -> bool {
       return false;
     }
 
   private:
+    /* --- HELPER MEMBERS --- */
+    constexpr auto nb_row_tiles() const noexcept -> size_type {
+      return extents_.extent(0) / row_tile_size_ + size_type((extents_.extent(0) % row_tile_size_) != 0);
+    }
+
+    constexpr auto nb_col_tiles() const noexcept -> size_type {
+      return extents_.extent(1) / col_tile_size_ + size_type((extents_.extent(1) % col_tile_size_) != 0);
+    }
+
+    constexpr auto tile_size() const noexcept -> size_type {
+      return row_tile_size_ * col_tile_size_;
+    }
+
+    auto tile_offset(size_type row, size_type col) const noexcept -> size_type {
+      auto row_tile = row / row_tile_size_;
+      auto col_tile = col / col_tile_size_;
+      return (row_tile * nb_col_tiles() + col_tile) * tile_size();
+    }
+
+    auto offset_in_tile(size_type row, size_type col) const noexcept -> size_type {
+      auto t_row = row % row_tile_size_;
+      auto t_col = col % col_tile_size_;
+      return t_row * col_tile_size_ + t_col;
+    }
+
     extents_type extents_;
     size_type row_tile_size_;
     size_type col_tile_size_;

@@ -11,3 +11,4 @@ AlignAfterOpenBracket: BlockIndent
 BinPackArguments: false
 AlwaysBreakTemplateDeclarations: true
 AlignConsecutiveAssignments: Consecutive
+AllowShortFunctionsOnASingleLine: Empty
