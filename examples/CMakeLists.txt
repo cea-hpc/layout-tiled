@@ -17,122 +17,41 @@
 #
 # Author: Gabriel Dos Santos <gabriel.dossantos@cea.fr>
 
-cmake_minimum_required(VERSION 3.23)
-
-project(layout-tiled-examples LANGUAGES CXX DESCRIPTION "Examples for layout-tiled")
-
-if(NOT TARGET layout_tiled::layout_tiled)
-  find_package(layout-tiled REQUIRED)
-endif()
-
-add_executable(rtr)
-target_sources(rtr PRIVATE layout_right_tiled_right.cpp)
-target_compile_options(
-  rtr
-  INTERFACE
-    -stdlib=libc++
-    -Wall
-    -Wextra
-    -Wshadow
-    -Wpedantic
-    -Wcast-align
-    -Wconversion
-    -Wmissing-include-dirs
-    -Wformat=2
-)
-target_compile_features(rtr PRIVATE cxx_std_23)
-set_target_properties(
-  rtr
-  PROPERTIES
-    CXX_EXTENSIONS
-      OFF
-)
-target_link_libraries(
-  rtr
-  PRIVATE
-    layout_tiled::layout_tiled
+set(
+  ALL_EXAMPLES
+  layout_right_tiled_right
+  layout_right_tiled_left
+  layout_left_tiled_right
+  layout_left_tiled_left
 )
 
-add_executable(ltr)
-target_sources(ltr PRIVATE layout_left_tiled_right.cpp)
-target_compile_options(
-  ltr
-  INTERFACE
-    -stdlib=libc++
-    -Wall
-    -Wextra
-    -Wshadow
-    -Wpedantic
-    -Wcast-align
-    -Wconversion
-    -Wmissing-include-dirs
-    -Wformat=2
-)
-target_compile_features(ltr PRIVATE cxx_std_23)
-set_target_properties(
-  ltr
-  PROPERTIES
-    CXX_EXTENSIONS
-      OFF
-)
-target_link_libraries(
-  ltr
-  PRIVATE
-    layout_tiled::layout_tiled
-)
-
-add_executable(rtl)
-target_sources(rtl PRIVATE layout_right_tiled_left.cpp)
-target_compile_options(
-  rtl
-  INTERFACE
-    -stdlib=libc++
-    -Wall
-    -Wextra
-    -Wshadow
-    -Wpedantic
-    -Wcast-align
-    -Wconversion
-    -Wmissing-include-dirs
-    -Wformat=2
-)
-target_compile_features(rtl PRIVATE cxx_std_23)
-set_target_properties(
-  rtl
-  PROPERTIES
-    CXX_EXTENSIONS
-      OFF
-)
-target_link_libraries(
-  rtl
-  PRIVATE
-    layout_tiled::layout_tiled
-)
-
-add_executable(ltl)
-target_sources(ltl PRIVATE layout_left_tiled_left.cpp)
-target_compile_options(
-  ltl
-  INTERFACE
-    -stdlib=libc++
-    -Wall
-    -Wextra
-    -Wshadow
-    -Wpedantic
-    -Wcast-align
-    -Wconversion
-    -Wmissing-include-dirs
-    -Wformat=2
-)
-target_compile_features(ltl PRIVATE cxx_std_23)
-set_target_properties(
-  ltl
-  PROPERTIES
-    CXX_EXTENSIONS
-      OFF
-)
-target_link_libraries(
-  ltl
-  PRIVATE
-    layout_tiled::layout_tiled
-)
+foreach(example ${ALL_EXAMPLES})
+  add_executable(layout_tiled.examples.${example})
+  target_sources(layout_tiled.examples.${example} PRIVATE ${example}.cpp)
+  target_compile_options(
+    layout_tiled.examples.${example}
+    PRIVATE
+      -stdlib=libc++
+      -Wall
+      -Wextra
+      -Wshadow
+      -Wpedantic
+      -Wcast-align
+      -Wconversion
+      -Wmissing-include-dirs
+      -Wformat=2
+  )
+  target_compile_features(layout_tiled.examples.${example} PRIVATE cxx_std_23)
+  set_target_properties(
+    layout_tiled.examples.${example}
+    PROPERTIES
+      CXX_EXTENSIONS
+        OFF
+  )
+  target_link_libraries(
+    layout_tiled.examples.${example}
+    PRIVATE
+      layout_tiled::layout_tiled
+      c++ # Need to explicitly link with libc++ for some reason (appears to be related to std::print)
+  )
+endforeach()
