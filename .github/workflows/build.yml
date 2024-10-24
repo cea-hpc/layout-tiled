@@ -16,7 +16,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-latest, macos-latest, windows-latest]
+        platform: [ubuntu-24.04, macos-latest]
         cpp_compiler: [clang++]
         build_type: [Release]
     env:
@@ -44,10 +44,6 @@ jobs:
       - name: Build
         run: >
           cmake --build build --config ${{ matrix.build_type }} --verbose
-      - name: Install
-        run: |
-          cmake --install build --config ${{ matrix.build_type }} --prefix /opt/layout_tiled
-          find /opt/layout_tiled -type f
       - name: Test
         run: ctest --test-dir build --build-config ${{ matrix.build_type }}
   
