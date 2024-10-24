@@ -67,6 +67,10 @@ jobs:
       - name: Build
         run: >
           cmake --build build --config ${{ matrix.build_type }} --verbose
+      - name: Install
+        run: |
+          sudo cmake --install build --config ${{ matrix.build_type }} --prefix /opt/layout_tiled
+          find /opt/layout_tiled -type f
       - name: Test
         run: ctest --test-dir build --build-config ${{ matrix.build_type }}
   
