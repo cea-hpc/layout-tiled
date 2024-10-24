@@ -66,8 +66,8 @@ include(CMakePackageConfigHelpers)
 
 configure_package_config_file(
   ${PROJECT_SOURCE_DIR}/cmake/config.cmake.in
-  ${PROJECT_BINARY_DIR}/cmake/${PROJECT_NAME}/${PROJECT_NAME}-config.cmake
-  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/${PROJECT_NAME}
+  ${PROJECT_BINARY_DIR}/cmake/layout_tiled/layout-tiled-config.cmake
+  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled
   NO_SET_AND_CHECK_MACRO
   NO_CHECK_REQUIRED_COMPONENTS_MACRO
 )
@@ -75,7 +75,7 @@ configure_package_config_file(
 # Install CMake package config files
 install(
   FILES
-    ${CMAKE_SOURCE_DIR}/cmake/layout-tiled-config.cmake
+    ${PROJECT_BINARY_DIR}/cmake/layout_tiled/layout-tiled-config.cmake
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled
 )
 install(
