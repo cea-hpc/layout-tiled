@@ -22,17 +22,19 @@ cmake_minimum_required(VERSION 3.23)
 project(layout-tiled LANGUAGES CXX VERSION 0.1.0 DESCRIPTION "Tiled layouts for C++23's std::mdspan")
 
 # --- PROJECT-WIDE SETTINGS --- #
-# Colored compiler diagnostics for Ninja
-set(CMAKE_COLOR_DIAGNOSTICS ON)
+# Sensible defaults
+set(CMAKE_COLOR_DIAGNOSTICS ON) # Enable colored compiler diagnostics for Ninja
+set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Export compile commands for the linter/static analyzer
 
-# C++23 only
+# Require C++23 w/o GNU extensions
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # --- PROJECT OPTIONS --- #
-option(layout_tiled_BUILD_EXAMPLES "Build examples" ON)
 option(layout_tiled_BUILD_TESTS "Build tests" OFF)
 set(LAYOUT_TILED_TESTS ${layout_tiled_BUILD_TESTS} CACHE BOOL "" FORCE)
+
+option(layout_tiled_BUILD_EXAMPLES "Build examples" OFF)
 set(LAYOUT_TILED_EXAMPLES ${layout_tiled_BUILD_EXAMPLES} CACHE BOOL "" FORCE)
 
 # --- PROJECT TARGETS --- #
