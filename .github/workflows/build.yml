@@ -1,0 +1,85 @@
+# This starter workflow is for a CMake project running on multiple platforms. There is a different starter workflow if you just want a single platform.
+# See: https://github.com/actions/starter-workflows/blob/main/ci/cmake-single-platform.yml
+name: Continuous Integration
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+  schedule:
+    - cron: '30 15 * * *'
+
+jobs:
+  build_tests:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+        cpp_compiler: [clang++]
+        build_type: [Release]
+    env:
+      CXX: ${{ matrix.cpp_compiler }}
+      CMAKE_GENERATOR: "Ninja Multi-Config"
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install CMake & Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "~3.23.0"
+          ninjaVersion: "^1.11.1"
+      - name: Print installed softwares
+        run: |
+          clang++ --version
+          cmake --version
+          ninja --version
+      - name: Configure
+        run: >
+          cmake -S ${{ github.workspace }}
+          -B build
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -Dlayout_tiled_BUILD_TESTS=ON
+      - name: Build
+        run: >
+          cmake --build build --config ${{ matrix.build_type }} --verbose
+      - name: Install
+        run: |
+          cmake --install build --config ${{ matrix.build_type }} --prefix /opt/layout_tiled
+          find /opt/layout_tiled -type f
+      - name: Test
+        run: ctest --test-dir build --build-config ${{ matrix.build_type }}
+  
+  build_examples:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-latest, macos-latest, windows-latest]
+        cpp_compiler: [clang++]
+        build_type: [Release]
+    env:
+      CXX: ${{ matrix.cpp_compiler }}
+      CMAKE_GENERATOR: "Ninja Multi-Config"
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install CMake & Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "~3.23.0"
+          ninjaVersion: "^1.11.1"
+      - name: Print installed softwares
+        run: |
+          clang++ --version
+          cmake --version
+          ninja --version
+      - name: Configure
+        run: >
+          cmake -S ${{ github.workspace }}
+          -B build
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -Dlayout_tiled_BUILD_EXAMPLES=ON
+      - name: Build
+        run: |
+          cmake --build build --config ${{ matrix.build_type }} --verbose
