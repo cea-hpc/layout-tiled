@@ -39,7 +39,7 @@ jobs:
       matrix:
         platform: [ubuntu-24.04, macos-latest]
         cpp_compiler: [clang++]
-        build_type: [Release]
+        build_type: [Debug, Release]
     env:
       CXX: ${{ matrix.cpp_compiler }}
       CMAKE_GENERATOR: "Ninja Multi-Config"
