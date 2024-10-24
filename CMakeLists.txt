@@ -49,8 +49,9 @@ if(LAYOUT_TILED_TESTS)
     GIT_REPOSITORY https://github.com/google/googletest.git
     GIT_TAG
       f8d7d77c06936315286eb55f8de22cd23c188571 # release-1.14.0
-    EXCLUDE_FROM_ALL
   )
+  # Prevent GTest from getting installed along with the library
+  set(INSTALL_GTEST OFF)
   FetchContent_MakeAvailable(googletest)
 
   add_subdirectory(tests/layout_tiled)
