@@ -46,6 +46,11 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install LLVM libc++
+        run: |
+         if [ "$RUNNER_OS" == "Linux" ]; then
+           sudo apt update && sudo apt install libc++-dev
+         fi
       - name: Install CMake & Ninja
         uses: lukka/get-cmake@latest
         with:
@@ -81,6 +86,11 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
+      - name: Install LLVM libc++
+        run: |
+         if [ "$RUNNER_OS" == "Linux" ]; then
+           sudo apt update && sudo apt install libc++-dev
+         fi
       - name: Install CMake & Ninja
         uses: lukka/get-cmake@latest
         with:
