@@ -50,9 +50,3 @@ include(GNUInstallDirs)
 
 # Export and install public headers
 install(TARGETS layout_tiled EXPORT LayoutTiledTargets FILE_SET layout_tiled_public_headers)
-install(
-  EXPORT LayoutTiledTargets
-  FILE LayoutTiledTargets.cmake
-  NAMESPACE layout_tiled::
-  DESTINATION ${CMAKE_INSTALL_DATADIR}/cmake/layout_tiled
-)
