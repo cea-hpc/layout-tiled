@@ -34,7 +34,7 @@ option(layout_tiled_BUILD_EXAMPLES "Build examples" ON)
 set(LAYOUT_TILED_EXAMPLES ${layout_tiled_BUILD_EXAMPLES} CACHE BOOL "" FORCE)
 
 # --- PROJECT TARGETS --- #
-add_subdirectory(include)
+add_subdirectory(include/layout_tiled)
 if(LAYOUT_TILED_EXAMPLES)
   add_subdirectory(examples)
 endif()
