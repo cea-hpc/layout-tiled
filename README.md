@@ -87,3 +87,12 @@ cmake -B <BUILDDIR> -Dlayout_tiled_BUILD_TESTS=ON
 cmake --build <BUILDDIR>
 ctest --test-dir <BUILDDIR>
 ```
+
+### Benchmarking performance
+
+**Build & run the benchmarks:**
+```bash
+cmake -B <BUILDDIR> -Dlayout_tiled_BUILD_BENCHMARKS=ON
+cmake --build <BUILDDIR>
+for bench in <BUILDDIR>/benchmarks/*; do ./$bench; done
+```
