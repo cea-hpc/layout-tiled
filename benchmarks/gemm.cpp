@@ -67,7 +67,20 @@ auto main() -> int {
   auto mB = std::mdspan(B.data(), DIMS, DIMS);
   auto mC = std::mdspan(C.data(), DIMS, DIMS);
 
+  using extents_type = std::dextents<std::size_t, 2>;
+  auto mA_tiled = std::mdspan(
+    A.data(), layout_right_tiled_right<std::size_t, TILE, TILE>::mapping<extents_type>(extents_type(DIMS, DIMS))
+  );
+  auto mB_tiled = std::mdspan(
+    B.data(), layout_right_tiled_right<std::size_t, TILE, TILE>::mapping<extents_type>(extents_type(DIMS, DIMS))
+  );
+  auto mC_tiled = std::mdspan(
+    C.data(), layout_right_tiled_right<std::size_t, TILE, TILE>::mapping<extents_type>(extents_type(DIMS, DIMS))
+  );
+
   ankerl::nanobench::Bench().run("Standard layout", [&]() { matrix_product(mA, mB, mC); });
+
+  ankerl::nanobench::Bench().run("Tiled layout", [&]() { matrix_product(mA_tiled, mB_tiled, mC_tiled); });
 
   return 0;
 }
