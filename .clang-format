@@ -12,3 +12,5 @@ BinPackArguments: false
 AlwaysBreakTemplateDeclarations: true
 AlignConsecutiveAssignments: Consecutive
 AllowShortFunctionsOnASingleLine: Empty
+BinPackArguments: true
+BinPackParameters: OnePerLine
