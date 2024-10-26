@@ -37,6 +37,9 @@ set(LAYOUT_TILED_TESTS ${layout_tiled_BUILD_TESTS} CACHE BOOL "" FORCE)
 option(layout_tiled_BUILD_EXAMPLES "Build examples" OFF)
 set(LAYOUT_TILED_EXAMPLES ${layout_tiled_BUILD_EXAMPLES} CACHE BOOL "" FORCE)
 
+option(layout_tiled_BUILD_BENCHMARKS "Build benchmarks" OFF)
+set(LAYOUT_TILED_BENCHMARKS ${layout_tiled_BUILD_BENCHMARKS} CACHE BOOL "" FORCE)
+
 # --- PROJECT TARGETS --- #
 add_subdirectory(include/layout_tiled)
 
@@ -44,12 +47,7 @@ if(LAYOUT_TILED_TESTS)
   enable_testing()
 
   include(FetchContent)
-  FetchContent_Declare(
-    googletest
-    GIT_REPOSITORY https://github.com/google/googletest.git
-    GIT_TAG
-      f8d7d77c06936315286eb55f8de22cd23c188571 # release-1.14.0
-  )
+  FetchContent_Declare(googletest GIT_REPOSITORY https://github.com/google/googletest.git GIT_TAG v1.15.0)
   # Prevent GTest from getting installed along with the library
   set(INSTALL_GTEST OFF)
   FetchContent_MakeAvailable(googletest)
@@ -59,6 +57,19 @@ endif()
 
 if(LAYOUT_TILED_EXAMPLES)
   add_subdirectory(examples)
+endif()
+
+if(LAYOUT_TILED_BENCHMARKS)
+  include(FetchContent)
+  FetchContent_Declare(
+    nanobench
+    GIT_REPOSITORY https://github.com/martinus/nanobench.git
+    GIT_TAG v4.3.11
+    GIT_SHALLOW TRUE
+  )
+  FetchContent_MakeAvailable(nanobench)
+
+  add_subdirectory(benchmarks)
 endif()
 
 # --- PACKAGING --- #
