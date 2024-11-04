@@ -24,9 +24,12 @@
 
 #include <nanobench.h>
 
+#include <chrono>
 #include <mdspan>
 #include <print>
 #include <vector>
+
+using namespace std::chrono_literals;
 
 /// Matrix-matrix product: C = A * B
 template <
@@ -35,7 +38,7 @@ template <
   class Layout,
   class AccessorPolicy
 >
-auto matrix_product(
+auto serial_matrix_product(
   std::mdspan<T, Extents, Layout, AccessorPolicy> A,
   std::mdspan<T, Extents, Layout, AccessorPolicy> B,
   std::mdspan<T, Extents, Layout, AccessorPolicy> C
@@ -56,8 +59,8 @@ auto matrix_product(
 }
 
 auto main() -> int {
-  constexpr std::size_t DIMS = 512;
-  constexpr std::size_t TILE = 64;
+  constexpr std::size_t DIMS = 1024;
+  constexpr std::size_t TILE = 32;
 
   std::vector<double> A(DIMS * DIMS, 1.0);
   std::vector<double> B(DIMS * DIMS, 1.0);
@@ -78,9 +81,11 @@ auto main() -> int {
     C.data(), layout_right_tiled_right<std::size_t, TILE, TILE>::mapping<extents_type>(extents_type(DIMS, DIMS))
   );
 
-  ankerl::nanobench::Bench().run("Standard layout", [&]() { matrix_product(mA, mB, mC); });
+  ankerl::nanobench::Bench bs;
+  bs.title("serial").timeUnit(1s, "s").relative(true);
+  bs.run("standard layout", [&]() { serial_matrix_product(mA, mB, mC); });
+  bs.run("tiled layout", [&]() { serial_matrix_product(mA_tiled, mB_tiled, mC_tiled); });
 
-  ankerl::nanobench::Bench().run("Tiled layout", [&]() { matrix_product(mA_tiled, mB_tiled, mC_tiled); });
 
   return 0;
 }
