@@ -111,3 +111,41 @@ jobs:
       - name: Build
         run: |
           cmake --build build --config ${{ matrix.build_type }} --verbose
+  
+  build_benchmarks:
+    strategy:
+      fail-fast: false
+      matrix:
+        platform: [ubuntu-24.04, macos-latest]
+        cpp_compiler: [clang++]
+        build_type: [Release]
+    env:
+      CXX: ${{ matrix.cpp_compiler }}
+      CMAKE_GENERATOR: "Ninja Multi-Config"
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LLVM libc++
+        run: |
+         if [ "$RUNNER_OS" == "Linux" ]; then
+           sudo apt update && sudo apt install libc++-dev
+         fi
+      - name: Install CMake & Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "~3.23.0"
+          ninjaVersion: "^1.11.1"
+      - name: Print installed softwares
+        run: |
+          clang++ --version
+          cmake --version
+          ninja --version
+      - name: Configure
+        run: >
+          cmake -S ${{ github.workspace }}
+          -B build
+          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
+          -Dlayout_tiled_BUILD_BENCHMARKS=ON
+      - name: Build
+        run: |
+          cmake --build build --config ${{ matrix.build_type }} --verbose
