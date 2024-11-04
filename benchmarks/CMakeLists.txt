@@ -26,6 +26,8 @@ set(ALL_BENCHMARKS gemm)
 target_compile_options(nanobench PRIVATE -stdlib=libc++)
 target_link_libraries(nanobench PRIVATE c++)
 
+find_package(OpenMP REQUIRED)
+
 foreach(bench ${ALL_BENCHMARKS})
   add_executable(layout_tiled.benchmarks.${bench})
   target_sources(layout_tiled.benchmarks.${bench} PRIVATE ${bench}.cpp)
@@ -38,6 +40,7 @@ foreach(bench ${ALL_BENCHMARKS})
       -Wpedantic
       -pedantic
       -march=native
+      -g3
   )
   target_compile_features(layout_tiled.benchmarks.${bench} PRIVATE cxx_std_23)
   set_target_properties(
@@ -52,5 +55,6 @@ foreach(bench ${ALL_BENCHMARKS})
       layout_tiled::layout_tiled
       c++ # Need to explicitly link with libc++ for some reason (appears to be related to std::print)
       nanobench
+      OpenMP::OpenMP_CXX
   )
 endforeach()

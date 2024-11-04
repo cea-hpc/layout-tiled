@@ -23,6 +23,7 @@
 #include <layout_tiled/layout_right_tiled_right.hpp>
 
 #include <nanobench.h>
+#include <omp.h>
 
 #include <chrono>
 #include <mdspan>
@@ -47,6 +48,34 @@ auto serial_matrix_product(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
+  for (std::size_t i = 0; i < A.extent(0); ++i) {
+    for (std::size_t j = 0; j < B.extent(1); ++j) {
+      T acc{};
+      for (std::size_t k = 0; k < A.extent(1); ++k) {
+        acc += A[i, k] * B[k, j];
+      }
+      C[i, j] = acc;
+    }
+  }
+}
+
+/// Matrix-matrix product: C = A * B
+template <
+  class T,
+  class Extents,
+  class Layout,
+  class AccessorPolicy
+>
+auto parallel_matrix_product(
+  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
+  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
+  std::mdspan<T, Extents, Layout, AccessorPolicy> C
+) -> void {
+  assert(A.extent(1) == B.extent(0));
+  assert(A.extent(0) == C.extent(0));
+  assert(B.extent(1) == C.extent(1));
+
+  #pragma omp parallel for
   for (std::size_t i = 0; i < A.extent(0); ++i) {
     for (std::size_t j = 0; j < B.extent(1); ++j) {
       T acc{};
@@ -86,6 +115,10 @@ auto main() -> int {
   bs.run("standard layout", [&]() { serial_matrix_product(mA, mB, mC); });
   bs.run("tiled layout", [&]() { serial_matrix_product(mA_tiled, mB_tiled, mC_tiled); });
 
+  ankerl::nanobench::Bench bp;
+  bp.title("parallel").timeUnit(1s, "s").relative(true);
+  bp.run("standard layout", [&]() { parallel_matrix_product(mA, mB, mC); });
+  bp.run("tiled layout", [&]() { parallel_matrix_product(mA_tiled, mB_tiled, mC_tiled); });
 
   return 0;
 }
