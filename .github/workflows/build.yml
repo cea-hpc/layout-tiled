@@ -17,7 +17,7 @@
 #
 # Author: Gabriel Dos Santos <gabriel.dossantos@cea.fr>
 
-name: Build Status
+name: CI Pipeline
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -125,10 +125,10 @@ jobs:
     runs-on: ${{ matrix.platform }}
     steps:
       - uses: actions/checkout@v4
-      - name: Install LLVM libc++
+      - name: Install LLVM libc++ & OpenMP
         run: |
          if [ "$RUNNER_OS" == "Linux" ]; then
-           sudo apt update && sudo apt install libc++-dev
+           sudo apt update && sudo apt install libc++-dev libomp-dev
          fi
       - name: Install CMake & Ninja
         uses: lukka/get-cmake@latest
