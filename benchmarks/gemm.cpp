@@ -812,13 +812,13 @@ auto main() -> int {
 
     using extents_type = std::dextents<std::size_t, 2>;
     auto mA_tiled = std::mdspan(
-      A.data(), layout_right_tiled_right<std::size_t, TILE, TILE>::mapping<extents_type>(extents_type(dims, dims))
+      A.data(), layout_right_tiled_right:mapping<extents_type>(extents_type(dims, dims), TILE, TILE)
     );
     auto mB_tiled = std::mdspan(
-      B.data(), layout_right_tiled_right<std::size_t, TILE, TILE>::mapping<extents_type>(extents_type(dims, dims))
+      B.data(), layout_right_tiled_right:mapping<extents_type>(extents_type(dims, dims), TILE, TILE)
     );
     auto mC_tiled = std::mdspan(
-      C.data(), layout_right_tiled_right<std::size_t, TILE, TILE>::mapping<extents_type>(extents_type(dims, dims))
+      C.data(), layout_right_tiled_right:mapping<extents_type>(extents_type(dims, dims), TILE, TILE)
     );
 
 #if defined(LAYOUT_TILED_PARALLEL_BENCH)
