@@ -37,6 +37,9 @@ set(LAYOUT_TILED_TESTS ${layout_tiled_BUILD_TESTS} CACHE BOOL "" FORCE)
 option(layout_tiled_BUILD_EXAMPLES "Build examples" OFF)
 set(LAYOUT_TILED_EXAMPLES ${layout_tiled_BUILD_EXAMPLES} CACHE BOOL "" FORCE)
 
+option(layout_tiled_BUILD_BENCHMARKS "Build benchmarks" OFF)
+set(LAYOUT_TILED_BENCHMARKS ${layout_tiled_BUILD_BENCHMARKS} CACHE BOOL "" FORCE)
+
 # --- PROJECT TARGETS --- #
 add_subdirectory(include/layout_tiled)
 
@@ -59,6 +62,10 @@ endif()
 
 if(LAYOUT_TILED_EXAMPLES)
   add_subdirectory(examples)
+endif()
+
+if(LAYOUT_TILED_BENCHMARKS)
+  add_subdirectory(benchmarks)
 endif()
 
 # --- PACKAGING --- #
