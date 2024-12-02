@@ -1,31 +1,37 @@
 # Description
 
-Associated issue(s):
+Linked issue(s):
+
 
 ## Scope
 
 Which part of the project is affected?
 _Put an `x` in the boxes that apply_
 
-- [ ] core
-- [ ] tests
-- [ ] benchmarks
-- [ ] examples
-- [ ] other
+- [ ] `core`
+- [ ] `tests`
+- [ ] `benchmarks`
+- [ ] `examples`
+- [ ] Other: describe...
+
 
 ## Proposed changes
 
-Describe the big picture of your changes here to communicate to the maintainers why we should accept this pull request.
+Describe the big picture of your changes to communicate to the maintainers why we should accept this PR.
+
 
 ## Types of changes
 
-What types of changes does your code introduce?
+What types of changes does your PR introduce?
 _Put an `x` in the boxes that apply_
 
-- [ ] Bugfix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
-- [ ] Other
+- [ ] Bugfix
+- [ ] New feature
+- [ ] Other: describe...
+
+Do the changes break backwards compatibility for existing functionality?
+- [ ] Breaking change
+
 
 ## Further comments
 
