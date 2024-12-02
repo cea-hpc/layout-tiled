@@ -1,0 +1,54 @@
+name: Enhancement
+description: Describe a new feature or a project refactor.
+title: "[ENHANCEMENT]: "
+labels: ["enhancement"]
+assignees:
+  - dssgabriel
+body:
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: Which part of the project would be affected?
+      multiple: true
+      options:
+        - core
+        - tests
+        - benchmarks
+        - examples
+        - other
+    validations:
+      required: true
+  - type: dropdown
+    id: change
+    attributes:
+      label: Type of change
+      description: Nature of the suggested improvement.
+      multiple: true
+      options:
+        - new feature
+        - refactor
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed changes
+      description: >-
+        Explain your changes and how you think it should be implemented.
+      placeholder: >-
+        Implement feature X. Change internal implementation of Y to use Z.
+  - type: dropdown
+    id: effects
+    attributes:
+      label: Side effects
+      description: >-
+        Will these changes require adaptations of items outside of the primary scope? E.g. updating the core API might
+        require changes in the other tests, benchmarks or examples.
+      options:
+        - yes
+        - no
+        - unsure
+    validations:
+      required: true
