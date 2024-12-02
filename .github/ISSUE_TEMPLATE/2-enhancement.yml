@@ -47,8 +47,8 @@ body:
         Will these changes require adaptations of items outside of the primary scope? E.g. updating the core API might
         require changes in the other tests, benchmarks or examples.
       options:
-        - yes
-        - no
+        - 'yes'
+        - 'no'
         - unsure
     validations:
       required: true
