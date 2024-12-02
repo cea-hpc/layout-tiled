@@ -1,0 +1,93 @@
+name: Bug report
+description: File a new bug report.
+title: '[BUG]: '
+labels: ["bug"]
+assignees:
+  - dssgabriel
+body:
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: Which part of the project is affected?
+      multiple: true
+      options:
+        - core
+        - tests
+        - benchmarks
+        - examples
+        - other
+    validations:
+      required: true
+body:
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Scope
+      description: Which part of the project is affected?
+      multiple: true
+      options:
+        - core
+        - tests
+        - benchmarks
+        - examples
+        - other
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Description and Expected behavior
+      description: What you were trying to do, and what you were expecting from it?
+      placeholder: >-
+        I wanted to do X, used Y expecting Z to happen.
+    validations:
+      required: true
+  - type: textarea
+    id: observed
+    attributes:
+      label: Observed behavior
+      description: What went wrong?
+      placeholder: >-
+        I got Z'.
+        Notes:
+        - if the bug involves a crash, please include as much information as possible (stack trace, debugger output, etc.).
+        - if the bug involves compilation errors, please provide the full compiler output.
+    validations:
+      required: true
+  - type: textarea
+    id: setup
+    attributes:
+      label: Environment
+      description: System and toolchain information.
+      value: |-
+        Operating System:
+        - Distribution (if applicable):
+        - Kernel (if applicable):
+
+        C++ Compiler:
+        - Version:
+
+        C++ standard library:
+        - Version:
+
+        CMake version:
+
+        Make version:
+
+        Ninja version:
+  - type: textarea
+    id: mre
+    attributes:
+      label: Steps to reproduce
+      description: Instructions for contributors to reproduce the issue.
+      placeholder: >-
+        This can be a detailed explanation of your code, steps to follow in order to reproduce the bug, or (best) an MRE.
+    validations:
+      required: true
+  - type: textarea
+    id: misc
+    attributes:
+      label: Other
+      description: >-
+        Other information you would like to share or that may be useful to maintainers and contributors.
