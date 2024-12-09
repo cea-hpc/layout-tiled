@@ -31,19 +31,14 @@ set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # --- PROJECT OPTIONS --- #
-option(layout_tiled_BUILD_TESTS "Build tests" OFF)
-set(LAYOUT_TILED_TESTS ${layout_tiled_BUILD_TESTS} CACHE BOOL "" FORCE)
-
-option(layout_tiled_BUILD_EXAMPLES "Build examples" OFF)
-set(LAYOUT_TILED_EXAMPLES ${layout_tiled_BUILD_EXAMPLES} CACHE BOOL "" FORCE)
-
-option(layout_tiled_BUILD_BENCHMARKS "Build benchmarks" OFF)
-set(LAYOUT_TILED_BENCHMARKS ${layout_tiled_BUILD_BENCHMARKS} CACHE BOOL "" FORCE)
+option(LayoutTiled_BUILD_TESTS "Build tests" OFF)
+option(LayoutTiled_BUILD_EXAMPLES "Build examples" OFF)
+option(LayoutTiled_BUILD_BENCHMARKS "Build benchmarks" OFF)
 
 # --- PROJECT TARGETS --- #
 add_subdirectory(include/layout_tiled)
 
-if(LAYOUT_TILED_TESTS)
+if(LayoutTiled_BUILD_TESTS)
   enable_testing()
 
   include(FetchContent)
@@ -60,11 +55,11 @@ if(LAYOUT_TILED_TESTS)
   add_subdirectory(tests/layout_tiled)
 endif()
 
-if(LAYOUT_TILED_EXAMPLES)
+if(LayoutTiled_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
-if(LAYOUT_TILED_BENCHMARKS)
+if(LayoutTiled_BUILD_BENCHMARKS)
   include(FetchContent)
   FetchContent_Declare(
     nanobench

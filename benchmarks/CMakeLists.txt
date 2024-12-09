@@ -19,14 +19,13 @@
 
 set(ALL_BENCHMARKS gemm)
 
-option(layout_tiled_PARALLEL_BENCH "Run parallel benchmarks" OFF)
-set(LAYOUT_TILED_PARALLEL_BENCH ${layout_tiled_PARALLEL_BENCH} CACHE BOOL "" FORCE)
+option(LayoutTiled_PARALLEL_BENCH "Run parallel benchmarks" OFF)
 
 # We need to force-link nanobench with libc++ to avoid ABI issues (otherwise defaults to GCC's libstdc++)
 target_compile_options(nanobench PRIVATE -stdlib=libc++)
 target_link_libraries(nanobench PRIVATE c++)
 
-if(LAYOUT_TILED_PARALLEL_BENCH)
+if(LayoutTiled_PARALLEL_BENCH)
   find_package(OpenMP REQUIRED)
 endif()
 
