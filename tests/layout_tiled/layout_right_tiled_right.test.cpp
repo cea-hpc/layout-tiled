@@ -24,17 +24,54 @@
 #include <array>
 #include <mdspan>
 
-TEST(LayoutRightTiledRight, MapsToLinearStorage) {
-  using element_type = int;
-  using extents_type = std::dextents<std::size_t, 2>;
-  using lin_mdspan   = std::mdspan<element_type, extents_type, std::layout_right>;
-  using rtr_mdspan   = std::mdspan<element_type, extents_type, layout_right_tiled_right>;
-  using rtr_layout   = typename layout_right_tiled_right::template mapping<extents_type>;
+// Implement the following tests:
+// - ctor.default
+// - ctor.extents
+// - ctor.mapping
+// - required_span_size
+// - static_requirements
+// - properties
+// - index_operator
+// - extents
+// - tile_extents
+// - ntile_in_extents
+// - tile_size
 
+// TEST(layout_right_tiled_right, computes_correct_tile_size) {
+//   using extents_type = std::dextents<std::size_t, 2>;
+//   using layout_rtr   = layout_right_tiled_right<TROWS, TCOLS>::mapping<extents_type>;
+
+//   auto lt = layout_rtr(extents_type{ROWS, COLS});
+//   ASSERT_EQ(TROWS * TCOLS, lt.tile_size());
+// }
+
+// TEST(layout_right_tiled_right, returns_correct_tile_extent) {
+//   using extents_type = std::dextents<std::size_t, 2>;
+//   using layout_rtr   = layout_right_tiled_right<TROWS, TCOLS>::mapping<extents_type>;
+
+//   auto lt = layout_rtr(extents_type{ROWS, COLS});
+//   EXPECT_EQ(TROWS, lt.textent(0));
+//   EXPECT_EQ(TCOLS, lt.textent(1));
+// }
+
+// TEST(layout_right_tiled_right, computes_correct_number_of_tiles) {
+//   using extents_type = std::dextents<std::size_t, 2>;
+//   using layout_rtr   = layout_right_tiled_right<TROWS, TCOLS>::mapping<extents_type>;
+
+//   auto lt = layout_rtr(extents_type{ROWS, COLS});
+//   EXPECT_EQ(2, lt.ntiles_in_extent(0));
+//   EXPECT_EQ(2, lt.ntiles_in_extent(1));
+// }
+
+TEST(layout_right_tiled_right, maps_to_linear_storage) {
   constexpr std::size_t ROWS  = 4;
   constexpr std::size_t COLS  = 6;
   constexpr std::size_t TROWS = 2;
   constexpr std::size_t TCOLS = 3;
+
+  using element_type = int;
+  using extents_type = std::dextents<std::size_t, 2>;
+  using layout_rtr   = layout_right_tiled_right<TROWS, TCOLS>::mapping<extents_type>;
 
   // clang-format off
   // Linearly ordered data
@@ -54,8 +91,8 @@ TEST(LayoutRightTiledRight, MapsToLinearStorage) {
   };
   // clang-format on
 
-  auto m_lin = lin_mdspan(lin.data(), ROWS, COLS);
-  auto m_rtr = rtr_mdspan(rtr.data(), rtr_layout(extents_type(ROWS, COLS), TROWS, TCOLS));
+  auto m_lin = std::mdspan(lin.data(), ROWS, COLS);
+  auto m_rtr = std::mdspan(rtr.data(), layout_rtr(extents_type(ROWS, COLS)));
 
   for (std::size_t i = 0; i < ROWS; ++i) {
     for (std::size_t j = 0; j < COLS; ++j) {
