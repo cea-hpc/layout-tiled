@@ -34,38 +34,18 @@ foreach(bench ${ALL_BENCHMARKS})
   target_sources(layout_tiled.benchmarks.${bench} PRIVATE ${bench}.cpp)
   target_compile_options(
     layout_tiled.benchmarks.${bench}
-    PRIVATE
-      -stdlib=libc++
-      -Wall
-      -Wextra
-      -Wpedantic
-      -pedantic
-      -march=native
-      -g3
+    PRIVATE -stdlib=libc++ -Wall -Wextra -Wpedantic -pedantic -march=native -g3
   )
   target_compile_features(layout_tiled.benchmarks.${bench} PRIVATE cxx_std_23)
-  set_target_properties(
+  set_target_properties(layout_tiled.benchmarks.${bench} PROPERTIES CXX_EXTENSIONS OFF)
+  target_link_libraries(
     layout_tiled.benchmarks.${bench}
-    PROPERTIES
-      CXX_EXTENSIONS
-        OFF
+    PRIVATE
+      layout_tiled::layout_tiled
+      c++ # Need to explicitly link with libc++ for some reason (appears to be related to std::print)
+      nanobench
   )
-  if(LAYOUT_TILED_PARALLEL_BENCH)
-    target_link_libraries(
-      layout_tiled.benchmarks.${bench}
-      PRIVATE
-        layout_tiled::layout_tiled
-        c++ # Need to explicitly link with libc++ for some reason (appears to be related to std::print)
-        nanobench
-        OpenMP::OpenMP_CXX
-    )
-  else()
-    target_link_libraries(
-      layout_tiled.benchmarks.${bench}
-      PRIVATE
-        layout_tiled::layout_tiled
-        c++ # Need to explicitly link with libc++ for some reason (appears to be related to std::print)
-        nanobench
-    )
+  if(LayoutTiled_PARALLEL_BENCH)
+    target_link_libraries(layout_tiled.benchmarks.${bench} PRIVATE OpenMP::OpenMP_CXX)
   endif()
 endforeach()

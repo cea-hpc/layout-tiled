@@ -86,13 +86,12 @@ configure_package_config_file(
 
 # Install CMake package config files
 install(
-  FILES
-    ${PROJECT_BINARY_DIR}/cmake/layout_tiled/layout-tiled-config.cmake
+  FILES ${PROJECT_BINARY_DIR}/cmake/layout_tiled/layout-tiled-config.cmake
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled
 )
 install(
   EXPORT LayoutTiledTargets
-  FILE LayoutTiledTargets.cmake
+  FILE layout-tiled-targets.cmake
   NAMESPACE layout_tiled::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled
 )
