@@ -24,45 +24,6 @@
 #include <array>
 #include <mdspan>
 
-// Implement the following tests:
-// - ctor.default
-// - ctor.extents
-// - ctor.mapping
-// - required_span_size
-// - static_requirements
-// - properties
-// - index_operator
-// - extents
-// - tile_extents
-// - ntile_in_extents
-// - tile_size
-
-// TEST(layout_right_tiled_right, computes_correct_tile_size) {
-//   using extents_type = std::dextents<std::size_t, 2>;
-//   using layout_rtr   = layout_right_tiled_right<TROWS, TCOLS>::mapping<extents_type>;
-
-//   auto lt = layout_rtr(extents_type{ROWS, COLS});
-//   ASSERT_EQ(TROWS * TCOLS, lt.tile_size());
-// }
-
-// TEST(layout_right_tiled_right, returns_correct_tile_extent) {
-//   using extents_type = std::dextents<std::size_t, 2>;
-//   using layout_rtr   = layout_right_tiled_right<TROWS, TCOLS>::mapping<extents_type>;
-
-//   auto lt = layout_rtr(extents_type{ROWS, COLS});
-//   EXPECT_EQ(TROWS, lt.textent(0));
-//   EXPECT_EQ(TCOLS, lt.textent(1));
-// }
-
-// TEST(layout_right_tiled_right, computes_correct_number_of_tiles) {
-//   using extents_type = std::dextents<std::size_t, 2>;
-//   using layout_rtr   = layout_right_tiled_right<TROWS, TCOLS>::mapping<extents_type>;
-
-//   auto lt = layout_rtr(extents_type{ROWS, COLS});
-//   EXPECT_EQ(2, lt.ntiles_in_extent(0));
-//   EXPECT_EQ(2, lt.ntiles_in_extent(1));
-// }
-
 TEST(layout_right_tiled_right, maps_to_linear_storage) {
   constexpr std::size_t ROWS  = 4;
   constexpr std::size_t COLS  = 6;
