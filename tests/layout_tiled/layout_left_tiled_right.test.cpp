@@ -24,17 +24,15 @@
 #include <array>
 #include <mdspan>
 
-TEST(LayoutLeftTiledRight, MapsToLinearStorage) {
-  using element_type = int;
-  using extents_type = std::dextents<std::size_t, 2>;
-  using lin_mdspan   = std::mdspan<element_type, extents_type, std::layout_right>;
-  using ltr_mdspan   = std::mdspan<element_type, extents_type, layout_left_tiled_right>;
-  using ltr_layout   = typename layout_left_tiled_right::template mapping<extents_type>;
-
+TEST(layout_left_tiled_right, maps_to_linear_storage) {
   constexpr std::size_t ROWS  = 4;
   constexpr std::size_t COLS  = 6;
   constexpr std::size_t TROWS = 2;
   constexpr std::size_t TCOLS = 3;
+
+  using element_type = int;
+  using extents_type = std::dextents<std::size_t, 2>;
+  using ltr_layout   = layout_left_tiled_right<TROWS, TCOLS>::mapping<extents_type>;
 
   // clang-format off
   // Linearly ordered data
@@ -54,8 +52,8 @@ TEST(LayoutLeftTiledRight, MapsToLinearStorage) {
   };
   // clang-format on
 
-  auto m_lin = lin_mdspan(lin.data(), ROWS, COLS);
-  auto m_ltr = ltr_mdspan(ltr.data(), ltr_layout(extents_type(ROWS, COLS), TROWS, TCOLS));
+  auto m_lin = std::mdspan(lin.data(), ROWS, COLS);
+  auto m_ltr = std::mdspan(ltr.data(), ltr_layout(extents_type(ROWS, COLS)));
 
   for (std::size_t i = 0; i < ROWS; ++i) {
     for (std::size_t j = 0; j < COLS; ++j) {
