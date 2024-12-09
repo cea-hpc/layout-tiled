@@ -17,7 +17,7 @@
 #
 # Author: Gabriel Dos Santos <gabriel.dossantos@cea.fr>
 
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.25) # support for C++26
 
 project(layout-tiled LANGUAGES CXX VERSION 0.1.0 DESCRIPTION "Tiled layouts for C++23's std::mdspan")
 
