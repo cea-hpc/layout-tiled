@@ -51,8 +51,8 @@ jobs:
       - name: Install CMake & Ninja
         uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: "~3.23.0"
-          ninjaVersion: "^1.11.1"
+          cmakeVersion: "~3.25.3"
+          ninjaVersion: "^1.12.1"
       - name: Print installed softwares
         run: |
           clang++ --version
@@ -95,8 +95,8 @@ jobs:
       - name: Install CMake & Ninja
         uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: "~3.23.0"
-          ninjaVersion: "^1.11.1"
+          cmakeVersion: "~3.25.3"
+          ninjaVersion: "^1.12.1"
       - name: Print installed softwares
         run: |
           clang++ --version
@@ -131,8 +131,8 @@ jobs:
       - name: Install CMake & Ninja
         uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: "~3.23.0"
-          ninjaVersion: "^1.11.1"
+          cmakeVersion: "~3.25.3"
+          ninjaVersion: "^1.12.1"
       - name: Print installed softwares
         run: |
           clang++ --version

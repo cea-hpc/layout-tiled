@@ -17,7 +17,7 @@
 #
 # Author: Gabriel Dos Santos <gabriel.dossantos@cea.fr>
 
-cmake_minimum_required(VERSION 3.23)
+cmake_minimum_required(VERSION 3.25) # support for C++26
 
 project(layout-tiled LANGUAGES CXX VERSION 0.1.0 DESCRIPTION "Tiled layouts for C++23's std::mdspan")
 
@@ -26,24 +26,19 @@ project(layout-tiled LANGUAGES CXX VERSION 0.1.0 DESCRIPTION "Tiled layouts for 
 set(CMAKE_COLOR_DIAGNOSTICS ON) # Enable colored compiler diagnostics for Ninja
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Export compile commands for the linter/static analyzer
 
-# Require C++23 w/o GNU extensions
-set(CMAKE_CXX_STANDARD 23)
+# Require C++26 w/o GNU extensions
+set(CMAKE_CXX_STANDARD 26)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 # --- PROJECT OPTIONS --- #
-option(layout_tiled_BUILD_TESTS "Build tests" OFF)
-set(LAYOUT_TILED_TESTS ${layout_tiled_BUILD_TESTS} CACHE BOOL "" FORCE)
-
-option(layout_tiled_BUILD_EXAMPLES "Build examples" OFF)
-set(LAYOUT_TILED_EXAMPLES ${layout_tiled_BUILD_EXAMPLES} CACHE BOOL "" FORCE)
-
-option(layout_tiled_BUILD_BENCHMARKS "Build benchmarks" OFF)
-set(LAYOUT_TILED_BENCHMARKS ${layout_tiled_BUILD_BENCHMARKS} CACHE BOOL "" FORCE)
+option(LayoutTiled_BUILD_TESTS "Build tests" OFF)
+option(LayoutTiled_BUILD_EXAMPLES "Build examples" OFF)
+option(LayoutTiled_BUILD_BENCHMARKS "Build benchmarks" OFF)
 
 # --- PROJECT TARGETS --- #
 add_subdirectory(include/layout_tiled)
 
-if(LAYOUT_TILED_TESTS)
+if(LayoutTiled_BUILD_TESTS)
   enable_testing()
 
   include(FetchContent)
@@ -60,11 +55,11 @@ if(LAYOUT_TILED_TESTS)
   add_subdirectory(tests/layout_tiled)
 endif()
 
-if(LAYOUT_TILED_EXAMPLES)
+if(LayoutTiled_BUILD_EXAMPLES)
   add_subdirectory(examples)
 endif()
 
-if(LAYOUT_TILED_BENCHMARKS)
+if(LayoutTiled_BUILD_BENCHMARKS)
   include(FetchContent)
   FetchContent_Declare(
     nanobench
@@ -91,13 +86,12 @@ configure_package_config_file(
 
 # Install CMake package config files
 install(
-  FILES
-    ${PROJECT_BINARY_DIR}/cmake/layout_tiled/layout-tiled-config.cmake
+  FILES ${PROJECT_BINARY_DIR}/cmake/layout_tiled/layout-tiled-config.cmake
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled
 )
 install(
   EXPORT LayoutTiledTargets
-  FILE LayoutTiledTargets.cmake
+  FILE layout-tiled-targets.cmake
   NAMESPACE layout_tiled::
   DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled
 )
