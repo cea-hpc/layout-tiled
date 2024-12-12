@@ -6,14 +6,14 @@
 ## Introduction
 
 This project implements tiled layouts for C++23's `std::mdspan`.
-Tiled layouts aim to increase the performance of computationally intensive algorithms by improving both spatial and temporal data locality.   
+Tiled layouts aim to increase the performance of computationally intensive algorithms by improving both spatial and temporal data locality.
 
 ## Motivation and scope
 
 As stated in the original MDSPAN paper, [P0009](https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2022/p0009r18.html#why-custom-memory-layouts):
 > More complex layouts can improve performance significantly for some algorithms. For instance, tiling [...] can improve data locality for many computations relevant to linear algebra and the discretization of partial differential equations. Tiled layouts can also improve vectorization.
 
-When launching a kernel on a GPU, it is mandatory to express the dimensions of blocks of threads ("tiles") that will be scheduled together and are able to leverage a small but fast, shared memory. With `mdspan` standard layouts (`layout_right{_padded}`, `layout_left{_padded}`, and `layout_stride`), it is not possible to express tiling as it exists at the hardware level. This leads to more expensive reads from global memory in order to bring the relevant data into the shared memory of a thread block.   
+When launching a kernel on a GPU, it is mandatory to express the dimensions of blocks of threads ("tiles") that will be scheduled together and are able to leverage a small but fast, shared memory. With `mdspan` standard layouts (`layout_right{_padded}`, `layout_left{_padded}`, and `layout_stride`), it is not possible to express tiling as it exists at the hardware level. This leads to more expensive reads from global memory in order to bring the relevant data into the shared memory of a thread block.
 Tiled layouts also allow for better and more intuitive cache-blocking on CPU, as the data layout is naturally "cache oblivious".
 
 ## Overview & Design decisions
@@ -27,7 +27,6 @@ We propose four tiled layouts (based on Z-order curves):
 The proposed layouts are currently based on [kokkos/mdspan tiled layout example](https://github.com/kokkos/mdspan/blob/stable/examples/tiled_layout/simple_tiled_layout.cpp). They are limited to 2-dimensional `mdspan`s, with tiles of the same rank. Tile extents are only supported as runtime parameters.
 
 ### Goals
-- [ ] Support both static and runtime extents for tiles
 - [ ] Support `mdspan`s of arbitrary rank
 - [ ] Support valid conversions to `submdspan`
 
@@ -69,7 +68,7 @@ There is one example per layout:
 - `examples/layout_left_tiled_left`;
 
 ```bash
-cmake -B <BUILDDIR> -Dlayout_tiled_BUILD_EXAMPLES=ON
+cmake -B <BUILDDIR> -DLayoutTiled_BUILD_EXAMPLES=ON
 cmake --build <BUILDDIR> --target <EXAMPLE>
 ./<BUILDDIR>/examples/<EXAMPLE>
 ```
@@ -83,7 +82,18 @@ You may also ask questions or file bug reports on the [issue tracker](https://gi
 
 **Build & run the tests:**
 ```bash
-cmake -B <BUILDDIR> -Dlayout_tiled_BUILD_TESTS=ON
+cmake -B <BUILDDIR> -DLayoutTiled_BUILD_TESTS=ON
 cmake --build <BUILDDIR>
 ctest --test-dir <BUILDDIR>
+```
+
+### Benchmarking
+
+There is only one benchmark for now:
+- `benchmarks/gemm`;
+
+```bash
+cmake -B <BUILDDIR> -DLayoutTiled_BUILD_BENCHMARKS=ON [-DLayoutTiled_PARALLEL_BENCH=ON]
+cmake --build <BUILDDIR> --target <BENCHMARK>
+./<BUILDDIR>/benchmarks/layout_tiled.benchmarks.<BENCHMARK>
 ```
