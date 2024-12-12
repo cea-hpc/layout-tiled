@@ -19,13 +19,7 @@
 
 include(GoogleTest)
 
-set(
-  ALL_TESTS
-  layout_left_tiled_left
-  layout_left_tiled_right
-  layout_right_tiled_left
-  layout_right_tiled_right
-)
+set(ALL_TESTS layout_left_tiled_left layout_left_tiled_right layout_right_tiled_left layout_right_tiled_right)
 
 # We need to force-link GTest targets with libc++ to avoid ABI issues (otherwise defaults to GCC's libstdc++)
 target_compile_options(gtest PRIVATE -stdlib=libc++)
@@ -38,30 +32,11 @@ foreach(test ${ALL_TESTS})
   target_sources(layout_tiled.tests.${test} PRIVATE ${test}.test.cpp)
   target_compile_options(
     layout_tiled.tests.${test}
-    PRIVATE
-      -stdlib=libc++
-      -Wall
-      -Wextra
-      -Wshadow
-      -Wpedantic
-      -Wcast-align
-      -Wconversion
-      -Wmissing-include-dirs
-      -Wformat=2
+    PRIVATE -stdlib=libc++ -Wall -Wextra -Wshadow -Wpedantic -Wcast-align -Wconversion -Wmissing-include-dirs -Wformat=2
   )
   target_compile_features(layout_tiled.tests.${test} PRIVATE cxx_std_23)
-  set_target_properties(
-    layout_tiled.tests.${test}
-    PROPERTIES
-      CXX_EXTENSIONS
-        OFF
-  )
-  target_link_libraries(
-    layout_tiled.tests.${test}
-    PRIVATE
-      layout_tiled::layout_tiled
-      GTest::gtest_main
-  )
+  set_target_properties(layout_tiled.tests.${test} PROPERTIES CXX_EXTENSIONS OFF)
+  target_link_libraries(layout_tiled.tests.${test} PRIVATE layout_tiled::layout_tiled GTest::gtest_main)
 
   gtest_discover_tests(layout_tiled.tests.${test})
 endforeach()
