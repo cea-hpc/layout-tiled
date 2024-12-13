@@ -179,7 +179,7 @@ public:
       index_type stride = 1;
       for (std::size_t i = 0; i < rank; ++i) {
         offset += idx_arr[i] % textent(i) * stride;
-        stride *= textent(i - 1);
+        stride *= textent(i);
       }
 
       return offset;

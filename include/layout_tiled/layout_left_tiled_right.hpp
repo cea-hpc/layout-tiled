@@ -159,7 +159,7 @@ public:
       index_type stride = 1;
       for (std::size_t i = 0; i < rank; ++i) {
         offset += idx_arr[i] / textent(i) * stride;
-        stride *= ntiles_in_extent(i - 1);
+        stride *= ntiles_in_extent(i);
       }
 
       return offset * tile_size();
