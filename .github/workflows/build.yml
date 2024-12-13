@@ -112,7 +112,7 @@ jobs:
         run: cmake -S . -B build -DLayoutTiled_BUILD_EXAMPLES=ON
 
       - name: Build
-        run: cmake --build build --config ${{ matrix.build_type }} --verbose
+        run: cmake --build build --config Release --verbose
 
   build-benchmarks:
     needs: changes
