@@ -67,7 +67,8 @@ public:
     // [mdspan.layout_left_tiled_left.cons]
     constexpr mapping() noexcept               = default;
     constexpr mapping(mapping const&) noexcept = default;
-    mapping(extents_type const& exts) noexcept : extents_(exts) {
+    mapping(extents_type const& exts) noexcept
+        : extents_(exts) {
       assert(required_span_size_is_representable(exts));
       for (rank_type i = 0; i < exts.rank(); ++i) {
         assert(exts.extent(i) > 0);
@@ -78,7 +79,9 @@ public:
 
     /* --- REQUIRED MEMBERS --- */
     // [mdspan.layout_left_tiled_left.obs]
-    constexpr auto extents() const -> extents_type const& { return extents_; }
+    constexpr auto extents() const -> extents_type const& {
+      return extents_;
+    }
 
     constexpr auto required_span_size() const noexcept -> index_type {
       index_type res = 1;
@@ -101,13 +104,21 @@ public:
     }
 
     // Mapping is always unique.
-    static constexpr auto is_always_unique() noexcept -> bool { return true; }
+    static constexpr auto is_always_unique() noexcept -> bool {
+      return true;
+    }
     // Only exhaustive if `extents_.extent(i) % ntiles_in_extent(i) == 0`, so not always.
-    static constexpr auto is_always_exhaustive() noexcept -> bool { return false; }
+    static constexpr auto is_always_exhaustive() noexcept -> bool {
+      return false;
+    }
     // There is not always a regular stride between elements in a given dimension.
-    static constexpr auto is_always_strided() noexcept -> bool { return false; }
+    static constexpr auto is_always_strided() noexcept -> bool {
+      return false;
+    }
 
-    static constexpr auto is_unique() noexcept -> bool { return true; }
+    static constexpr auto is_unique() noexcept -> bool {
+      return true;
+    }
     // Only exhaustive if extents fit exactly into tile sizes.
     constexpr auto is_exhaustive() const noexcept -> bool {
       return []<std::size_t... Is>(auto const& self, std::index_sequence<Is...>) {
@@ -116,11 +127,15 @@ public:
     }
     // There are some circumstances where this is strided, but we're currently not concerned about that optimization, so
     // we're allowed to just return false here.
-    constexpr auto is_strided() const noexcept -> bool { return false; }
+    constexpr auto is_strided() const noexcept -> bool {
+      return false;
+    }
     /* --- END REQUIRED MEMBERS --- */
 
     /* --- PUBLIC HELPER MEMBERS --- */
-    constexpr auto tile_size() const noexcept -> index_type { return (1 * ... * TileExtents); }
+    constexpr auto tile_size() const noexcept -> index_type {
+      return (1 * ... * TileExtents);
+    }
 
     constexpr auto textent(index_type i) const noexcept -> index_type {
       constexpr index_type pack_values[] = {TileExtents...};
