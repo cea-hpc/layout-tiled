@@ -64,20 +64,20 @@ public:
     );
 
   public:
-    // [layout_tiled.left_out_right_in.ctors]
+    // [mdspan.layout_left_tiled_right.cons]
     constexpr mapping() noexcept               = default;
     constexpr mapping(mapping const&) noexcept = default;
     mapping(extents_type const& exts) noexcept : extents_(exts) {
       assert(required_span_size_is_representable(exts));
       for (rank_type i = 0; i < exts.rank(); ++i) {
-        assert(exts.extents(i) > 0);
+        assert(exts.extent(i) > 0);
       }
     }
 
     constexpr auto operator=(mapping const&) noexcept -> mapping& = default;
 
     /* --- REQUIRED MEMBERS --- */
-    // [layout_tiled.left_out_right_in.obs]
+    // [mdspan.layout_left_tiled_right.obs]
     constexpr auto extents() const -> extents_type const& { return extents_; }
 
     constexpr auto required_span_size() const noexcept -> index_type {
