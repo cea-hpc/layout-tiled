@@ -61,7 +61,7 @@ jobs:
 
   build-tests:
     needs: changes
-    if: ${{ needs.changes.output.core == 'true' || needs.changes.output.tests == 'true' }}
+    if: ${{ needs.changes.outputs.core == 'true' || needs.changes.outputs.tests == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -90,7 +90,7 @@ jobs:
 
   build-examples:
     needs: changes
-    if: ${{ needs.changes.output.core == 'true' || needs.changes.output.examples == 'true' }}
+    if: ${{ needs.changes.outputs.core == 'true' || needs.changes.outputs.examples == 'true' }}
     strategy:
       fail-fast: false
       matrix:
@@ -116,7 +116,7 @@ jobs:
 
   build-benchmarks:
     needs: changes
-    if: ${{ needs.changes.output.core == 'true' || needs.changes.output.benchmarks == 'true' }}
+    if: ${{ needs.changes.outputs.core == 'true' || needs.changes.outputs.benchmarks == 'true' }}
     strategy:
       fail-fast: false
     runs-on: ubuntu-24.04
@@ -140,7 +140,7 @@ jobs:
 
   install:
     needs: changes
-    if: ${{ needs.changes.output.core == 'true' }}
+    if: ${{ needs.changes.outputs.core == 'true' }}
     strategy:
       fail-fast: false
     runs-on: ubuntu-24.04
