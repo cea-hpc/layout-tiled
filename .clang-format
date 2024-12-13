@@ -8,9 +8,10 @@ ContinuationIndentWidth: 2
 PointerAlignment: Left
 QualifierAlignment: Right
 AlignAfterOpenBracket: BlockIndent
-BinPackArguments: false
 AlwaysBreakTemplateDeclarations: true
 AlignConsecutiveAssignments: Consecutive
 AllowShortFunctionsOnASingleLine: Empty
-BinPackArguments: true
-BinPackParameters: OnePerLine
+BinPackArguments: false
+BinPackParameters: false
+PackConstructorInitializers: NextLineOnly
+RequiresClausePosition: OwnLine

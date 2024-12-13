@@ -17,7 +17,7 @@
 #
 # Author: Gabriel Dos Santos <gabriel.dossantos@cea.fr>
 
-name: Build Status
+name: CI
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -29,122 +29,137 @@ on:
   pull_request:
     branches: [ "main" ]
 
-jobs:
-  build_tests:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ubuntu-24.04, macos-latest]
-        cpp_compiler: [clang++]
-        build_type: [Debug, Release]
-    env:
-      CXX: ${{ matrix.cpp_compiler }}
-      CMAKE_GENERATOR: "Ninja Multi-Config"
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install LLVM libc++
-        run: |
-         if [ "$RUNNER_OS" == "Linux" ]; then
-           sudo apt update && sudo apt install libc++-dev
-         fi
-      - name: Install CMake & Ninja
-        uses: lukka/get-cmake@latest
-        with:
-          cmakeVersion: "~3.25.3"
-          ninjaVersion: "^1.12.1"
-      - name: Print installed softwares
-        run: |
-          clang++ --version
-          cmake --version
-          ninja --version
-      - name: Configure
-        run: >
-          cmake -S ${{ github.workspace }}
-          -B build
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-          -Dlayout_tiled_BUILD_TESTS=ON
-      - name: Build
-        run: >
-          cmake --build build --config ${{ matrix.build_type }} --verbose
-      - name: Install
-        run: |
-          sudo cmake --install build --config ${{ matrix.build_type }} --prefix /opt/layout_tiled
-          find /opt/layout_tiled -type f
-      - name: Test
-        run: ctest --test-dir build --build-config ${{ matrix.build_type }}
-  
-  build_examples:
-    strategy:
-      fail-fast: false
-      matrix:
-        platform: [ubuntu-24.04, macos-latest]
-        cpp_compiler: [clang++]
-        build_type: [Release]
-    env:
-      CXX: ${{ matrix.cpp_compiler }}
-      CMAKE_GENERATOR: "Ninja Multi-Config"
-    runs-on: ${{ matrix.platform }}
-    steps:
-      - uses: actions/checkout@v4
-      - name: Install LLVM libc++
-        run: |
-         if [ "$RUNNER_OS" == "Linux" ]; then
-           sudo apt update && sudo apt install libc++-dev
-         fi
-      - name: Install CMake & Ninja
-        uses: lukka/get-cmake@latest
-        with:
-          cmakeVersion: "~3.25.3"
-          ninjaVersion: "^1.12.1"
-      - name: Print installed softwares
-        run: |
-          clang++ --version
-          cmake --version
-          ninja --version
-      - name: Configure
-        run: >
-          cmake -S ${{ github.workspace }}
-          -B build
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-          -Dlayout_tiled_BUILD_EXAMPLES=ON
-      - name: Build
-        run: >
-          cmake --build build --config ${{ matrix.build_type }} --verbose
+env:
+  CXX: clang++
+  CMAKE_GENERATOR: "Ninja Multi-Config"
+  CMAKE_COLOR_DIAGNOSTICS: ON
 
-  build_benchmarks:
+jobs:
+  # Detect changes to only run the relevant jobs
+  changes:
+    runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
+    outputs:
+      core: ${{ steps.filter.outputs.core }}
+      tests: ${{ steps.filter.outputs.tests }}
+      examples: ${{ steps.filter.outputs.examples }}
+      benchmarks: ${{ steps.filter.outputs.benchmarks }}
+    steps:
+    - uses: dorny/paths-filter@v3
+      id: filter
+      with:
+        filters: |
+          core:
+            - 'include/layout_tiled/**'
+          tests:
+            - 'tests/layout_tiled/**'
+          examples:
+            - 'examples/**'
+          benchmarks:
+            - 'benchmarks/**'
+
+  build-tests:
+    needs: changes
+    if: ${{ needs.changes.output.core == 'true' || needs.changes.output.tests == 'true' }}
     strategy:
       fail-fast: false
       matrix:
-        platform: [ubuntu-24.04]
-        cpp_compiler: [clang++]
-        build_type: [Release]
-    env:
-      CXX: ${{ matrix.cpp_compiler }}
-      CMAKE_GENERATOR: "Ninja Multi-Config"
-    runs-on: ${{ matrix.platform }}
+        build_type: [Debug, Release]
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
-      - name: Install LLVM libc++ and OpenMP
-        run: >
-          sudo apt update && sudo apt install libc++-dev libomp-dev
-      - name: Install CMake & Ninja
+
+      - name: Get CMake & Ninja
         uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: "~3.25.3"
+          cmakeVersion: "~3.25.0"
           ninjaVersion: "^1.12.1"
-      - name: Print installed softwares
-        run: |
-          clang++ --version
-          cmake --version
-          ninja --version
+
+      - name: Get LLVM libc++
+        run: sudo apt update && sudo apt install libc++-dev
+
       - name: Configure
-        run: >
-          cmake -S ${{ github.workspace }}
-          -B build
-          -DCMAKE_BUILD_TYPE=${{ matrix.build_type }}
-          -Dlayout_tiled_BUILD_BENCHMARKS=ON
-          -Dlayout_tiled_PARALLEL_BENCH=ON
+        run: cmake -S . -B build -DLayoutTiled_BUILD_TESTS=ON
+
       - name: Build
-        run: >
-          cmake --build build --config ${{ matrix.build_type }} --verbose
+        run: cmake --build build --config ${{ matrix.build_type }} --verbose
+
+      - name: Run tests
+        run: ctest --test-dir build --build-config ${{ matrix.build_type }} --verbose
+
+  build-examples:
+    needs: changes
+    if: ${{ needs.changes.output.core == 'true' || needs.changes.output.examples == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        build_type: [Debug, Release]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get CMake & Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "~3.25.0"
+          ninjaVersion: "^1.12.1"
+
+      - name: Get LLVM libc++
+        run: sudo apt update && sudo apt install libc++-dev
+
+      - name: Configure
+        run: cmake -S . -B build -DLayoutTiled_BUILD_EXAMPLES=ON
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }} --verbose
+
+  build-benchmarks:
+    needs: changes
+    if: ${{ needs.changes.output.core == 'true' || needs.changes.output.benchmarks == 'true' }}
+    strategy:
+      fail-fast: false
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get CMake & Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "~3.25.0"
+          ninjaVersion: "^1.12.1"
+
+      - name: Get LLVM libc++
+        run: sudo apt update && sudo apt install libc++-dev
+
+      - name: Configure
+        run: cmake -S . -B build -DLayoutTiled_BUILD_BENCHMARKS=ON -DLayoutTiled_PARALLEL_BENCH=ON
+
+      - name: Build
+        run: cmake --build build --config ${{ matrix.build_type }} --verbose
+
+  install:
+    needs: changes
+    if: ${{ needs.changes.output.core == 'true' }}
+    strategy:
+      fail-fast: false
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get CMake & Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "~3.25.0"
+          ninjaVersion: "^1.12.1"
+
+      - name: Get LLVM libc++
+        run: sudo apt update && sudo apt install libc++-dev
+
+      - name: Configure
+        run: cmake -S . -B build
+
+      - name: Build
+        run: |
+          cmake --install build --prefix /opt/layout_tiled
+          find /opt/layout_tiled -type f
