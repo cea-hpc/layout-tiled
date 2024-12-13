@@ -112,7 +112,7 @@ jobs:
         run: cmake -S . -B build -DLayoutTiled_BUILD_EXAMPLES=ON
 
       - name: Build
-        run: cmake --build build --config Release --verbose
+        run: cmake --build build --config ${{ matrix.build_type }} --verbose
 
   build-benchmarks:
     needs: changes
@@ -136,7 +136,7 @@ jobs:
         run: cmake -S . -B build -DLayoutTiled_BUILD_BENCHMARKS=ON -DLayoutTiled_PARALLEL_BENCH=ON
 
       - name: Build
-        run: cmake --build build --config ${{ matrix.build_type }} --verbose
+        run: cmake --build build --config Release --verbose
 
   install:
     needs: changes
