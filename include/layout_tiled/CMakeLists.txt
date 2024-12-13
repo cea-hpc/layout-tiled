@@ -22,6 +22,9 @@ target_compile_options(
   layout_tiled_compile_flags
   INTERFACE -stdlib=libc++ -Wall -Wextra -Wshadow -Wpedantic -Wcast-align -Wconversion -Wmissing-include-dirs -Wformat=2
 )
+# Require C++23 w/o GNU extensions
+target_compile_features(layout_tiled_compile_flags INTERFACE cxx_std_23)
+set_target_properties(layout_tiled_compile_flags PROPERTIES CXX_EXTENSIONS OFF)
 
 add_library(layout_tiled INTERFACE)
 add_library(layout_tiled::layout_tiled ALIAS layout_tiled)
