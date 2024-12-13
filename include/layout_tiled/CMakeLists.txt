@@ -37,10 +37,22 @@ target_sources(
       layout_left_tiled_right.hpp
       layout_left_tiled_left.hpp
 )
+target_sources(
+  layout_tiled
+  INTERFACE
+    FILE_SET layout_tiled_details_headers
+    TYPE HEADERS
+    BASE_DIRS ${CMAKE_SOURCE_DIR}/include
+    FILES details/common.hpp
+)
 target_link_libraries(layout_tiled INTERFACE layout_tiled_compile_flags)
 
 # --- PACKAGING --- #
 include(GNUInstallDirs)
 
 # Export and install public headers
-install(TARGETS layout_tiled layout_tiled_compile_flags EXPORT LayoutTiledTargets FILE_SET layout_tiled_public_headers)
+install(
+  TARGETS layout_tiled layout_tiled_compile_flags
+  EXPORT LayoutTiledTargets
+  FILE_SET layout_tiled_public_headers layout_tiled_details_headers
+)
