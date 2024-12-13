@@ -139,6 +139,8 @@ jobs:
         run: cmake --build build --config ${{ matrix.build_type }} --verbose
 
   install:
+    needs: changes
+    if: ${{ needs.changes.output.core == 'true' }}
     strategy:
       fail-fast: false
     runs-on: ubuntu-24.04
