@@ -54,5 +54,6 @@ include(GNUInstallDirs)
 install(
   TARGETS layout_tiled layout_tiled_compile_flags
   EXPORT LayoutTiledTargets
-  FILE_SET layout_tiled_public_headers layout_tiled_details_headers
+  FILE_SET layout_tiled_public_headers
+  FILE_SET layout_tiled_details_headers
 )
