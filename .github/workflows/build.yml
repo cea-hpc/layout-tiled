@@ -17,7 +17,7 @@
 #
 # Author: Gabriel Dos Santos <gabriel.dossantos@cea.fr>
 
-name: CI Build
+name: CI
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
