@@ -129,8 +129,8 @@ jobs:
           cmakeVersion: "~3.25.0"
           ninjaVersion: "^1.12.1"
 
-      - name: Get LLVM libc++
-        run: sudo apt update && sudo apt install libc++-dev
+      - name: Get LLVM libc++ and OpenMP
+        run: sudo apt update && sudo apt install libc++-dev libomp-dev
 
       - name: Configure
         run: cmake -S . -B build -DLayoutTiled_BUILD_BENCHMARKS=ON -DLayoutTiled_PARALLEL_BENCH=ON
