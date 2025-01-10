@@ -28,7 +28,6 @@
 #include <omp.h>
 #endif
 
-#include <array>
 #include <format>
 #include <mdspan>
 #include <vector>
@@ -692,11 +691,11 @@ auto main() -> int {
 
     using extents_type = std::dextents<std::size_t, 2>;
     auto mA_tiled =
-      std::mdspan(A.data(), layout_right_tiled_right::mapping<extents_type>(extents_type(dims, dims), TILE, TILE));
+      std::mdspan(A.data(), layout_right_tiled_right<TILE, TILE>::mapping<extents_type>(extents_type(dims, dims)));
     auto mB_tiled =
-      std::mdspan(B.data(), layout_right_tiled_right::mapping<extents_type>(extents_type(dims, dims), TILE, TILE));
+      std::mdspan(B.data(), layout_right_tiled_right<TILE, TILE>::mapping<extents_type>(extents_type(dims, dims)));
     auto mC_tiled =
-      std::mdspan(C.data(), layout_right_tiled_right::mapping<extents_type>(extents_type(dims, dims), TILE, TILE));
+      std::mdspan(C.data(), layout_right_tiled_right<TILE, TILE>::mapping<extents_type>(extents_type(dims, dims)));
 
 #if defined(LAYOUT_TILED_PARALLEL_BENCH)
     bs.title(std::format("parallel {}x{}", dims, dims)).timeUnit(1s, "s").relative(true);

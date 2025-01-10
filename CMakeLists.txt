@@ -19,16 +19,12 @@
 
 cmake_minimum_required(VERSION 3.25) # support for C++26
 
-project(layout-tiled LANGUAGES CXX VERSION 0.1.0 DESCRIPTION "Tiled layouts for C++23's std::mdspan")
+project(layout-tiled LANGUAGES CXX VERSION 0.2.0 DESCRIPTION "Tiled layouts for C++23's std::mdspan")
 
 # --- PROJECT-WIDE SETTINGS --- #
 # Sensible defaults
 set(CMAKE_COLOR_DIAGNOSTICS ON) # Enable colored compiler diagnostics for Ninja
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Export compile commands for the linter/static analyzer
-
-# Require C++26 w/o GNU extensions
-set(CMAKE_CXX_STANDARD 26)
-set(CMAKE_CXX_EXTENSIONS OFF)
 
 # --- PROJECT OPTIONS --- #
 option(LayoutTiled_BUILD_TESTS "Build tests" OFF)

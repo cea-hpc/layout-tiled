@@ -24,16 +24,14 @@
 #include <print>
 
 auto main() -> int {
-  using element_type = int;
-  using extents_type = std::dextents<std::size_t, 2>;
-  using lin_mdspan   = std::mdspan<element_type, extents_type, std::layout_right>;
-  using ltr_mdspan   = std::mdspan<element_type, extents_type, layout_left_tiled_right>;
-  using ltr_layout   = typename layout_left_tiled_right::template mapping<extents_type>;
-
   constexpr std::size_t ROWS  = 4;
   constexpr std::size_t COLS  = 6;
   constexpr std::size_t TROWS = 2;
   constexpr std::size_t TCOLS = 3;
+
+  using element_type = int;
+  using extents_type = std::dextents<std::size_t, 2>;
+  using ltr_layout   = layout_left_tiled_right<TROWS, TCOLS>::mapping<extents_type>;
   std::print("Array dimensions: {}x{}\nTile dimensions:  {}x{}\n", ROWS, COLS, TROWS, TCOLS);
 
   // clang-format off
@@ -46,8 +44,8 @@ auto main() -> int {
   };
   // clang-format on
 
-  auto m_lin = lin_mdspan(ltr.data(), ROWS, COLS);
-  auto m_ltr = ltr_mdspan(ltr.data(), ltr_layout(extents_type(ROWS, COLS), TROWS, TCOLS));
+  auto m_lin = std::mdspan(ltr.data(), ROWS, COLS);
+  auto m_ltr = std::mdspan(ltr.data(), ltr_layout(extents_type(ROWS, COLS)));
 
   std::print("\nActual storage (manually tiled):\n");
   for (std::size_t i = 0; i < ROWS; ++i) {
