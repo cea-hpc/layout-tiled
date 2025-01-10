@@ -37,7 +37,7 @@ constexpr auto is_idx_in_extent(IdxType extent, From value) -> bool {
 }
 
 template <std::size_t... Idxs, class Extents, class... From>
-constexpr auto is_md_idx_in_span(std::index_sequence<Idxs...>, Extents const& ext, From... values) {
+constexpr auto is_md_idx_in_span(std::index_sequence<Idxs...>, Extents const& ext, From... values) -> bool {
   return (is_idx_in_extent(ext.extent(Idxs), values) && ...);
 }
 
