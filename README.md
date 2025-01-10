@@ -24,15 +24,7 @@ We propose four tiled layouts (based on Z-order curves):
 3. `layout_left_tiled_right`: tiles are stored in *Layout Left* w.r.t each other, and elements are stored in *Layout Right* within tiles;
 4. `layout_left_tiled_left`: tiles are stored in *Layout Left* w.r.t each other, and elements are stored in *Layout Left* within tiles.
 
-The proposed layouts are currently based on [kokkos/mdspan tiled layout example](https://github.com/kokkos/mdspan/blob/stable/examples/tiled_layout/simple_tiled_layout.cpp). They are limited to 2-dimensional `mdspan`s, with tiles of the same rank. Tile extents are only supported as runtime parameters.
-
-### Goals
-- [ ] Support `mdspan`s of arbitrary rank
-- [ ] Support valid conversions to `submdspan`
-
-### Open Design Questions
-- Do we allow for tiles to have a different rank (necessarily smaller) than the `mdspan` they map? (e.g. given a 3-dimensional span, can we make tiles that are only 2-dimensional?)
-- Do we allow for tiles to have dynamic extents? Preliminary benchmarks show that these have a highly negative impact on performance
+The proposed layouts are based on [kokkos/mdspan tiled layout example](https://github.com/kokkos/mdspan/blob/stable/examples/tiled_layout/simple_tiled_layout.cpp), and expanded to support an arbitrary number of dimensions. Tile extents are only supported as compile-time parameters.
 
 
 ## Usage
@@ -42,7 +34,7 @@ The proposed layouts are currently based on [kokkos/mdspan tiled layout example]
 Ensure you have the following software installed on your system:
 - C++23 conforming compiler;
 - LLVM's `libc++` C++ standard libray with `std::mdspan` support (v17+);
-- `cmake` v3.23+;
+- `cmake` v3.25+;
 - `make` or `ninja`.
 
 ### Build
