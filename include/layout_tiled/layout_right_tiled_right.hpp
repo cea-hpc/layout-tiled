@@ -152,12 +152,10 @@ public:
     /// Finds the starting offset of the tile in which the indexed element is located.
     template <class... Idxs>
     constexpr auto tile_offset_outer(Idxs... idxs) const noexcept -> index_type {
-      constexpr rank_type rank = extents_type::rank();
-      std::array<std::size_t, rank> idx_arr{idxs...};
-      std::array<std::size_t, rank> coords;
-      for (std::size_t i = 0; i < rank; ++i) {
-        coords[i] = idx_arr[i] / textent(i);
-      }
+      constexpr rank_type rank        = extents_type::rank();
+      std::array<size_t, rank> coords = [this, idxs...]<std::size_t... Is>(std::index_sequence<Is...>) {
+        return std::array<index_type, rank>{(idxs / textent(Is))...};
+      }(std::make_index_sequence<rank>());
 
       index_type offset = 0;
       index_type stride = 1;
@@ -172,12 +170,10 @@ public:
     /// Finds the offset of the indexed element within a tile.
     template <class... Idxs>
     constexpr auto tile_offset_inner(Idxs... idxs) const noexcept -> index_type {
-      constexpr rank_type rank = extents_type::rank();
-      std::array<std::size_t, rank> idx_arr{idxs...};
-      std::array<std::size_t, rank> coords;
-      for (std::size_t i = 0; i < rank; ++i) {
-        coords[i] = idx_arr[i] % textent(i);
-      }
+      constexpr rank_type rank        = extents_type::rank();
+      std::array<size_t, rank> coords = [this, idxs...]<std::size_t... Is>(std::index_sequence<Is...>) {
+        return std::array<index_type, rank>{(idxs % textent(Is))...};
+      }(std::make_index_sequence<rank>());
 
       index_type offset = 0;
       index_type stride = 1;
