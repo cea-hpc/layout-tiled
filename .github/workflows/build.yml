@@ -38,14 +38,14 @@ jobs:
   # Detect changes to only run the relevant jobs
   changes:
     runs-on: ubuntu-24.04
-    permissions:
-      pull-requests: read
     outputs:
       core: ${{ steps.filter.outputs.core }}
       tests: ${{ steps.filter.outputs.tests }}
       examples: ${{ steps.filter.outputs.examples }}
       benchmarks: ${{ steps.filter.outputs.benchmarks }}
     steps:
+    - uses: actions/checkout@v4
+
     - uses: dorny/paths-filter@v3
       id: filter
       with:
