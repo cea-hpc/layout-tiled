@@ -24,8 +24,6 @@ concurrency:
   cancel-in-progress: true
 
 on:
-  push:
-    branches: [ "main" ]
   pull_request:
     branches: [ "main" ]
 
@@ -38,6 +36,8 @@ jobs:
   # Detect changes to only run the relevant jobs
   changes:
     runs-on: ubuntu-24.04
+    permissions:
+      pull-requests: read
     outputs:
       core: ${{ steps.filter.outputs.core }}
       tests: ${{ steps.filter.outputs.tests }}
