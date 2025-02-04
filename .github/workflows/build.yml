@@ -23,14 +23,14 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-on:
-  pull_request:
-    branches: [ "main" ]
-
 env:
   CXX: clang++
   CMAKE_GENERATOR: "Ninja Multi-Config"
   CMAKE_COLOR_DIAGNOSTICS: ON
+
+on:
+  pull_request:
+    branches: [ "main" ]
 
 jobs:
   # Detect changes to only run the relevant jobs
@@ -44,8 +44,6 @@ jobs:
       examples: ${{ steps.filter.outputs.examples }}
       benchmarks: ${{ steps.filter.outputs.benchmarks }}
     steps:
-    - uses: actions/checkout@v4
-
     - uses: dorny/paths-filter@v3
       id: filter
       with:
