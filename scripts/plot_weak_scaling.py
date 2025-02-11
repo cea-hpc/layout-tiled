@@ -23,9 +23,7 @@ def main() -> None:
 
     df = df.join(baseline, on="name", suffix="_base")
     df = df.with_columns(
-        (pl.col("elapsed_base") / (pl.col("elapsed") * pl.col("cores"))).alias(
-            "efficiency"
-        )
+        (pl.col("elapsed_base") / pl.col("elapsed")).alias("efficiency")
     )
     groups = df.group_by("name", maintain_order=True)
 
@@ -44,7 +42,7 @@ def main() -> None:
 
     # Ideal weak scaling line (constant runtime)
     cores = np.array(sorted(df["cores"].unique().to_list()))
-    plt.plot(cores, np.ones_like(cores), "k--", label="Ideal Scaling")
+    plt.plot(cores, np.ones_like(cores), "k--", label="ideal")
 
     plt.xlabel("Number of Cores")
     plt.ylabel("Efficiency")
