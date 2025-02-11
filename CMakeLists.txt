@@ -31,9 +31,6 @@ option(LayoutTiled_BUILD_TESTS "Build tests" OFF)
 option(LayoutTiled_BUILD_EXAMPLES "Build examples" OFF)
 option(LayoutTiled_BUILD_BENCHMARKS "Build benchmarks" OFF)
 
-# --- PROJECT DEPENDENCIES --- #
-add_subdirectory(ext/fmt)
-
 # --- PROJECT TARGETS --- #
 add_subdirectory(include/layout_tiled)
 
@@ -59,6 +56,7 @@ if(LayoutTiled_BUILD_EXAMPLES)
 endif()
 
 if(LayoutTiled_BUILD_BENCHMARKS)
+  add_subdirectory(ext/fmt)
   add_subdirectory(ext/nanobench)
   add_subdirectory(benchmarks)
 endif()
