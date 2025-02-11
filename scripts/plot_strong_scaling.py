@@ -40,7 +40,7 @@ def main() -> None:
 
     # Ideal speedup line
     cores = np.array(sorted(df["cores"].unique().to_list()))
-    plt.plot(cores, cores, "k--", label="Ideal Scaling")
+    plt.plot(cores, cores, "k--", label="ideal")
 
     plt.xlabel("Number of Cores")
     plt.ylabel("Speedup")
