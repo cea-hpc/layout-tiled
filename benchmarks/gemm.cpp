@@ -17,20 +17,19 @@
 ///
 /// Author: Gabriel Dos Santos <gabriel.dossantos@cea.fr>
 
-#include <layout_tiled/layout_left_tiled_left.hpp>
-#include <layout_tiled/layout_left_tiled_right.hpp>
-#include <layout_tiled/layout_right_tiled_left.hpp>
-#include <layout_tiled/layout_right_tiled_right.hpp>
+#include <cstddef>
+#include <iostream>
+#include <mdspan>
+#include <utility>
+#include <vector>
 
+#include <fmt/format.h>
 #include <nanobench.h>
-
 #if defined(LAYOUT_TILED_PARALLEL_BENCH)
 #include <omp.h>
 #endif
 
-#include <format>
-#include <mdspan>
-#include <vector>
+#include <layout_tiled/layout_right_tiled_right.hpp>
 
 using namespace std::chrono_literals;
 
