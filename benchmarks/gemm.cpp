@@ -35,8 +35,6 @@ using namespace std::chrono_literals;
 
 constexpr std::size_t TILE = 32;
 
-namespace serial {
-
 template <class T, class Extents, class Layout, class AccessorPolicy>
 auto ijk(
   std::mdspan<T, Extents, Layout, AccessorPolicy> A,
@@ -47,9 +45,15 @@ auto ijk(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp parallel for collapse(2) schedule(static)
+#endif
   for (std::size_t i = 0; i < A.extent(0); ++i) {
     for (std::size_t j = 0; j < B.extent(1); ++j) {
       T acc{};
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp simd
+#endif
       for (std::size_t k = 0; k < A.extent(1); ++k) {
         acc += A[i, k] * B[k, j];
       }
@@ -68,9 +72,15 @@ auto ikj(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp parallel for collapse(2) schedule(static)
+#endif
   for (std::size_t i = 0; i < A.extent(0); ++i) {
     for (std::size_t k = 0; k < A.extent(1); ++k) {
       T A_ik = A[i, k];
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp simd
+#endif
       for (std::size_t j = 0; j < B.extent(1); ++j) {
         C[i, j] += A_ik * B[k, j];
       }
@@ -88,9 +98,15 @@ auto jik(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp parallel for collapse(2) schedule(static)
+#endif
   for (std::size_t j = 0; j < B.extent(1); ++j) {
     for (std::size_t i = 0; i < A.extent(0); ++i) {
       T acc{};
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp simd
+#endif
       for (std::size_t k = 0; k < A.extent(1); ++k) {
         acc += A[i, k] * B[k, j];
       }
@@ -109,9 +125,15 @@ auto jki(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp parallel for collapse(2) schedule(static)
+#endif
   for (std::size_t j = 0; j < B.extent(1); ++j) {
     for (std::size_t k = 0; k < A.extent(1); ++k) {
       T B_kj = B[k, j];
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp simd
+#endif
       for (std::size_t i = 0; i < A.extent(0); ++i) {
         C[i, j] += A[i, k] * B_kj;
       }
@@ -129,9 +151,15 @@ auto kij(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp parallel for collapse(2) schedule(static)
+#endif
   for (std::size_t k = 0; k < A.extent(1); ++k) {
     for (std::size_t i = 0; i < A.extent(0); ++i) {
       T A_ik = A[i, k];
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp simd
+#endif
       for (std::size_t j = 0; j < B.extent(1); ++j) {
         C[i, j] += A_ik * B[k, j];
       }
@@ -149,9 +177,15 @@ auto kji(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp parallel for collapse(2) schedule(static)
+#endif
   for (std::size_t k = 0; k < A.extent(1); ++k) {
     for (std::size_t j = 0; j < B.extent(1); ++j) {
       T B_kj = B[k, j];
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp simd
+#endif
       for (std::size_t i = 0; i < A.extent(0); ++i) {
         C[i, j] += A[i, k] * B_kj;
       }
@@ -159,521 +193,223 @@ auto kji(
   }
 }
 
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto ijk_block(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
+// template <class T, class Extents, class Layout, class AccessorPolicy>
+// auto ijk_block(
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> A,
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> B,
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> C
+// ) -> void {
+//   assert(A.extent(1) == B.extent(0));
+//   assert(A.extent(0) == C.extent(0));
+//   assert(B.extent(1) == C.extent(1));
 
-  for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
-    auto const i_end = std::min(bi + TILE, A.extent(0));
-    for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
-      auto const j_end = std::min(bj + TILE, B.extent(1));
-      for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
-        auto const k_end = std::min(bk + TILE, A.extent(1));
+// #if defined(LAYOUT_TILED_PARALLEL_BENCH)
+//   #pragma omp parallel for collapse(2) schedule(static)
+// #endif
+//   for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
+//     auto const i_end = std::min(bi + TILE, A.extent(0));
+//     for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
+//       auto const j_end = std::min(bj + TILE, B.extent(1));
+//       for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
+//         auto const k_end = std::min(bk + TILE, A.extent(1));
 
-        for (std::size_t i = bi; i < i_end; ++i) {
-          for (std::size_t j = bj; j < j_end; ++j) {
-            T acc{};
-            for (std::size_t k = bk; k < k_end; ++k) {
-              acc += A[i, k] * B[k, j];
-            }
-            C[i, j] = acc;
-          }
-        }
-      }
-    }
-  }
-}
+//         for (std::size_t i = bi; i < i_end; ++i) {
+//           for (std::size_t j = bj; j < j_end; ++j) {
+//             T acc{};
+// #if defined(LAYOUT_TILED_PARALLEL_BENCH)
+//             #pragma omp simd
+// #endif
+//             for (std::size_t k = bk; k < k_end; ++k) {
+//               acc += A[i, k] * B[k, j];
+//             }
+//             C[i, j] = acc;
+//           }
+//         }
+//       }
+//     }
+//   }
+// }
 
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto ikj_block(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
+// template <class T, class Extents, class Layout, class AccessorPolicy>
+// auto ikj_block(
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> A,
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> B,
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> C
+// ) -> void {
+//   assert(A.extent(1) == B.extent(0));
+//   assert(A.extent(0) == C.extent(0));
+//   assert(B.extent(1) == C.extent(1));
 
-  for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
-    auto const i_end = std::min(bi + TILE, A.extent(0));
-    for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
-      auto const k_end = std::min(bk + TILE, A.extent(1));
-      for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
-        auto const j_end = std::min(bj + TILE, B.extent(1));
+// #if defined(LAYOUT_TILED_PARALLEL_BENCH)
+//   #pragma omp parallel for collapse(2) schedule(static)
+// #endif
+//   for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
+//     auto const i_end = std::min(bi + TILE, A.extent(0));
+//     for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
+//       auto const k_end = std::min(bk + TILE, A.extent(1));
+//       for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
+//         auto const j_end = std::min(bj + TILE, B.extent(1));
 
-        for (std::size_t i = bi; i < i_end; ++i) {
-          for (std::size_t k = bk; k < k_end; ++k) {
-            T A_ik = A[i, k];
-            for (std::size_t j = bj; j < j_end; ++j) {
-              C[i, j] += A_ik * B[k, j];
-            }
-          }
-        }
-      }
-    }
-  }
-}
+//         for (std::size_t i = bi; i < i_end; ++i) {
+//           for (std::size_t k = bk; k < k_end; ++k) {
+//             T A_ik = A[i, k];
+// #if defined(LAYOUT_TILED_PARALLEL_BENCH)
+//             #pragma omp simd
+// #endif
+//             for (std::size_t j = bj; j < j_end; ++j) {
+//               C[i, j] += A_ik * B[k, j];
+//             }
+//           }
+//         }
+//       }
+//     }
+//   }
+// }
 
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto jik_block(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
+// template <class T, class Extents, class Layout, class AccessorPolicy>
+// auto jik_block(
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> A,
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> B,
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> C
+// ) -> void {
+//   assert(A.extent(1) == B.extent(0));
+//   assert(A.extent(0) == C.extent(0));
+//   assert(B.extent(1) == C.extent(1));
 
-  for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
-    auto const j_end = std::min(bj + TILE, B.extent(1));
-    for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
-      auto const i_end = std::min(bi + TILE, A.extent(0));
-      for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
-        auto const k_end = std::min(bk + TILE, A.extent(1));
+// #if defined(LAYOUT_TILED_PARALLEL_BENCH)
+//   #pragma omp parallel for collapse(2) schedule(static)
+// #endif
+//   for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
+//     auto const j_end = std::min(bj + TILE, B.extent(1));
+//     for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
+//       auto const i_end = std::min(bi + TILE, A.extent(0));
+//       for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
+//         auto const k_end = std::min(bk + TILE, A.extent(1));
 
-        for (std::size_t j = bj; j < j_end; ++j) {
-          for (std::size_t i = bi; i < i_end; ++i) {
-            T acc{};
-            for (std::size_t k = bk; k < k_end; ++k) {
-              acc += A[i, k] * B[k, j];
-            }
-            C[i, j] = acc;
-          }
-        }
-      }
-    }
-  }
-}
+//         for (std::size_t j = bj; j < j_end; ++j) {
+//           for (std::size_t i = bi; i < i_end; ++i) {
+//             T acc{};
+// #if defined(LAYOUT_TILED_PARALLEL_BENCH)
+//             #pragma omp simd
+// #endif
+//             for (std::size_t k = bk; k < k_end; ++k) {
+//               acc += A[i, k] * B[k, j];
+//             }
+//             C[i, j] = acc;
+//           }
+//         }
+//       }
+//     }
+//   }
+// }
 
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto jki_block(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
+// template <class T, class Extents, class Layout, class AccessorPolicy>
+// auto jki_block(
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> A,
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> B,
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> C
+// ) -> void {
+//   assert(A.extent(1) == B.extent(0));
+//   assert(A.extent(0) == C.extent(0));
+//   assert(B.extent(1) == C.extent(1));
 
-  for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
-    auto const j_end = std::min(bj + TILE, B.extent(1));
-    for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
-      auto const k_end = std::min(bk + TILE, A.extent(1));
-      for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
-        auto const i_end = std::min(bi + TILE, A.extent(0));
+// #if defined(LAYOUT_TILED_PARALLEL_BENCH)
+//   #pragma omp parallel for collapse(2) schedule(static)
+// #endif
+//   for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
+//     auto const j_end = std::min(bj + TILE, B.extent(1));
+//     for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
+//       auto const k_end = std::min(bk + TILE, A.extent(1));
+//       for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
+//         auto const i_end = std::min(bi + TILE, A.extent(0));
 
-        for (std::size_t j = bj; j < j_end; ++j) {
-          for (std::size_t k = bk; k < k_end; ++k) {
-            T B_kj = B[k, j];
-            for (std::size_t i = bi; i < i_end; ++i) {
-              C[i, j] += A[i, k] * B_kj;
-            }
-          }
-        }
-      }
-    }
-  }
-}
+//         for (std::size_t j = bj; j < j_end; ++j) {
+//           for (std::size_t k = bk; k < k_end; ++k) {
+//             T B_kj = B[k, j];
+// #if defined(LAYOUT_TILED_PARALLEL_BENCH)
+//             #pragma omp simd
+// #endif
+//             for (std::size_t i = bi; i < i_end; ++i) {
+//               C[i, j] += A[i, k] * B_kj;
+//             }
+//           }
+//         }
+//       }
+//     }
+//   }
+// }
 
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto kij_block(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
+// template <class T, class Extents, class Layout, class AccessorPolicy>
+// auto kij_block(
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> A,
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> B,
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> C
+// ) -> void {
+//   assert(A.extent(1) == B.extent(0));
+//   assert(A.extent(0) == C.extent(0));
+//   assert(B.extent(1) == C.extent(1));
 
-  for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
-    auto const k_end = std::min(bk + TILE, A.extent(1));
-    for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
-      auto const i_end = std::min(bi + TILE, A.extent(0));
-      for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
-        auto const j_end = std::min(bj + TILE, B.extent(1));
+// #if defined(LAYOUT_TILED_PARALLEL_BENCH)
+//   #pragma omp parallel for collapse(2) schedule(static)
+// #endif
+//   for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
+//     auto const k_end = std::min(bk + TILE, A.extent(1));
+//     for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
+//       auto const i_end = std::min(bi + TILE, A.extent(0));
+//       for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
+//         auto const j_end = std::min(bj + TILE, B.extent(1));
 
-        for (std::size_t k = bk; k < k_end; ++k) {
-          for (std::size_t i = bi; i < i_end; ++i) {
-            T A_ik = A[i, k];
-            for (std::size_t j = bj; j < j_end; ++j) {
-              C[i, j] += A_ik * B[k, j];
-            }
-          }
-        }
-      }
-    }
-  }
-}
+//         for (std::size_t k = bk; k < k_end; ++k) {
+//           for (std::size_t i = bi; i < i_end; ++i) {
+//             T A_ik = A[i, k];
+// #if defined(LAYOUT_TILED_PARALLEL_BENCH)
+//             #pragma omp simd
+// #endif
+//             for (std::size_t j = bj; j < j_end; ++j) {
+//               C[i, j] += A_ik * B[k, j];
+//             }
+//           }
+//         }
+//       }
+//     }
+//   }
+// }
 
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto kji_block(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
+// template <class T, class Extents, class Layout, class AccessorPolicy>
+// auto kji_block(
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> A,
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> B,
+//   std::mdspan<T, Extents, Layout, AccessorPolicy> C
+// ) -> void {
+//   assert(A.extent(1) == B.extent(0));
+//   assert(A.extent(0) == C.extent(0));
+//   assert(B.extent(1) == C.extent(1));
 
-  for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
-    auto const k_end = std::min(bk + TILE, A.extent(1));
-    for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
-      auto const j_end = std::min(bj + TILE, B.extent(1));
-      for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
-        auto const i_end = std::min(bi + TILE, A.extent(0));
+// #if defined(LAYOUT_TILED_PARALLEL_BENCH)
+//   #pragma omp parallel for collapse(2) schedule(static)
+// #endif
+//   for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
+//     auto const k_end = std::min(bk + TILE, A.extent(1));
+//     for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
+//       auto const j_end = std::min(bj + TILE, B.extent(1));
+//       for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
+//         auto const i_end = std::min(bi + TILE, A.extent(0));
 
-        for (std::size_t k = bk; k < k_end; ++k) {
-          for (std::size_t j = bj; j < j_end; ++j) {
-            T B_kj = B[k, j];
-            for (std::size_t i = bi; i < i_end; ++i) {
-              C[i, j] += A[i, k] * B_kj;
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-} // namespace serial
-
-namespace parallel {
-
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto ijk(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-#pragma omp parallel for collapse(2)
-  for (std::size_t i = 0; i < A.extent(0); ++i) {
-    for (std::size_t j = 0; j < B.extent(1); ++j) {
-      T acc{};
-#pragma omp simd
-      for (std::size_t k = 0; k < A.extent(1); ++k) {
-        acc += A[i, k] * B[k, j];
-      }
-      C[i, j] = acc;
-    }
-  }
-}
-
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto ikj(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-#pragma omp parallel for collapse(2)
-  for (std::size_t i = 0; i < A.extent(0); ++i) {
-    for (std::size_t k = 0; k < A.extent(1); ++k) {
-      T A_ik = A[i, k];
-#pragma omp simd
-      for (std::size_t j = 0; j < B.extent(1); ++j) {
-        C[i, j] += A_ik * B[k, j];
-      }
-    }
-  }
-}
-
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto jik(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-#pragma omp parallel for collapse(2)
-  for (std::size_t j = 0; j < B.extent(1); ++j) {
-    for (std::size_t i = 0; i < A.extent(0); ++i) {
-      T acc{};
-#pragma omp simd
-      for (std::size_t k = 0; k < A.extent(1); ++k) {
-        acc += A[i, k] * B[k, j];
-      }
-      C[i, j] = acc;
-    }
-  }
-}
-
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto jki(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-#pragma omp parallel for collapse(2)
-  for (std::size_t j = 0; j < B.extent(1); ++j) {
-    for (std::size_t k = 0; k < A.extent(1); ++k) {
-      T B_kj = B[k, j];
-#pragma omp simd
-      for (std::size_t i = 0; i < A.extent(0); ++i) {
-        C[i, j] += A[i, k] * B_kj;
-      }
-    }
-  }
-}
-
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto kij(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-#pragma omp parallel for collapse(2)
-  for (std::size_t k = 0; k < A.extent(1); ++k) {
-    for (std::size_t i = 0; i < A.extent(0); ++i) {
-      T A_ik = A[i, k];
-#pragma omp simd
-      for (std::size_t j = 0; j < B.extent(1); ++j) {
-        C[i, j] += A_ik * B[k, j];
-      }
-    }
-  }
-}
-
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto kji(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-#pragma omp parallel for collapse(2)
-  for (std::size_t k = 0; k < A.extent(1); ++k) {
-    for (std::size_t j = 0; j < B.extent(1); ++j) {
-      T B_kj = B[k, j];
-#pragma omp simd
-      for (std::size_t i = 0; i < A.extent(0); ++i) {
-        C[i, j] += A[i, k] * B_kj;
-      }
-    }
-  }
-}
-
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto ijk_block(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-#pragma omp parallel for
-  for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
-    auto const i_end = std::min(bi + TILE, A.extent(0));
-    for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
-      auto const j_end = std::min(bj + TILE, B.extent(1));
-      for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
-        auto const k_end = std::min(bk + TILE, A.extent(1));
-
-        for (std::size_t i = bi; i < i_end; ++i) {
-          for (std::size_t j = bj; j < j_end; ++j) {
-            T acc{};
-#pragma omp simd
-            for (std::size_t k = bk; k < k_end; ++k) {
-              acc += A[i, k] * B[k, j];
-            }
-            C[i, j] = acc;
-          }
-        }
-      }
-    }
-  }
-}
-
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto ikj_block(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-#pragma omp parallel for
-  for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
-    auto const i_end = std::min(bi + TILE, A.extent(0));
-    for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
-      auto const k_end = std::min(bk + TILE, A.extent(1));
-      for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
-        auto const j_end = std::min(bj + TILE, B.extent(1));
-
-        for (std::size_t i = bi; i < i_end; ++i) {
-          for (std::size_t k = bk; k < k_end; ++k) {
-            T A_ik = A[i, k];
-#pragma omp simd
-            for (std::size_t j = bj; j < j_end; ++j) {
-              C[i, j] += A_ik * B[k, j];
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto jik_block(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-#pragma omp parallel for
-  for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
-    auto const j_end = std::min(bj + TILE, B.extent(1));
-    for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
-      auto const i_end = std::min(bi + TILE, A.extent(0));
-      for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
-        auto const k_end = std::min(bk + TILE, A.extent(1));
-
-        for (std::size_t j = bj; j < j_end; ++j) {
-          for (std::size_t i = bi; i < i_end; ++i) {
-            T acc{};
-#pragma omp simd
-            for (std::size_t k = bk; k < k_end; ++k) {
-              acc += A[i, k] * B[k, j];
-            }
-            C[i, j] = acc;
-          }
-        }
-      }
-    }
-  }
-}
-
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto jki_block(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-#pragma omp parallel for
-  for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
-    auto const j_end = std::min(bj + TILE, B.extent(1));
-    for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
-      auto const k_end = std::min(bk + TILE, A.extent(1));
-      for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
-        auto const i_end = std::min(bi + TILE, A.extent(0));
-
-        for (std::size_t j = bj; j < j_end; ++j) {
-          for (std::size_t k = bk; k < k_end; ++k) {
-            T B_kj = B[k, j];
-#pragma omp simd
-            for (std::size_t i = bi; i < i_end; ++i) {
-              C[i, j] += A[i, k] * B_kj;
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto kij_block(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-#pragma omp parallel for
-  for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
-    auto const k_end = std::min(bk + TILE, A.extent(1));
-    for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
-      auto const i_end = std::min(bi + TILE, A.extent(0));
-      for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
-        auto const j_end = std::min(bj + TILE, B.extent(1));
-
-        for (std::size_t k = bk; k < k_end; ++k) {
-          for (std::size_t i = bi; i < i_end; ++i) {
-            T A_ik = A[i, k];
-#pragma omp simd
-            for (std::size_t j = bj; j < j_end; ++j) {
-              C[i, j] += A_ik * B[k, j];
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-template <class T, class Extents, class Layout, class AccessorPolicy>
-auto kji_block(
-  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
-  std::mdspan<T, Extents, Layout, AccessorPolicy> C
-) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-#pragma omp parallel for
-  for (std::size_t bk = 0; bk < A.extent(1); bk += TILE) {
-    auto const k_end = std::min(bk + TILE, A.extent(1));
-    for (std::size_t bj = 0; bj < B.extent(1); bj += TILE) {
-      auto const j_end = std::min(bj + TILE, B.extent(1));
-      for (std::size_t bi = 0; bi < A.extent(0); bi += TILE) {
-        auto const i_end = std::min(bi + TILE, A.extent(0));
-
-        for (std::size_t k = bk; k < k_end; ++k) {
-          for (std::size_t j = bj; j < j_end; ++j) {
-            T B_kj = B[k, j];
-#pragma omp simd
-            for (std::size_t i = bi; i < i_end; ++i) {
-              C[i, j] += A[i, k] * B_kj;
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-} // namespace parallel
+//         for (std::size_t k = bk; k < k_end; ++k) {
+//           for (std::size_t j = bj; j < j_end; ++j) {
+//             T B_kj = B[k, j];
+// #if defined(LAYOUT_TILED_PARALLEL_BENCH)
+//             #pragma omp simd
+// #endif
+//             for (std::size_t i = bi; i < i_end; ++i) {
+//               C[i, j] += A[i, k] * B_kj;
+//             }
+//           }
+//         }
+//       }
+//     }
+//   }
+// }
 
 auto main() -> int {
   auto DIMS = {512zu, 1024zu};
