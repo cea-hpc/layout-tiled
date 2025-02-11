@@ -44,6 +44,7 @@ foreach(bench ${ALL_BENCHMARKS})
       layout_tiled::layout_tiled
       c++ # Need to explicitly link with libc++ for some reason (appears to be related to std::print)
       nanobench
+      fmt::fmt
   )
   if(LayoutTiled_PARALLEL_BENCH)
     target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE LAYOUT_TILED_PARALLEL_BENCH)
