@@ -46,6 +46,7 @@ foreach(bench ${ALL_BENCHMARKS})
       nanobench
   )
   if(LayoutTiled_PARALLEL_BENCH)
+    target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE LAYOUT_TILED_PARALLEL_BENCH)
     target_link_libraries(layout_tiled.benchmarks.${bench} PRIVATE OpenMP::OpenMP_CXX)
   endif()
 endforeach()
