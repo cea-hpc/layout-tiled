@@ -20,8 +20,11 @@
 #include <cstddef>
 #include <iostream>
 #include <mdspan>
+#include <string>
 #include <utility>
 #include <vector>
+
+#include <getopt.h>
 
 #include <fmt/format.h>
 #include <nanobench.h>
@@ -409,7 +412,240 @@ auto kji(
 //   }
 // }
 
-auto main() -> int {
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+auto strong_scaling() -> void {
+  using extents_type = std::dextents<std::size_t, 2>;
+
+  // Fixed problem size of 2048x2048
+  constexpr std::pair<size_t, size_t> DIMS = {2048zu, 2048zu};
+
+  // Number of threads to measure with
+  constexpr int NUM_THREADS[] = {1, 2, 4, 8, 12, 16, 24, 32, 48, 64};
+
+  ankerl::nanobench::Bench bs;
+  bs.output(nullptr);
+
+  // NOTE: We are reallocating each time even though the problem size is fixed because matrix initialization leverages
+  // first-touch policy
+  for (int nthreads : NUM_THREADS) {
+    omp_set_num_threads(nthreads);
+
+    // Standard layout matrices
+    std::vector<double> A(std::get<0>(DIMS) * std::get<1>(DIMS));
+    std::vector<double> B(std::get<0>(DIMS) * std::get<1>(DIMS));
+    std::vector<double> C(std::get<0>(DIMS) * std::get<1>(DIMS));
+    auto mA = std::mdspan(A.data(), std::get<0>(DIMS), std::get<1>(DIMS));
+    auto mB = std::mdspan(B.data(), std::get<0>(DIMS), std::get<1>(DIMS));
+    auto mC = std::mdspan(C.data(), std::get<0>(DIMS), std::get<1>(DIMS));
+
+    // Tiled layout matrices
+    std::vector<double> tA_32(std::get<0>(DIMS) * std::get<1>(DIMS));
+    std::vector<double> tB_32(std::get<0>(DIMS) * std::get<1>(DIMS));
+    std::vector<double> tC_32(std::get<0>(DIMS) * std::get<1>(DIMS));
+    auto mA_tiled_32 = std::mdspan(
+      tA_32.data(),
+      layout_right_tiled_right<32, 32>::mapping<extents_type>(extents_type(std::get<0>(DIMS), std::get<1>(DIMS)))
+    );
+    auto mB_tiled_32 = std::mdspan(
+      tB_32.data(),
+      layout_right_tiled_right<32, 32>::mapping<extents_type>(extents_type(std::get<0>(DIMS), std::get<1>(DIMS)))
+    );
+    auto mC_tiled_32 = std::mdspan(
+      tC_32.data(),
+      layout_right_tiled_right<32, 32>::mapping<extents_type>(extents_type(std::get<0>(DIMS), std::get<1>(DIMS)))
+    );
+
+    std::vector<double> tA_64(std::get<0>(DIMS) * std::get<1>(DIMS));
+    std::vector<double> tB_64(std::get<0>(DIMS) * std::get<1>(DIMS));
+    std::vector<double> tC_64(std::get<0>(DIMS) * std::get<1>(DIMS));
+    auto mA_tiled_64 = std::mdspan(
+      tA_64.data(),
+      layout_right_tiled_right<64, 64>::mapping<extents_type>(extents_type(std::get<0>(DIMS), std::get<1>(DIMS)))
+    );
+    auto mB_tiled_64 = std::mdspan(
+      tB_64.data(),
+      layout_right_tiled_right<64, 64>::mapping<extents_type>(extents_type(std::get<0>(DIMS), std::get<1>(DIMS)))
+    );
+    auto mC_tiled_64 = std::mdspan(
+      tC_64.data(),
+      layout_right_tiled_right<64, 64>::mapping<extents_type>(extents_type(std::get<0>(DIMS), std::get<1>(DIMS)))
+    );
+
+    std::vector<double> tA_128(std::get<0>(DIMS) * std::get<1>(DIMS));
+    std::vector<double> tB_128(std::get<0>(DIMS) * std::get<1>(DIMS));
+    std::vector<double> tC_128(std::get<0>(DIMS) * std::get<1>(DIMS));
+    auto mA_tiled_128 = std::mdspan(
+      tA_128.data(),
+      layout_right_tiled_right<128, 128>::mapping<extents_type>(extents_type(std::get<0>(DIMS), std::get<1>(DIMS)))
+    );
+    auto mB_tiled_128 = std::mdspan(
+      tB_128.data(),
+      layout_right_tiled_right<128, 128>::mapping<extents_type>(extents_type(std::get<0>(DIMS), std::get<1>(DIMS)))
+    );
+    auto mC_tiled_128 = std::mdspan(
+      tC_128.data(),
+      layout_right_tiled_right<128, 128>::mapping<extents_type>(extents_type(std::get<0>(DIMS), std::get<1>(DIMS)))
+    );
+
+#pragma omp parallel for collapse(2) schedule(static)
+    for (std::size_t i = 0; i < std::get<0>(DIMS); ++i) {
+      for (std::size_t j = 0; j < std::get<1>(DIMS); ++j) {
+        mA[i, j] = 1.0;
+        mB[i, j] = 1.0;
+        mC[i, j] = 1.0;
+
+        mA_tiled_32[i, j]  = 1.0;
+        mB_tiled_32[i, j]  = 1.0;
+        mC_tiled_32[i, j]  = 1.0;
+        mA_tiled_64[i, j]  = 1.0;
+        mB_tiled_64[i, j]  = 1.0;
+        mC_tiled_64[i, j]  = 1.0;
+        mA_tiled_128[i, j] = 1.0;
+        mB_tiled_128[i, j] = 1.0;
+        mC_tiled_128[i, j] = 1.0;
+      }
+    }
+
+    bs.title(fmt::format("{}C {}x{}", omp_get_max_threads(), std::get<0>(DIMS), std::get<1>(DIMS)))
+      .timeUnit(1s, "s")
+      .relative(true);
+
+    bs.run("IJK standard layout", [&]() { ijk(mA, mB, mC); });
+    bs.run("IJK tiled layout 32x32", [&]() { ijk(mA_tiled_32, mB_tiled_32, mC_tiled_32); });
+    bs.run("IJK tiled layout 64x64", [&]() { ijk(mA_tiled_64, mB_tiled_64, mC_tiled_64); });
+    bs.run("IJK tiled layout 128x128", [&]() { ijk(mA_tiled_128, mB_tiled_128, mC_tiled_128); });
+
+    bs.render(ankerl::nanobench::templates::csv(), std::cout);
+  }
+}
+
+auto weak_scaling() -> void {
+  using extents_type = std::dextents<std::size_t, 2>;
+
+  constexpr int NUM_THREADS[] = {1, 2, 4, 8, 12, 16, 24, 32, 48, 64};
+
+  constexpr std::pair<size_t, size_t> DIMS[] = {
+    {512zu, 512zu},   // 1 thread
+    {1024zu, 512zu},  // 2 threads
+    {1024zu, 1024zu}, // 4 threads
+    {2048zu, 1024zu}, // 8 threads
+    {2048zu, 1536zu}, // 12 threads
+    {2048zu, 2048zu}, // 16 threads
+    {3072zu, 2048zu}, // 24 threads
+    {4096zu, 2048zu}, // 32 threads
+    {4096zu, 3072zu}, // 48 threads
+    {4096zu, 4096zu}  // 64 threads
+  };
+
+  ankerl::nanobench::Bench bs;
+  bs.output(nullptr);
+
+  for (size_t it = 0; it < sizeof(DIMS); ++it) {
+    omp_set_num_threads(NUM_THREADS[it]);
+
+    // Standard layout matrices
+    std::vector<double> A(std::get<0>(DIMS[it]) * std::get<1>(DIMS[it]));
+    std::vector<double> B(std::get<0>(DIMS[it]) * std::get<1>(DIMS[it]));
+    std::vector<double> C(std::get<0>(DIMS[it]) * std::get<1>(DIMS[it]));
+    auto mA = std::mdspan(A.data(), std::get<0>(DIMS[it]), std::get<1>(DIMS[it]));
+    auto mB = std::mdspan(B.data(), std::get<0>(DIMS[it]), std::get<1>(DIMS[it]));
+    auto mC = std::mdspan(C.data(), std::get<0>(DIMS[it]), std::get<1>(DIMS[it]));
+
+    // Tiled layout matrices
+    std::vector<double> tA_32(std::get<0>(DIMS[it]) * std::get<1>(DIMS[it]));
+    std::vector<double> tB_32(std::get<0>(DIMS[it]) * std::get<1>(DIMS[it]));
+    std::vector<double> tC_32(std::get<0>(DIMS[it]) * std::get<1>(DIMS[it]));
+    auto mA_tiled_32 = std::mdspan(
+      tA_32.data(),
+      layout_right_tiled_right<32, 32>::mapping<extents_type>(extents_type(std::get<0>(DIMS[it]), std::get<1>(DIMS[it]))
+      )
+    );
+    auto mB_tiled_32 = std::mdspan(
+      tB_32.data(),
+      layout_right_tiled_right<32, 32>::mapping<extents_type>(extents_type(std::get<0>(DIMS[it]), std::get<1>(DIMS[it]))
+      )
+    );
+    auto mC_tiled_32 = std::mdspan(
+      tC_32.data(),
+      layout_right_tiled_right<32, 32>::mapping<extents_type>(extents_type(std::get<0>(DIMS[it]), std::get<1>(DIMS[it]))
+      )
+    );
+
+    std::vector<double> tA_64(std::get<0>(DIMS[it]) * std::get<1>(DIMS[it]));
+    std::vector<double> tB_64(std::get<0>(DIMS[it]) * std::get<1>(DIMS[it]));
+    std::vector<double> tC_64(std::get<0>(DIMS[it]) * std::get<1>(DIMS[it]));
+    auto mA_tiled_64 = std::mdspan(
+      tA_64.data(),
+      layout_right_tiled_right<64, 64>::mapping<extents_type>(extents_type(std::get<0>(DIMS[it]), std::get<1>(DIMS[it]))
+      )
+    );
+    auto mB_tiled_64 = std::mdspan(
+      tB_64.data(),
+      layout_right_tiled_right<64, 64>::mapping<extents_type>(extents_type(std::get<0>(DIMS[it]), std::get<1>(DIMS[it]))
+      )
+    );
+    auto mC_tiled_64 = std::mdspan(
+      tC_64.data(),
+      layout_right_tiled_right<64, 64>::mapping<extents_type>(extents_type(std::get<0>(DIMS[it]), std::get<1>(DIMS[it]))
+      )
+    );
+
+    std::vector<double> tA_128(std::get<0>(DIMS[it]) * std::get<1>(DIMS[it]));
+    std::vector<double> tB_128(std::get<0>(DIMS[it]) * std::get<1>(DIMS[it]));
+    std::vector<double> tC_128(std::get<0>(DIMS[it]) * std::get<1>(DIMS[it]));
+    auto mA_tiled_128 = std::mdspan(
+      tA_128.data(),
+      layout_right_tiled_right<128, 128>::mapping<extents_type>(
+        extents_type(std::get<0>(DIMS[it]), std::get<1>(DIMS[it]))
+      )
+    );
+    auto mB_tiled_128 = std::mdspan(
+      tB_128.data(),
+      layout_right_tiled_right<128, 128>::mapping<extents_type>(
+        extents_type(std::get<0>(DIMS[it]), std::get<1>(DIMS[it]))
+      )
+    );
+    auto mC_tiled_128 = std::mdspan(
+      tC_128.data(),
+      layout_right_tiled_right<128, 128>::mapping<extents_type>(
+        extents_type(std::get<0>(DIMS[it]), std::get<1>(DIMS[it]))
+      )
+    );
+
+#pragma omp parallel for collapse(2) schedule(static)
+    for (std::size_t i = 0; i < std::get<0>(DIMS[it]); ++i) {
+      for (std::size_t j = 0; j < std::get<1>(DIMS[it]); ++j) {
+        mA[i, j] = 1.0;
+        mB[i, j] = 1.0;
+        mC[i, j] = 1.0;
+
+        mA_tiled_32[i, j]  = 1.0;
+        mB_tiled_32[i, j]  = 1.0;
+        mC_tiled_32[i, j]  = 1.0;
+        mA_tiled_64[i, j]  = 1.0;
+        mB_tiled_64[i, j]  = 1.0;
+        mC_tiled_64[i, j]  = 1.0;
+        mA_tiled_128[i, j] = 1.0;
+        mB_tiled_128[i, j] = 1.0;
+        mC_tiled_128[i, j] = 1.0;
+      }
+    }
+
+    bs.title(fmt::format("{}C {}x{}", omp_get_max_threads(), std::get<0>(DIMS[it]), std::get<1>(DIMS[it])))
+      .timeUnit(1s, "s")
+      .relative(true);
+
+    bs.run("IJK standard layout", [&]() { ijk(mA, mB, mC); });
+    bs.run("IJK tiled layout 32x32", [&]() { ijk(mA_tiled_32, mB_tiled_32, mC_tiled_32); });
+    bs.run("IJK tiled layout 64x64", [&]() { ijk(mA_tiled_64, mB_tiled_64, mC_tiled_64); });
+    bs.run("IJK tiled layout 128x128", [&]() { ijk(mA_tiled_128, mB_tiled_128, mC_tiled_128); });
+
+    bs.render(ankerl::nanobench::templates::csv(), std::cout);
+  }
+}
+#endif
+
+auto perf_comp() -> void {
   using extents_type = std::dextents<std::size_t, 2>;
 
   constexpr std::pair<size_t, size_t> DIMS[] = {
@@ -418,15 +654,10 @@ auto main() -> int {
     {1024zu, 1024zu},
     {1280zu, 1280zu},
     {1536zu, 1536zu},
-    // {1792zu, 1792zu},
     {2048zu, 2048zu},
-    // {2304zu, 2304zu},
     {2560zu, 2560zu},
-    // {2816zu, 2816zu},
     {3072zu, 3072zu},
-    // {3328zu, 3328zu},
     {3584zu, 3584zu},
-    // {3840zu, 3840zu},
     {4096zu, 4096zu},
   };
 
@@ -521,33 +752,6 @@ auto main() -> int {
     bs.run("IJK tiled layout 32x32", [&]() { ijk(mA_tiled_32, mB_tiled_32, mC_tiled_32); });
     bs.run("IJK tiled layout 64x64", [&]() { ijk(mA_tiled_64, mB_tiled_64, mC_tiled_64); });
     bs.run("IJK tiled layout 128x128", [&]() { ijk(mA_tiled_128, mB_tiled_128, mC_tiled_128); });
-    // bs.run("ijk block standard", [&]() { ijk_block(mA, mB, mC); });
-    // bs.run("ijk block tiled", [&]() { ijk_block(mA_tiled, mB_tiled, mC_tiled); });
-
-    // bs.run("ikj standard", [&]() { ikj(mA, mB, mC); });
-    // bs.run("ikj tiled", [&]() { ikj(mA_tiled, mB_tiled, mC_tiled); });
-    // bs.run("ikj block standard", [&]() { ikj_block(mA, mB, mC); });
-    // bs.run("ikj block tiled", [&]() { ikj_block(mA_tiled, mB_tiled, mC_tiled); });
-
-    // bs.run("jik standard", [&]() { jik(mA, mB, mC); });
-    // bs.run("jik tiled", [&]() { jik(mA_tiled, mB_tiled, mC_tiled); });
-    // bs.run("jik block standard", [&]() { jik_block(mA, mB, mC); });
-    // bs.run("jik block tiled", [&]() { jik_block(mA_tiled, mB_tiled, mC_tiled); });
-
-    // bs.run("jki standard", [&]() { jki(mA, mB, mC); });
-    // bs.run("jki tiled", [&]() { jki(mA_tiled, mB_tiled, mC_tiled); });
-    // bs.run("jki block standard", [&]() { jki_block(mA, mB, mC); });
-    // bs.run("jki block tiled", [&]() { jki_block(mA_tiled, mB_tiled, mC_tiled); });
-
-    // bs.run("kij standard", [&]() { kij(mA, mB, mC); });
-    // bs.run("kij tiled", [&]() { kij(mA_tiled, mB_tiled, mC_tiled); });
-    // bs.run("kij block standard", [&]() { kij_block(mA, mB, mC); });
-    // bs.run("kij block tiled", [&]() { kij_block(mA_tiled, mB_tiled, mC_tiled); });
-
-    // bs.run("kji standard", [&]() { kji(mA, mB, mC); });
-    // bs.run("kji tiled", [&]() { kji(mA_tiled, mB_tiled, mC_tiled); });
-    // bs.run("kji block standard", [&]() { kji_block(mA, mB, mC); });
-    // bs.run("kji block tiled", [&]() { kji_block(mA_tiled, mB_tiled, mC_tiled); });
 #else
     bs.title(fmt::format("serial {}x{}", std::get<0>(dims), std::get<1>(dims))).timeUnit(1s, "s").relative(true);
 
@@ -555,35 +759,47 @@ auto main() -> int {
     bs.run("IJK tiled layout 32x32", [&]() { ijk(mA_tiled_32, mB_tiled_32, mC_tiled_32); });
     bs.run("IJK tiled layout 64x64", [&]() { ijk(mA_tiled_64, mB_tiled_64, mC_tiled_64); });
     bs.run("IJK tiled layout 128x128", [&]() { ijk(mA_tiled_128, mB_tiled_128, mC_tiled_128); });
-    // bs.run("ijk block standard", [&]() { ijk_block(mA, mB, mC); });
-    // bs.run("ijk block tiled", [&]() { ijk_block(mA_tiled, mB_tiled, mC_tiled); });
-
-    // bs.run("ikj standard", [&]() { ikj(mA, mB, mC); });
-    // bs.run("ikj tiled", [&]() { ikj(mA_tiled, mB_tiled, mC_tiled); });
-    // bs.run("ikj block standard", [&]() { ikj_block(mA, mB, mC); });
-    // bs.run("ikj block tiled", [&]() { ikj_block(mA_tiled, mB_tiled, mC_tiled); });
-
-    // bs.run("jik standard", [&]() { jik(mA, mB, mC); });
-    // bs.run("jik tiled", [&]() { jik(mA_tiled, mB_tiled, mC_tiled); });
-    // bs.run("jik block standard", [&]() { jik_block(mA, mB, mC); });
-    // bs.run("jik block tiled", [&]() { jik_block(mA_tiled, mB_tiled, mC_tiled); });
-
-    // bs.run("jki standard", [&]() { jki(mA, mB, mC); });
-    // bs.run("jki tiled", [&]() { jki(mA_tiled, mB_tiled, mC_tiled); });
-    // bs.run("jki block standard", [&]() { jki_block(mA, mB, mC); });
-    // bs.run("jki block tiled", [&]() { jki_block(mA_tiled, mB_tiled, mC_tiled); });
-
-    // bs.run("kij standard", [&]() { kij(mA, mB, mC); });
-    // bs.run("kij tiled", [&]() { kij(mA_tiled, mB_tiled, mC_tiled); });
-    // bs.run("kij block standard", [&]() { kij_block(mA, mB, mC); });
-    // bs.run("kij block tiled", [&]() { kij_block(mA_tiled, mB_tiled, mC_tiled); });
-
-    // bs.run("kji standard", [&]() { kji(mA, mB, mC); });
-    // bs.run("kji tiled", [&]() { kji(mA_tiled, mB_tiled, mC_tiled); });
-    // bs.run("kji block standard", [&]() { kji_block(mA, mB, mC); });
-    // bs.run("kji block tiled", [&]() { kji_block(mA_tiled, mB_tiled, mC_tiled); });
 #endif
     bs.render(ankerl::nanobench::templates::csv(), std::cout);
+  }
+}
+
+static std::string HELP =
+  "Usage: layout_tiled.benchmarks.gemm [OPTIONS]\n\n"
+  "Options:\n"
+  "  -s, --strong-scaling   Run strong scaling\n"
+  "  -w, --weak-scaling     Run weak scaling\n"
+  "  -c, --perf-comp        Run performance comparison\n"
+  "  -h, --help             Show this help\n";
+
+auto main(int argc, char* argv[]) -> int {
+  static struct option long_options[] = {
+    {"strong-scaling", no_argument, 0, 's'},
+    {"weak-scaling", no_argument, 0, 'w'},
+    {"perf-comp", no_argument, 0, 'c'},
+    {"help", no_argument, 0, 'h'},
+    {0, 0, 0, 0}
+  };
+
+  int opt;
+  while ((opt = getopt_long(argc, argv, "swch", long_options, nullptr)) != -1) {
+    switch (opt) {
+    case 's':
+      strong_scaling();
+      break;
+    case 'w':
+      weak_scaling();
+      break;
+    case 'c':
+      perf_comp();
+      break;
+    case 'h':
+      std::cout << HELP;
+      return 0;
+    default:
+      std::cout << HELP;
+      return 1;
+    }
   }
 
   return 0;
