@@ -120,6 +120,8 @@ jobs:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Get CMake & Ninja
         uses: lukka/get-cmake@latest
