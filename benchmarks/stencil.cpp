@@ -119,8 +119,7 @@ auto main(int32_t argc, char* argv[]) -> int32_t {
   bs.output(nullptr);
 
   constexpr std::tuple<size_t, size_t, size_t> DIMS[] = {
-    {128 - ORDER, 128 - ORDER, 128 - ORDER},
-    {256 - ORDER, 256 - ORDER, 256 - ORDER},
+    {128 - ORDER, 128 - ORDER, 128 - ORDER}, {256 - ORDER, 256 - ORDER, 256 - ORDER},
     // {512 - ORDER, 512 - ORDER, 512 - ORDER},
     // {1024 - ORDER, 1024 - ORDER, 1024 - ORDER},
   };
@@ -159,10 +158,8 @@ auto main(int32_t argc, char* argv[]) -> int32_t {
     for (size_t i = 0; i < maxx; ++i) {
       for (size_t j = 0; j < maxy; ++j) {
         for (size_t k = 0; k < maxz; ++k) {
-          if (i >= HALF_ORDER && i < dimx + HALF_ORDER
-              && j >= HALF_ORDER && j < dimy + HALF_ORDER
-              && k >= HALF_ORDER && k < dimz + HALF_ORDER
-          ) {
+          if (i >= HALF_ORDER && i < dimx + HALF_ORDER && j >= HALF_ORDER && j < dimy + HALF_ORDER && k >= HALF_ORDER &&
+              k < dimz + HALF_ORDER) {
             mA[i, j, k]       = 1.0;
             mA_tiled[i, j, k] = 1.0;
           } else {
