@@ -56,15 +56,9 @@ if(LayoutTiled_BUILD_EXAMPLES)
 endif()
 
 if(LayoutTiled_BUILD_BENCHMARKS)
-  include(FetchContent)
-  FetchContent_Declare(
-    nanobench
-    GIT_REPOSITORY https://github.com/dssgabriel/nanobench.git
-    GIT_TAG
-      78c10d9effa994e05299eebd299a8736cd2eaee2 # adds support for L1D/LLC cache events
-    GIT_SHALLOW TRUE
-  )
-  FetchContent_MakeAvailable(nanobench)
+  # Dependencies
+  add_subdirectory(ext/nanobench)
+  add_subdirectory(ext/fmt)
 
   add_subdirectory(benchmarks)
 endif()

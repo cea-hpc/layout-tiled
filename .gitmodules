@@ -1,0 +1,8 @@
+[submodule "fmt"]
+	path = ext/fmt
+	url = https://github.com/fmtlib/fmt.git
+
+[submodule "nanobench"]
+	path = ext/nanobench
+	url = https://github.com/dssgabriel/nanobench.git
+	branch = develop
