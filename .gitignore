@@ -1,4 +1,6 @@
 build
+container_images
+results
 .cache
 .vscode
 .idea
