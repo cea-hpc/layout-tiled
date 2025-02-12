@@ -17,7 +17,7 @@
 #
 # Author: Gabriel Dos Santos <gabriel.dossantos@cea.fr>
 
-set(ALL_BENCHMARKS gemm)
+set(ALL_BENCHMARKS gemm stencil)
 
 option(LayoutTiled_PARALLEL_BENCH "Run parallel benchmarks" OFF)
 
@@ -44,6 +44,7 @@ foreach(bench ${ALL_BENCHMARKS})
       layout_tiled::layout_tiled
       c++ # Need to explicitly link with libc++ for some reason (appears to be related to std::print)
       nanobench
+      fmt
   )
   if(LayoutTiled_PARALLEL_BENCH)
     target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE LAYOUT_TILED_PARALLEL_BENCH)
