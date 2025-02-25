@@ -90,7 +90,7 @@ static auto run_bench(Config const& cfg) -> void {
   std::ostream* out_stream = &std::cout;
   std::ofstream file_stream;
   if (!cfg.output_.empty()) {
-    file_stream.open(cfg.output_);
+    file_stream.open(cfg.output_, std::ios::app | std::ios::binary);
     out_stream = &file_stream;
   }
 
