@@ -98,40 +98,24 @@ static auto run_bench(Config const& cfg) -> void {
   std::vector<double> sA(cfg.x_ * cfg.y_);
   std::vector<double> sB(cfg.x_ * cfg.y_);
   std::vector<double> sC(cfg.x_ * cfg.y_);
-  auto msA = std::mdspan(sA.data(), cfg.x_, cfg.y_);
-  auto msB = std::mdspan(sB.data(), cfg.x_, cfg.y_);
-  auto msC = std::mdspan(sC.data(), cfg.x_, cfg.y_);
+  auto msA = std::mdspan<double, extents_type, std::layout_right>(sA.data(), cfg.x_, cfg.y_);
+  auto msB = std::mdspan<double, extents_type, std::layout_right>(sB.data(), cfg.x_, cfg.y_);
+  auto msC = std::mdspan<double, extents_type, std::layout_right>(sC.data(), cfg.x_, cfg.y_);
 
   // Tiled layout matrices
-  std::vector<double> tA_32(cfg.x_ * cfg.y_);
-  std::vector<double> tB_32(cfg.x_ * cfg.y_);
-  std::vector<double> tC_32(cfg.x_ * cfg.y_);
-  auto mtA_32 =
-    std::mdspan(tA_32.data(), layout_right_tiled_right<32, 32>::mapping<extents_type>(extents_type(cfg.x_, cfg.y_)));
-  auto mtB_32 =
-    std::mdspan(tB_32.data(), layout_right_tiled_right<32, 32>::mapping<extents_type>(extents_type(cfg.x_, cfg.y_)));
-  auto mtC_32 =
-    std::mdspan(tC_32.data(), layout_right_tiled_right<32, 32>::mapping<extents_type>(extents_type(cfg.x_, cfg.y_)));
+  std::vector<double> tA_l1(cfg.x_ * cfg.y_);
+  std::vector<double> tB_l1(cfg.x_ * cfg.y_);
+  std::vector<double> tC_l1(cfg.x_ * cfg.y_);
+  auto mtA_l1 = std::mdspan<double, extents_type, layout_right_tiled_right<32, 32>>(tA_l1.data(), cfg.x_, cfg.y_);
+  auto mtB_l1 = std::mdspan<double, extents_type, layout_right_tiled_right<32, 32>>(tB_l1.data(), cfg.x_, cfg.y_);
+  auto mtC_l1 = std::mdspan<double, extents_type, layout_right_tiled_right<32, 32>>(tC_l1.data(), cfg.x_, cfg.y_);
 
-  std::vector<double> tA_64(cfg.x_ * cfg.y_);
-  std::vector<double> tB_64(cfg.x_ * cfg.y_);
-  std::vector<double> tC_64(cfg.x_ * cfg.y_);
-  auto mtA_64 =
-    std::mdspan(tA_64.data(), layout_right_tiled_right<64, 64>::mapping<extents_type>(extents_type(cfg.x_, cfg.y_)));
-  auto mtB_64 =
-    std::mdspan(tB_64.data(), layout_right_tiled_right<64, 64>::mapping<extents_type>(extents_type(cfg.x_, cfg.y_)));
-  auto mtC_64 =
-    std::mdspan(tC_64.data(), layout_right_tiled_right<64, 64>::mapping<extents_type>(extents_type(cfg.x_, cfg.y_)));
-
-  std::vector<double> tA_128(cfg.x_ * cfg.y_);
-  std::vector<double> tB_128(cfg.x_ * cfg.y_);
-  std::vector<double> tC_128(cfg.x_ * cfg.y_);
-  auto mtA_128 =
-    std::mdspan(tA_128.data(), layout_right_tiled_right<128, 128>::mapping<extents_type>(extents_type(cfg.x_, cfg.y_)));
-  auto mtB_128 =
-    std::mdspan(tB_128.data(), layout_right_tiled_right<128, 128>::mapping<extents_type>(extents_type(cfg.x_, cfg.y_)));
-  auto mtC_128 =
-    std::mdspan(tC_128.data(), layout_right_tiled_right<128, 128>::mapping<extents_type>(extents_type(cfg.x_, cfg.y_)));
+  std::vector<double> tA_l2(cfg.x_ * cfg.y_);
+  std::vector<double> tB_l2(cfg.x_ * cfg.y_);
+  std::vector<double> tC_l2(cfg.x_ * cfg.y_);
+  auto mtA_l2 = std::mdspan<double, extents_type, layout_right_tiled_right<128, 128>>(tA_l2.data(), cfg.x_, cfg.y_);
+  auto mtB_l2 = std::mdspan<double, extents_type, layout_right_tiled_right<128, 128>>(tB_l2.data(), cfg.x_, cfg.y_);
+  auto mtC_l2 = std::mdspan<double, extents_type, layout_right_tiled_right<128, 128>>(tC_l2.data(), cfg.x_, cfg.y_);
 
   // Matrix initializations
 #if defined(LAYOUT_TILED_PARALLEL_BENCH)
