@@ -65,13 +65,13 @@ static auto naive_gemm(
 #if defined(LAYOUT_TILED_PARALLEL_BENCH)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
-  for (std::size_t i = 0; i < A.extent(0); ++i) {
-    for (std::size_t j = 0; j < B.extent(1); ++j) {
+  for (size_t i = 0; i < A.extent(0); ++i) {
+    for (size_t j = 0; j < B.extent(1); ++j) {
       T acc{};
 #if defined(LAYOUT_TILED_PARALLEL_BENCH)
 #pragma omp simd
 #endif
-      for (std::size_t k = 0; k < A.extent(1); ++k) {
+      for (size_t k = 0; k < A.extent(1); ++k) {
         acc += A[i, k] * B[k, j];
       }
       C[i, j] = acc;
