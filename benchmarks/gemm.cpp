@@ -121,28 +121,24 @@ static auto run_bench(Config const& cfg) -> void {
 #if defined(LAYOUT_TILED_PARALLEL_BENCH)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
-  for (std::size_t i = 0; i < cfg.x_; ++i) {
-    for (std::size_t j = 0; j < cfg.y_; ++j) {
-      msA[i, j]     = 1.0;
-      msB[i, j]     = 1.0;
-      msC[i, j]     = 1.0;
-      mtA_32[i, j]  = 1.0;
-      mtB_32[i, j]  = 1.0;
-      mtC_32[i, j]  = 1.0;
-      mtA_64[i, j]  = 1.0;
-      mtB_64[i, j]  = 1.0;
-      mtC_64[i, j]  = 1.0;
-      mtA_128[i, j] = 1.0;
-      mtB_128[i, j] = 1.0;
-      mtC_128[i, j] = 1.0;
+  for (int i = 0; i < cfg.x_; ++i) {
+    for (int j = 0; j < cfg.y_; ++j) {
+      msA[i, j]    = 1.0;
+      msB[i, j]    = 1.0;
+      msC[i, j]    = 1.0;
+      mtA_l1[i, j] = 1.0;
+      mtB_l1[i, j] = 1.0;
+      mtC_l1[i, j] = 1.0;
+      mtA_l2[i, j] = 1.0;
+      mtB_l2[i, j] = 1.0;
+      mtC_l2[i, j] = 1.0;
     }
   }
 
   // Benchmarks
-  bs.run("layout right", [&]() { naive_gemm(msA, msB, msC); });
-  bs.run("layout tiled 32x32", [&]() { naive_gemm(mtA_32, mtB_32, mtC_32); });
-  bs.run("layout tiled 64x64", [&]() { naive_gemm(mtA_64, mtB_64, mtC_64); });
-  bs.run("layout tiled 128x128", [&]() { naive_gemm(mtA_128, mtB_128, mtC_128); });
+  bs.run("right", [&]() { naive_gemm(msA, msB, msC); });
+  bs.run("tiled 32x32 (L1D)", [&]() { naive_gemm(mtA_l1, mtB_l1, mtC_l1); });
+  bs.run("tiled 128x128 (L2)", [&]() { naive_gemm(mtA_l2, mtB_l2, mtC_l2); });
 
   // Output
   bs.render(ankerl::nanobench::templates::csv(), *out_stream);
