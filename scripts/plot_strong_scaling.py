@@ -1,21 +1,19 @@
 import argparse
 from cycler import cycler
-import matplotlib.pyplot as plt
+from matplotlib import font_manager as fm, pyplot as plt, rcParams
 import numpy as np
-from os import path
 import polars as pl
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Plot performance over matrix size from CSV data"
+        description="Plot strong scaling speedup from CSV data"
     )
     parser.add_argument("csv_path", type=str, help="Path to the input CSV")
-
+    parser.add_argument("-o", "--output", type=str, help="Filename of the output plot")
     args = parser.parse_args()
 
     df = pl.read_csv(args.csv_path)
-
     df = df.with_columns(
         pl.col("title").str.extract(r"(\d+)C").cast(pl.Int64).alias("cores")
     )
@@ -25,7 +23,17 @@ def main() -> None:
     df = df.with_columns((pl.col("elapsed_base") / pl.col("elapsed")).alias("speedup"))
     groups = df.group_by("name", maintain_order=True)
 
-    plt.figure(figsize=(10, 4))
+    # Configure fonts
+    font_dirs = ["/home/dossantosg/.local/share/fonts/palatino"]
+    font_files = fm.findSystemFonts(fontpaths=font_dirs)
+    for font_file in font_files:
+        fm.fontManager.addfont(font_file)
+    rcParams["font.family"] = "Palatino Linotype"
+    plt.rc("axes", labelsize=24)
+    plt.rc("xtick", labelsize=20)
+    plt.rc("ytick", labelsize=20)
+
+    plt.figure(figsize=(10, 6))
     default_cycler = cycler(
         color=["tab:blue", "tab:orange", "tab:green", "tab:red"]
     ) + cycler(linestyle=["-", "--", ":", "-."])
@@ -42,21 +50,18 @@ def main() -> None:
     cores = np.array(sorted(df["cores"].unique().to_list()))
     plt.plot(cores, cores, "k--", label="ideal")
 
-    plt.xlabel("Number of Cores")
+    plt.xlabel("Number of cores")
     plt.ylabel("Speedup")
-    # plt.xscale("log", base=2)
-    # plt.yscale("log", base=2)
+    plt.xscale("log", base=2)
+    plt.yscale("log", base=2)
     plt.xticks(cores, labels=[str(c) for c in cores])
     plt.yticks(cores, labels=[str(c) for c in cores])
-    plt.grid(True, which="both", linestyle="--", linewidth=0.5)
-    plt.legend()
-    plt.title("Strong Scaling Performance")
-
+    plt.legend(title="Layouts", title_fontsize=20, fontsize=20)
+    plt.grid(True, which="both", linestyle="-", linewidth=0.4)
     plt.tight_layout()
-    save_path, _ = path.splitext(
-        path.join("./results/plots/", path.basename(args.csv_path))
-    )
-    plt.savefig(f"{save_path}.pdf")
+
+    if args.output is not None:
+        plt.savefig(args.output)
     plt.show()
 
 
