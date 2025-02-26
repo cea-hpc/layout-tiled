@@ -34,6 +34,10 @@ def perf_comp(num_threads: int, output: str):
     env_vars["OMP_PROC_BIND"] = "spread"
     env_vars["OMP_NUM_THREADS"] = f"{num_threads}"
     for dim in dims:
+        print(
+            f"Running performance comparison benchmark with {num_threads} threads on size: {dim}x{dim}",
+            end="\r",
+        )
         command = [
             "numactl",
             f"--physcpubind=0-{num_threads - 1 if num_threads <= 64 else f'{int(num_threads / 2 - 1)},64-{int(64 + num_threads / 2 - 1)}'}",  # balance threads between sockets when above 64
@@ -51,6 +55,10 @@ def strong_scaling(dims: int, output: str):
     env_vars = os.environ.copy()
     env_vars["OMP_PROC_BIND"] = "spread"
     for th in threads:
+        print(
+            f"\rRunning strong scaling study with size {dims}x{dims} on: {th} threads",
+            end="\r",
+        )
         env_vars["OMP_NUM_THREADS"] = f"{th}"
         command = [
             "numactl",
@@ -71,6 +79,10 @@ def weak_scaling(output: str):
     env_vars = os.environ.copy()
     env_vars["OMP_PROC_BIND"] = "spread"
     for dx, dy, th in zip(dims_x, dims_y, threads):
+        print(
+            f"\rRunning weak scaling study with: size {dx}x{dy}, on: {th} threads",
+            end="\r",
+        )
         env_vars["OMP_NUM_THREADS"] = f"{th}"
         command = [
             "numactl",
