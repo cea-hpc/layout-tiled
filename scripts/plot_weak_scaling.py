@@ -1,21 +1,19 @@
 import argparse
 from cycler import cycler
-import matplotlib.pyplot as plt
+from matplotlib import font_manager as fm, pyplot as plt, rcParams
 import numpy as np
-from os import path
 import polars as pl
 
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Plot weak scaling performance from CSV data"
+        description="Plot weak scaling effiency from CSV data"
     )
     parser.add_argument("csv_path", type=str, help="Path to the input CSV")
-
+    parser.add_argument("-o", "--output", type=str, help="Filename of the output plot")
     args = parser.parse_args()
 
     df = pl.read_csv(args.csv_path)
-
     df = df.with_columns(
         pl.col("title").str.extract(r"(\d+)C").cast(pl.Int64).alias("cores")
     )
@@ -27,7 +25,17 @@ def main() -> None:
     )
     groups = df.group_by("name", maintain_order=True)
 
-    plt.figure(figsize=(10, 4))
+    # Configure fonts
+    font_dirs = ["/home/dossantosg/.local/share/fonts/palatino"]
+    font_files = fm.findSystemFonts(fontpaths=font_dirs)
+    for font_file in font_files:
+        fm.fontManager.addfont(font_file)
+    rcParams["font.family"] = "Palatino Linotype"
+    plt.rc("axes", labelsize=24)
+    plt.rc("xtick", labelsize=20)
+    plt.rc("ytick", labelsize=20)
+
+    plt.figure(figsize=(10, 6))
     default_cycler = cycler(
         color=["tab:blue", "tab:orange", "tab:green", "tab:red"]
     ) + cycler(linestyle=["-", "--", ":", "-."])
@@ -46,20 +54,17 @@ def main() -> None:
 
     plt.xlabel("Number of Cores")
     plt.ylabel("Efficiency")
+    plt.xscale("log", base=2)
     plt.xticks(cores, labels=[str(c) for c in cores])
     plt.yticks(
-        np.arange(0, 1.1, 0.2), labels=[f"{v:.1f}" for v in np.arange(0, 1.1, 0.2)]
+        np.arange(0, 1.1, 0.1), labels=[f"{v:.1f}" for v in np.arange(0, 1.1, 0.1)]
     )
-    # plt.yscale("log")
-    plt.grid(True, which="both", linestyle="--", linewidth=0.5)
-    plt.legend()
-    plt.title("Weak Scaling Efficiency")
-
+    plt.legend(title="Layouts", title_fontsize=20, fontsize=20)
+    plt.grid(True, which="both", linestyle="-", linewidth=0.4)
     plt.tight_layout()
-    save_path, _ = path.splitext(
-        path.join("./results/plots/", path.basename(args.csv_path))
-    )
-    plt.savefig(f"{save_path}.pdf")
+
+    if args.output is not None:
+        plt.savefig(args.output)
     plt.show()
 
 
