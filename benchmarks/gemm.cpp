@@ -121,8 +121,8 @@ static auto run_bench(Config const& cfg) -> void {
 #if defined(LAYOUT_TILED_PARALLEL_BENCH)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
-  for (int i = 0; i < cfg.x_; ++i) {
-    for (int j = 0; j < cfg.y_; ++j) {
+  for (size_t i = 0; i < cfg.x_; ++i) {
+    for (size_t j = 0; j < cfg.y_; ++j) {
       msA[i, j]    = 1.0;
       msB[i, j]    = 1.0;
       msC[i, j]    = 1.0;
