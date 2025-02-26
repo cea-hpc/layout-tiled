@@ -9,6 +9,7 @@ clang \
 libc++-dev \
 libc++abi-dev \
 libomp-dev \
+python3 \
 numactl \
 vim
 
