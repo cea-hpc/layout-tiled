@@ -40,7 +40,7 @@ using namespace std::chrono_literals;
 using extents_type = std::dextents<size_t, 2>;
 
 constexpr size_t TILE_L1D = 32;
-constexpr size_t TILE_L2 = 128;
+constexpr size_t TILE_L2  = 128;
 
 static std::string HELP_MSG = "Usage: layout_tiled.benchmarks.gemm [OPTIONS]\n\n"
                               "Options:\n"
@@ -109,16 +109,22 @@ static auto run_bench(Config const& cfg) -> void {
   std::vector<double> tA_l1(cfg.x_ * cfg.y_);
   std::vector<double> tB_l1(cfg.x_ * cfg.y_);
   std::vector<double> tC_l1(cfg.x_ * cfg.y_);
-  auto mtA_l1 = std::mdspan<double, extents_type, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tA_l1.data(), cfg.x_, cfg.y_);
-  auto mtB_l1 = std::mdspan<double, extents_type, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tB_l1.data(), cfg.x_, cfg.y_);
-  auto mtC_l1 = std::mdspan<double, extents_type, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tC_l1.data(), cfg.x_, cfg.y_);
+  auto mtA_l1 =
+    std::mdspan<double, extents_type, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tA_l1.data(), cfg.x_, cfg.y_);
+  auto mtB_l1 =
+    std::mdspan<double, extents_type, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tB_l1.data(), cfg.x_, cfg.y_);
+  auto mtC_l1 =
+    std::mdspan<double, extents_type, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tC_l1.data(), cfg.x_, cfg.y_);
 
   std::vector<double> tA_l2(cfg.x_ * cfg.y_);
   std::vector<double> tB_l2(cfg.x_ * cfg.y_);
   std::vector<double> tC_l2(cfg.x_ * cfg.y_);
-  auto mtA_l2 = std::mdspan<double, extents_type, layout_right_tiled_right<TILE_L2, TILE_L2>>(tA_l2.data(), cfg.x_, cfg.y_);
-  auto mtB_l2 = std::mdspan<double, extents_type, layout_right_tiled_right<TILE_L2, TILE_L2>>(tB_l2.data(), cfg.x_, cfg.y_);
-  auto mtC_l2 = std::mdspan<double, extents_type, layout_right_tiled_right<TILE_L2, TILE_L2>>(tC_l2.data(), cfg.x_, cfg.y_);
+  auto mtA_l2 =
+    std::mdspan<double, extents_type, layout_right_tiled_right<TILE_L2, TILE_L2>>(tA_l2.data(), cfg.x_, cfg.y_);
+  auto mtB_l2 =
+    std::mdspan<double, extents_type, layout_right_tiled_right<TILE_L2, TILE_L2>>(tB_l2.data(), cfg.x_, cfg.y_);
+  auto mtC_l2 =
+    std::mdspan<double, extents_type, layout_right_tiled_right<TILE_L2, TILE_L2>>(tC_l2.data(), cfg.x_, cfg.y_);
 
   // Matrix initializations
 #if defined(LAYOUT_TILED_PARALLEL_BENCH)
