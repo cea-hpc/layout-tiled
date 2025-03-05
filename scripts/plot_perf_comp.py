@@ -85,7 +85,7 @@ def main() -> None:
             marker="x",
         )
     plt.xlabel("Matrix size")
-    plt.ylabel("Average Gflop/s")
+    plt.ylabel("Average Gflop/s (FP64)")
     plt.xticks(np.arange(512, 4200, step=512))
     plt.yticks(np.arange(0, max_perf + 5, step=10))
     plt.legend(title="Layouts", title_fontsize=20, fontsize=20)

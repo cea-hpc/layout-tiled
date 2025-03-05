@@ -18,6 +18,7 @@ def main() -> None:
         pl.col("title").str.extract(r"(\d+)C").cast(pl.Int64).alias("cores")
     )
     baseline = df.filter(pl.col("cores") == 1).select(["name", "elapsed"])
+    print(baseline)
 
     df = df.join(baseline, on="name", suffix="_base")
     df = df.with_columns((pl.col("elapsed_base") / pl.col("elapsed")).alias("speedup"))
@@ -46,18 +47,16 @@ def main() -> None:
             marker="x",
         )
 
-    # Ideal speedup line
-    cores = np.array(sorted(df["cores"].unique().to_list()))
+    # Ideal strong scaling line
+    cores = np.array(sorted([x for x in df["cores"] if (x & (x - 1)) == 0]))
     plt.plot(cores, cores, "k--", label="ideal")
 
     plt.xlabel("Number of cores")
     plt.ylabel("Speedup")
     plt.xscale("log", base=2)
-    plt.yscale("log", base=2)
-    plt.xticks(cores, labels=[str(c) for c in cores])
-    plt.yticks(cores, labels=[str(c) for c in cores])
+    plt.xticks(cores, cores)
     plt.legend(title="Layouts", title_fontsize=20, fontsize=20)
-    plt.grid(True, which="both", linestyle="-", linewidth=0.4)
+    plt.grid(True, which="both", ls="-", alpha=0.4)
     plt.tight_layout()
 
     if args.output is not None:

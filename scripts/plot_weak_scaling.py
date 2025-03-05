@@ -49,18 +49,15 @@ def main() -> None:
         )
 
     # Ideal weak scaling line (constant runtime)
-    cores = np.array(sorted(df["cores"].unique().to_list()))
+    cores = np.array(sorted([x for x in df["cores"] if (x & (x - 1)) == 0]))
     plt.plot(cores, np.ones_like(cores), "k--", label="ideal")
 
-    plt.xlabel("Number of Cores")
+    plt.xlabel("Number of cores")
     plt.ylabel("Efficiency")
     plt.xscale("log", base=2)
-    plt.xticks(cores, labels=[str(c) for c in cores])
-    plt.yticks(
-        np.arange(0, 1.1, 0.1), labels=[f"{v:.1f}" for v in np.arange(0, 1.1, 0.1)]
-    )
+    plt.xticks(cores, cores)
     plt.legend(title="Layouts", title_fontsize=20, fontsize=20)
-    plt.grid(True, which="both", linestyle="-", linewidth=0.4)
+    plt.grid(True, which="both", ls="-", alpha=0.4)
     plt.tight_layout()
 
     if args.output is not None:
