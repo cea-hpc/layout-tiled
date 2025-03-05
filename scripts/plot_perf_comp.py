@@ -56,7 +56,6 @@ def main() -> None:
             pl.col("speedup").max().alias("max_speedup"),
             pl.col("speedup").mean().alias("avg_speedup"),
             pl.col("speedup").std().alias("speedup_std"),
-            pl.count("speedup").alias("num_samples"),
         )
         .sort("tile size")
     )
