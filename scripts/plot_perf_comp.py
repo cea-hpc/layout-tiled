@@ -35,7 +35,11 @@ def main() -> None:
     results = results.with_columns(
         (pl.col("error %") * pl.col("gflops")).alias("errors")
     )
-    groups = results.sort("tile size").group_by("name", maintain_order=True)
+    groups = (
+        results.filter(~pl.col("name").str.contains("OMP"))
+        .sort("name")
+        .group_by("name", maintain_order=True)
+    )
     max_perf = results.select(pl.col("gflops")).max().item()
 
     # Calculate base implementation times for each matrix size
@@ -49,9 +53,9 @@ def main() -> None:
         base_times, on="matrix size", how="left"
     ).with_columns((pl.col("base_elapsed") / pl.col("elapsed")).alias("speedup"))
     # Filter to show only tiled implementations
-    tiled_results = results_with_speedup.filter(pl.col("name").str.contains("tiled"))
+    tiled_results = results_with_speedup.filter(pl.col("name").str.contains("x"))
     avg_speedups = (
-        tiled_results.group_by("tile size")
+        tiled_results.group_by("name", "tile size")
         .agg(
             pl.col("speedup").max().alias("max_speedup"),
             pl.col("speedup").mean().alias("avg_speedup"),
@@ -67,14 +71,32 @@ def main() -> None:
     for font_file in font_files:
         fm.fontManager.addfont(font_file)
     rcParams["font.family"] = "Palatino Linotype"
-    plt.rc("axes", labelsize=24)
-    plt.rc("xtick", labelsize=24)
-    plt.rc("ytick", labelsize=24)
+    plt.rc("axes", labelsize=28)
+    plt.rc("xtick", labelsize=20)
+    plt.rc("ytick", labelsize=20)
 
     plt.figure(figsize=(10, 6))
     default_cycler = cycler(
-        color=["tab:blue", "tab:orange", "tab:green", "tab:red"]
-    ) + cycler(linestyle=["-", "--", ":", "-."])
+        color=[
+            "#4e79a7",
+            "#59a14f",
+            "#76b7b2",
+            "#e15759",
+            "#f28e2b",
+            "#edc848",
+            "#b07aa1",
+        ]
+    ) + cycler(
+        linestyle=[
+            "-",
+            ":",
+            "--",
+            ":",
+            "--",
+            ":",
+            "--",
+        ]
+    )
     for name, group in groups:
         plt.rc("axes", prop_cycle=default_cycler)
         plt.errorbar(
@@ -86,9 +108,14 @@ def main() -> None:
         )
     plt.xlabel("Matrix size")
     plt.ylabel("Average Gflop/s (FP64)")
-    plt.xticks(np.arange(512, 4200, step=512))
+    plt.xticks(np.arange(512, 4100, step=512))
     plt.yticks(np.arange(0, max_perf + 5, step=10))
-    plt.legend(title="Layouts", title_fontsize=20, fontsize=20)
+    plt.legend(
+        title="Layouts",
+        title_fontsize=16,
+        fontsize=16,
+        ncol=2,
+    )
     plt.grid(True, which="both", ls="-", alpha=0.4)
     plt.tight_layout()
 
