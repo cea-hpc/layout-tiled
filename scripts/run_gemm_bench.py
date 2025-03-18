@@ -28,7 +28,7 @@ def parse_output(args: tuple):
 
 
 def perf_comp(num_threads: int, output: str):
-    dims = [512, 768, 1024, 1280, 1536, 2048, 2560, 3072, 3584, 4096]
+    dims = [512, 1024, 1536, 2048, 2560, 3072, 3584, 4096]
 
     env_vars = os.environ.copy()
     env_vars["OMP_PROC_BIND"] = "spread"
@@ -40,7 +40,8 @@ def perf_comp(num_threads: int, output: str):
         )
         command = [
             "numactl",
-            f"--physcpubind=0-{num_threads - 1 if num_threads <= 64 else f'{int(num_threads / 2 - 1)},64-{int(64 + num_threads / 2 - 1)}'}",  # balance threads between sockets when above 64
+            # f"--physcpubind=0-{num_threads - 1}",
+            "--physcpubind=0,2,4,6",
             "./build/benchmarks/layout_tiled.benchmarks.gemm",
             f"-x{dim}",
             f"-y{dim}",
@@ -62,7 +63,7 @@ def strong_scaling(dims: int, output: str):
         env_vars["OMP_NUM_THREADS"] = f"{th}"
         command = [
             "numactl",
-            f"--physcpubind=0-{th - 1 if th <= 64 else f'{int(th / 2 - 1)},64-{int(64 + th / 2 - 1)}'}",  # balance threads between sockets when above 64
+            f"--physcpubind=0-{th - 1}",
             "./build/benchmarks/layout_tiled.benchmarks.gemm",
             f"-x{dims}",
             f"-y{dims}",
@@ -72,24 +73,25 @@ def strong_scaling(dims: int, output: str):
 
 
 def weak_scaling(output: str):
-    dims_x = [512, 512, 1024, 1024, 1536, 2048, 2048, 2048, 3072, 4096, 4096, 8192]
-    dims_y = [512, 1024, 1024, 2048, 2048, 2048, 3072, 4096, 4096, 4096, 8192, 8192]
-    threads = [1, 2, 4, 8, 12, 16, 24, 32, 48, 64, 96, 128]
+    # fmt: off
+    dims   =  [512, 1024, 2048, 4096]
+    threads = [  1,    4,   16,   64]
+    # fmt: on
 
     env_vars = os.environ.copy()
     env_vars["OMP_PROC_BIND"] = "spread"
-    for dx, dy, th in zip(dims_x, dims_y, threads):
+    for dim, th in zip(dims, threads):
         print(
-            f"\rRunning weak scaling study with: size {dx}x{dy}, on: {th} threads",
+            f"\rRunning weak scaling study with: size {dim}x{dim}, on: {th} threads",
             end="\r",
         )
         env_vars["OMP_NUM_THREADS"] = f"{th}"
         command = [
             "numactl",
-            f"--physcpubind=0-{th - 1 if th <= 64 else f'{int(th / 2 - 1)},64-{int(64 + th / 2 - 1)}'}",  # balance threads between sockets when above 64
+            f"--physcpubind=0-{th - 1}",
             "./build/benchmarks/layout_tiled.benchmarks.gemm",
-            f"-x{dx}",
-            f"-y{dy}",
+            f"-x{dim}",
+            f"-y{dim}",
             f"-o{output}",
         ]
         subprocess.run(command, env=env_vars)

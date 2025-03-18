@@ -17,11 +17,9 @@ def main() -> None:
     df = df.with_columns(
         pl.col("title").str.extract(r"(\d+)C").cast(pl.Int64).alias("cores")
     )
-    baseline = df.filter(pl.col("cores") == 1).select(["name", "elapsed"])
-    print(baseline)
-
-    df = df.join(baseline, on="name", suffix="_base")
-    df = df.with_columns((pl.col("elapsed_base") / pl.col("elapsed")).alias("speedup"))
+    baseline = df.filter(pl.col("cores") == 1).select("elapsed").min().item()
+    df = df.with_columns((baseline / pl.col("elapsed")).alias("speedup"))
+    df = df.with_columns((pl.col("speedup") / pl.col("cores")).alias("efficiency"))
     groups = df.group_by("name", maintain_order=True)
 
     # Configure fonts
@@ -30,32 +28,59 @@ def main() -> None:
     for font_file in font_files:
         fm.fontManager.addfont(font_file)
     rcParams["font.family"] = "Palatino Linotype"
-    plt.rc("axes", labelsize=24)
+    plt.rc("axes", labelsize=28)
     plt.rc("xtick", labelsize=20)
     plt.rc("ytick", labelsize=20)
 
     plt.figure(figsize=(10, 6))
     default_cycler = cycler(
-        color=["tab:blue", "tab:orange", "tab:green", "tab:red"]
-    ) + cycler(linestyle=["-", "--", ":", "-."])
+        color=[
+            "#4e79a7",
+            "#f28e2b",
+            "#e15759",
+            "#76b7b2",
+            "#59a14f",
+            "#edc848",
+            "#b07aa1",
+        ]
+    ) + cycler(
+        linestyle=[
+            "-",
+            "--",
+            ":",
+            "--",
+            ":",
+            "--",
+            ":",
+        ]
+    )
     for name, group in groups:
         plt.rc("axes", prop_cycle=default_cycler)
         plt.errorbar(
             x=group["cores"],
-            y=group["speedup"],
+            y=group["efficiency"],
+            # y=group["speedup"],
             label=name[0],
             marker="x",
         )
 
-    # Ideal strong scaling line
+    # Ideal efficiency line (perfect speedup)
     cores = np.array(sorted([x for x in df["cores"] if (x & (x - 1)) == 0]))
-    plt.plot(cores, cores, "k--", label="ideal")
+    plt.plot(cores, np.ones_like(cores), "k--", label="ideal")
+    # # Ideal strong scaling line
+    # cores = np.array(sorted([x for x in df["cores"] if (x & (x - 1)) == 0]))
+    # plt.plot(cores, cores, "k--", label="ideal")
 
+    # plt.title("Fixed problem size: 2048x2048", fontsize=16)
     plt.xlabel("Number of cores")
-    plt.ylabel("Speedup")
     plt.xscale("log", base=2)
     plt.xticks(cores, cores)
-    plt.legend(title="Layouts", title_fontsize=20, fontsize=20)
+    plt.ylabel("Efficiency")
+    plt.yticks(np.arange(0, 1.2, step=0.2))
+    # plt.ylabel("Speedup")
+    # plt.yscale("log", base=2)
+    # plt.yticks(cores, cores)
+    plt.legend(fontsize=20)
     plt.grid(True, which="both", ls="-", alpha=0.4)
     plt.tight_layout()
 
