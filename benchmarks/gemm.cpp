@@ -82,6 +82,134 @@ static auto naive_gemm(
   }
 }
 
+template <class T, class Extents, class Layout, class AccessorPolicy>
+auto block_l1d_gemm(
+  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
+  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
+  std::mdspan<T, Extents, Layout, AccessorPolicy> C
+) -> void {
+  assert(A.extent(1) == B.extent(0));
+  assert(A.extent(0) == C.extent(0));
+  assert(B.extent(1) == C.extent(1));
+
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp parallel for schedule(static)
+#endif
+  for (std::size_t bi = 0; bi < A.extent(0); bi += TILE_L1D) {
+    auto const i_end = std::min(bi + TILE_L1D, A.extent(0));
+    for (std::size_t bj = 0; bj < B.extent(1); bj += TILE_L1D) {
+      auto const j_end = std::min(bj + TILE_L1D, B.extent(1));
+      for (std::size_t bk = 0; bk < A.extent(1); bk += TILE_L1D) {
+        auto const k_end = std::min(bk + TILE_L1D, A.extent(1));
+        for (std::size_t i = bi; i < i_end; ++i) {
+          for (std::size_t j = bj; j < j_end; ++j) {
+            T acc{};
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp simd
+#endif
+            for (std::size_t k = bk; k < k_end; ++k) {
+              acc += A[i, k] * B[k, j];
+            }
+            C[i, j] = acc;
+          }
+        }
+      }
+    }
+  }
+}
+
+template <class T, class Extents, class Layout, class AccessorPolicy>
+auto block_l2_gemm(
+  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
+  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
+  std::mdspan<T, Extents, Layout, AccessorPolicy> C
+) -> void {
+  assert(A.extent(1) == B.extent(0));
+  assert(A.extent(0) == C.extent(0));
+  assert(B.extent(1) == C.extent(1));
+
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp parallel for schedule(static)
+#endif
+  for (std::size_t bi = 0; bi < A.extent(0); bi += TILE_L2) {
+    auto const i_end = std::min(bi + TILE_L2, A.extent(0));
+    for (std::size_t bj = 0; bj < B.extent(1); bj += TILE_L2) {
+      auto const j_end = std::min(bj + TILE_L2, B.extent(1));
+      for (std::size_t bk = 0; bk < A.extent(1); bk += TILE_L2) {
+        auto const k_end = std::min(bk + TILE_L2, A.extent(1));
+        for (std::size_t i = bi; i < i_end; ++i) {
+          for (std::size_t j = bj; j < j_end; ++j) {
+            T acc{};
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp simd
+#endif
+            for (std::size_t k = bk; k < k_end; ++k) {
+              acc += A[i, k] * B[k, j];
+            }
+            C[i, j] = acc;
+          }
+        }
+      }
+    }
+  }
+}
+
+template <class T, class Extents, class Layout, class AccessorPolicy>
+static auto omp_tile_l1d_gemm(
+  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
+  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
+  std::mdspan<T, Extents, Layout, AccessorPolicy> C
+) -> void {
+  assert(A.extent(1) == B.extent(0));
+  assert(A.extent(0) == C.extent(0));
+  assert(B.extent(1) == C.extent(1));
+
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp parallel for schedule(static)
+#pragma omp tile sizes(TILE_L1D, TILE_L1D)
+#endif
+  for (size_t i = 0; i < A.extent(0); ++i) {
+    for (size_t j = 0; j < B.extent(1); ++j) {
+      T acc{};
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp simd
+#endif
+      for (size_t k = 0; k < A.extent(1); ++k) {
+        acc += A[i, k] * B[k, j];
+      }
+      C[i, j] = acc;
+    }
+  }
+}
+
+template <class T, class Extents, class Layout, class AccessorPolicy>
+static auto omp_tile_l2_gemm(
+  std::mdspan<T, Extents, Layout, AccessorPolicy> A,
+  std::mdspan<T, Extents, Layout, AccessorPolicy> B,
+  std::mdspan<T, Extents, Layout, AccessorPolicy> C
+) -> void {
+  assert(A.extent(1) == B.extent(0));
+  assert(A.extent(0) == C.extent(0));
+  assert(B.extent(1) == C.extent(1));
+
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp parallel for schedule(static)
+#pragma omp tile sizes(TILE_L2, TILE_L2)
+#endif
+  for (size_t i = 0; i < A.extent(0); ++i) {
+    for (size_t j = 0; j < B.extent(1); ++j) {
+      T acc{};
+#if defined(LAYOUT_TILED_PARALLEL_BENCH)
+#pragma omp simd
+#endif
+      for (size_t k = 0; k < A.extent(1); ++k) {
+        acc += A[i, k] * B[k, j];
+      }
+      C[i, j] = acc;
+    }
+  }
+}
+
 static auto run_bench(Config const& cfg) -> void {
   ankerl::nanobench::Bench bs;
   bs.output(nullptr);
@@ -148,6 +276,10 @@ static auto run_bench(Config const& cfg) -> void {
   bs.run("right", [&]() { naive_gemm(msA, msB, msC); });
   bs.run("tiled 32x32 (L1D)", [&]() { naive_gemm(mtA_l1, mtB_l1, mtC_l1); });
   bs.run("tiled 128x128 (L2)", [&]() { naive_gemm(mtA_l2, mtB_l2, mtC_l2); });
+  bs.run("right blocked L1D", [&]() { block_l1d_gemm(msA, msB, msC); });
+  bs.run("right blocked L2", [&]() { block_l2_gemm(msA, msB, msC); });
+  bs.run("right omp tile L1D", [&]() { omp_tile_l1d_gemm(msA, msB, msC); });
+  bs.run("right omp tile L2", [&]() { omp_tile_l2_gemm(msA, msB, msC); });
 
   // Output
   bs.render(ankerl::nanobench::templates::csv(), *out_stream);
