@@ -17,21 +17,42 @@
 #
 # Author: Gabriel Dos Santos <gabriel.dossantos@cea.fr>
 
-set(ALL_EXAMPLES layout_right_tiled_right layout_right_tiled_left layout_left_tiled_right layout_left_tiled_left)
+set(
+  ALL_EXAMPLES
+  layout_right_tiled_right
+  layout_right_tiled_left
+  layout_left_tiled_right
+  layout_left_tiled_left
+)
 
 foreach(example ${ALL_EXAMPLES})
   add_executable(layout_tiled.examples.${example})
   target_sources(layout_tiled.examples.${example} PRIVATE ${example}.cpp)
   target_compile_options(
     layout_tiled.examples.${example}
-    PRIVATE -stdlib=libc++ -Wall -Wextra -Wshadow -Wpedantic -Wcast-align -Wconversion -Wmissing-include-dirs -Wformat=2
+    PRIVATE
+      -stdlib=libc++
+      -Wall
+      -Wextra
+      -Wshadow
+      -Wpedantic
+      -Wcast-align
+      -Wconversion
+      -Wmissing-include-dirs
+      -Wformat=2
   )
   target_compile_features(layout_tiled.examples.${example} PRIVATE cxx_std_23)
-  set_target_properties(layout_tiled.examples.${example} PROPERTIES CXX_EXTENSIONS OFF)
+  set_target_properties(
+    layout_tiled.examples.${example}
+    PROPERTIES
+      CXX_EXTENSIONS
+        OFF
+  )
   target_link_libraries(
     layout_tiled.examples.${example}
     PRIVATE
       layout_tiled::layout_tiled
-      c++ # Need to explicitly link with libc++ for some reason (appears to be related to std::print)
+      fmt::fmt
+      c++abi # Need to explicitly link with libc++ for some reason (appears to be related to std::print)
   )
 endforeach()

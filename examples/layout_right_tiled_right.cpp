@@ -17,22 +17,21 @@
 ///
 /// Author: Gabriel Dos Santos <gabriel.dossantos@cea.fr>
 
-#include <layout_tiled/layout_right_tiled_right.hpp>
-
 #include <array>
 #include <mdspan>
-#include <print>
+
+#include <fmt/core.h>
+#include <layout_tiled/layout_right_tiled_right.hpp>
 
 auto main() -> int {
-  constexpr std::size_t ROWS  = 4;
-  constexpr std::size_t COLS  = 6;
-  constexpr std::size_t TROWS = 2;
-  constexpr std::size_t TCOLS = 3;
+  constexpr size_t ROWS  = 4;
+  constexpr size_t COLS  = 6;
+  constexpr size_t TROWS = 2;
+  constexpr size_t TCOLS = 3;
 
   using element_type = int;
-  using extents_type = std::dextents<std::size_t, 2>;
-  using layout_rtr   = layout_right_tiled_right<TROWS, TCOLS>::mapping<extents_type>;
-  std::print("Array dimensions: {}x{}\nTile dimensions:  {}x{}\n", ROWS, COLS, TROWS, TCOLS);
+  using extents_type = std::extents<size_t, ROWS, COLS>;
+  fmt::print("Array dimensions: {}x{}\nTile dimensions:  {}x{}\n", ROWS, COLS, TROWS, TCOLS);
 
   // clang-format off
   // Manually tiled data (row-major over tiles, row-major within tiles)
@@ -44,23 +43,23 @@ auto main() -> int {
   };
   // clang-format on
 
-  auto m_lin = std::mdspan(rtr.data(), ROWS, COLS);
-  auto m_rtr = std::mdspan(rtr.data(), layout_rtr(extents_type{ROWS, COLS}));
+  auto m_lin = std::mdspan<element_type, extents_type>(rtr.data());
+  auto m_rtr = std::mdspan<element_type, extents_type, layout_right_tiled_right<TROWS, TCOLS>>(rtr.data());
 
-  std::print("\nActual storage (manually tiled):\n");
-  for (std::size_t i = 0; i < ROWS; ++i) {
-    for (std::size_t j = 0; j < COLS; ++j) {
-      std::print("{:2d} ", m_lin[i, j]);
+  fmt::print("\nActual storage (manually tiled):\n");
+  for (size_t i = 0; i < ROWS; ++i) {
+    for (size_t j = 0; j < COLS; ++j) {
+      fmt::print("{:2d} ", m_lin[i, j]);
     }
-    std::print("\n");
+    fmt::print("\n");
   }
 
-  std::print("\nTiled-order iteration (appears linearly stored):\n");
-  for (std::size_t i = 0; i < ROWS; ++i) {
-    for (std::size_t j = 0; j < COLS; ++j) {
-      std::print("{:2d} ", m_rtr[i, j]);
+  fmt::print("\nTiled-order iteration (appears linearly stored):\n");
+  for (size_t i = 0; i < ROWS; ++i) {
+    for (size_t j = 0; j < COLS; ++j) {
+      fmt::print("{:2d} ", m_rtr[i, j]);
     }
-    std::print("\n");
+    fmt::print("\n");
   }
 
   return 0;
