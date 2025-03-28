@@ -130,11 +130,15 @@ jobs:
       - name: Get LLVM libc++ and OpenMP
         run: sudo apt update && sudo apt install libc++-dev libomp-dev
 
-      - name: Configure
-        run: cmake -S . -B build -DLayoutTiled_BUILD_BENCHMARKS=ON -DLayoutTiled_PARALLEL_BENCH=ON
+      - name: Configure serial
+        run: cmake -S . -B build-serial -DLayoutTiled_BUILD_BENCHMARKS=ON
+      - name: Configure parallel
+        run: cmake -S . -B build-parallel -DLayoutTiled_BUILD_BENCHMARKS=ON -DLayoutTiled_BENCH_OPENMP=ON
 
-      - name: Build
-        run: cmake --build build --config Release --verbose
+      - name: Build serial
+        run: cmake --build build-serial --config Release --verbose
+      - name: Build parallel
+        run: cmake --build build-parallel --config Release --verbose
 
   install:
     needs: changes
