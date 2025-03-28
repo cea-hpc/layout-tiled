@@ -1,30 +1,33 @@
-# Copyright (C) 2024, CEA
+# Copyright (C) 2024-2025 CEA
+# Copyright (C) 2024-2025 Gabriel Dos Santos
 #
-# Licensed under the MIT License ("the License" hereafter);
+# Distributed under the MIT License.
 # You may not use this file except in compliance with the License.
-# You should have received a full copy of the License along with this program;
-# if not, you can obtain a copy at:
-#
-#    https://opensource.org/license/MIT
-#
-# The software is provided “as is”, without warranty of any kind, express
-# or implied, including but not limited to the warranties of merchantability,
-# fitness for a particular purpose and noninfringement. In no event shall
-# the authors or copyright holders be liable for any claim, damages or other
-# liability, whether in an action of contract, tort or otherwise, arising from,
-# out of or in connection with the software or the use or other dealings
-# in the software.
-#
-# Author: Gabriel Dos Santos <gabriel.dossantos@cea.fr>
+# See https://opensource.org/license/MIT for license information.
+# SPDX-License-Identifier: MIT
 
 add_library(layout_tiled_compile_flags INTERFACE)
 target_compile_options(
   layout_tiled_compile_flags
-  INTERFACE -stdlib=libc++ -Wall -Wextra -Wshadow -Wpedantic -Wcast-align -Wconversion -Wmissing-include-dirs -Wformat=2
+  INTERFACE
+    -stdlib=libc++
+    -Wall
+    -Wextra
+    -Wshadow
+    -Wpedantic
+    -Wcast-align
+    -Wconversion
+    -Wmissing-include-dirs
+    -Wformat=2
 )
 # Require C++23 w/o GNU extensions
 target_compile_features(layout_tiled_compile_flags INTERFACE cxx_std_23)
-set_target_properties(layout_tiled_compile_flags PROPERTIES CXX_EXTENSIONS OFF)
+set_target_properties(
+  layout_tiled_compile_flags
+  PROPERTIES
+    CXX_EXTENSIONS
+      OFF
+)
 
 add_library(layout_tiled INTERFACE)
 add_library(layout_tiled::layout_tiled ALIAS layout_tiled)
@@ -55,8 +58,12 @@ include(GNUInstallDirs)
 
 # Export and install public headers
 install(
-  TARGETS layout_tiled layout_tiled_compile_flags
+  TARGETS
+    layout_tiled
+    layout_tiled_compile_flags
   EXPORT LayoutTiledTargets
-  FILE_SET layout_tiled_public_headers
-  FILE_SET layout_tiled_details_headers
+  FILE_SET
+  layout_tiled_public_headers
+  FILE_SET
+  layout_tiled_details_headers
 )
