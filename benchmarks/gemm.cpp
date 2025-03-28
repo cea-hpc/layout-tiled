@@ -50,7 +50,7 @@ static auto naive_gemm(
 ) -> void
   requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
 {
-// clang-format on
+  // clang-format on
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
@@ -176,7 +176,7 @@ static auto omp_tile_l1d_gemm(
 ) -> void
   requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
 {
-// clang-format on
+  // clang-format on
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
@@ -213,7 +213,7 @@ static auto omp_tile_l2_gemm(
 ) -> void
   requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
 {
-// clang-format on
+  // clang-format on
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
@@ -263,22 +263,16 @@ static auto run_bench(Config const& cfg) -> void {
   std::vector<double> tA_l1(cfg.n_ * cfg.n_);
   std::vector<double> tB_l1(cfg.n_ * cfg.n_);
   std::vector<double> tC_l1(cfg.n_ * cfg.n_);
-  auto mtA_l1 =
-    std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tA_l1.data(), cfg.n_, cfg.n_);
-  auto mtB_l1 =
-    std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tB_l1.data(), cfg.n_, cfg.n_);
-  auto mtC_l1 =
-    std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tC_l1.data(), cfg.n_, cfg.n_);
+  auto mtA_l1 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tA_l1.data(), cfg.n_, cfg.n_);
+  auto mtB_l1 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tB_l1.data(), cfg.n_, cfg.n_);
+  auto mtC_l1 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tC_l1.data(), cfg.n_, cfg.n_);
 
   std::vector<double> tA_l2(cfg.n_ * cfg.n_);
   std::vector<double> tB_l2(cfg.n_ * cfg.n_);
   std::vector<double> tC_l2(cfg.n_ * cfg.n_);
-  auto mtA_l2 =
-    std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tA_l2.data(), cfg.n_, cfg.n_);
-  auto mtB_l2 =
-    std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tB_l2.data(), cfg.n_, cfg.n_);
-  auto mtC_l2 =
-    std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tC_l2.data(), cfg.n_, cfg.n_);
+  auto mtA_l2 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tA_l2.data(), cfg.n_, cfg.n_);
+  auto mtB_l2 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tB_l2.data(), cfg.n_, cfg.n_);
+  auto mtC_l2 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tC_l2.data(), cfg.n_, cfg.n_);
 
   // Matrix initializations
 #if defined(LAYOUT_TILED_BENCH_OPENMP)
@@ -313,13 +307,12 @@ static auto run_bench(Config const& cfg) -> void {
 }
 
 auto main(int argc, char* argv[]) -> int {
-  static std::string HELP_MSG =
-    "Execute GEMM benchmark\n\n"
-    "Usage: layout_tiled.benchmarks.gemm [OPTIONS]\n\n"
-    "Options:\n"
-    "  -n, --size <SIZE>             Matrix size [default: 512]\n"
-    "  -o, --output <FILENAME>       Output file name\n"
-    "  -h, --help                    Show this help\n";
+  static std::string HELP_MSG         = "Execute GEMM benchmark\n\n"
+                                        "Usage: layout_tiled.benchmarks.gemm [OPTIONS]\n\n"
+                                        "Options:\n"
+                                        "  -n, --size <SIZE>             Matrix size [default: 512]\n"
+                                        "  -o, --output <FILENAME>       Output file name\n"
+                                        "  -h, --help                    Show this help\n";
   static struct option long_options[] = {
     {"size", required_argument, nullptr, 'n'},
     {"output", required_argument, nullptr, 'o'},
