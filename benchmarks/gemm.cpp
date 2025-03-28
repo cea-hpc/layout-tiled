@@ -242,7 +242,7 @@ static auto run_bench(Config const& cfg) -> void {
 #if defined(LAYOUT_TILED_BENCH_OPENMP)
   bs.title(fmt::format("{0}x{0} {1}C", cfg.n_, omp_get_max_threads())).timeUnit(1s, "s").relative(true);
 #else
-  bs.title(fmt::format("{}x{} 1C", cfg.n_).timeUnit(1s, "s").relative(true);
+  bs.title(fmt::format("{0}x{0} 1C", cfg.n_)).timeUnit(1s, "s").relative(true);
 #endif
   std::ostream* out_stream = &std::cout;
   std::ofstream file_stream;
