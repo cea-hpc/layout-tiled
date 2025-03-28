@@ -42,6 +42,5 @@ foreach(example ${ALL_EXAMPLES})
     PRIVATE
       layout_tiled::layout_tiled
       fmt::fmt
-      c++abi # Need to explicitly link with libc++ for some reason (appears to be related to std::print)
   )
 endforeach()

@@ -12,10 +12,10 @@ option(LayoutTiled_BENCH_OPENMP "Run benchmarks in parallel using OpenMP" OFF)
 
 # We need to force-link nanobench with libc++ to avoid ABI issues (otherwise defaults to GCC's libstdc++)
 target_compile_options(nanobench PRIVATE -stdlib=libc++)
-target_link_libraries(nanobench PRIVATE c++abi)
+target_link_libraries(nanobench PRIVATE c++) # Needs libc++ explicitly
 # Same for {fmt}
 target_compile_options(fmt PRIVATE -stdlib=libc++)
-target_link_libraries(fmt PRIVATE c++abi)
+target_link_libraries(fmt PRIVATE c++abi) # Linking with libc++abi is enough
 
 if(LayoutTiled_BENCH_OPENMP)
   find_package(OpenMP REQUIRED)
@@ -46,9 +46,8 @@ foreach(bench ${ALL_BENCHMARKS})
     layout_tiled.benchmarks.${bench}
     PRIVATE
       layout_tiled::layout_tiled
-      c++ # Need to explicitly link with libc++ for some reason (appears to be related to std::print)
-      nanobench
       fmt::fmt
+      nanobench
   )
   if(LayoutTiled_BENCH_OPENMP)
     target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE LAYOUT_TILED_BENCH_OPENMP)
