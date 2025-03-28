@@ -8,7 +8,7 @@
 
 set(ALL_BENCHMARKS gemm)
 
-option(LayoutTiled_PARALLEL_BENCH "Run parallel benchmarks" OFF)
+option(LayoutTiled_BENCH_OPENMP "Run benchmarks in parallel using OpenMP" OFF)
 
 # We need to force-link nanobench with libc++ to avoid ABI issues (otherwise defaults to GCC's libstdc++)
 target_compile_options(nanobench PRIVATE -stdlib=libc++)
@@ -17,7 +17,7 @@ target_link_libraries(nanobench PRIVATE c++abi)
 target_compile_options(fmt PRIVATE -stdlib=libc++)
 target_link_libraries(fmt PRIVATE c++abi)
 
-if(LayoutTiled_PARALLEL_BENCH)
+if(LayoutTiled_BENCH_OPENMP)
   find_package(OpenMP REQUIRED)
 endif()
 
@@ -50,8 +50,8 @@ foreach(bench ${ALL_BENCHMARKS})
       nanobench
       fmt::fmt
   )
-  if(LayoutTiled_PARALLEL_BENCH)
-    target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE LAYOUT_TILED_PARALLEL_BENCH)
+  if(LayoutTiled_BENCH_OPENMP)
+    target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE LAYOUT_TILED_BENCH_OPENMP)
     target_link_libraries(layout_tiled.benchmarks.${bench} PRIVATE OpenMP::OpenMP_CXX)
   endif()
 endforeach()
