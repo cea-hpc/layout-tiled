@@ -8,8 +8,8 @@
 
 #include <array>
 
-#include <mdspan/mdspan.hpp>
 #include <gtest/gtest.h>
+#include <mdspan/mdspan.hpp>
 
 #include <layout_tiled/layout_left_tiled_right.hpp>
 
