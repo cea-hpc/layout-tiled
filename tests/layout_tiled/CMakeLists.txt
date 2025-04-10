@@ -16,19 +16,12 @@ set(
   layout_right_tiled_right
 )
 
-# We need to force-link GTest targets with libc++ to avoid ABI issues (otherwise defaults to GCC's libstdc++)
-target_compile_options(gtest PRIVATE -stdlib=libc++)
-target_link_libraries(gtest PRIVATE c++)
-target_compile_options(gtest_main PRIVATE -stdlib=libc++)
-target_link_libraries(gtest_main PRIVATE c++)
-
 foreach(test ${ALL_TESTS})
   add_executable(layout_tiled.tests.${test})
   target_sources(layout_tiled.tests.${test} PRIVATE ${test}.test.cpp)
   target_compile_options(
     layout_tiled.tests.${test}
     PRIVATE
-      -stdlib=libc++
       -Wall
       -Wextra
       -Wshadow
@@ -49,6 +42,7 @@ foreach(test ${ALL_TESTS})
     layout_tiled.tests.${test}
     PRIVATE
       layout_tiled::layout_tiled
+      std::mdspan
       GTest::gtest_main
   )
 

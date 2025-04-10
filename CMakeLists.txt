@@ -8,17 +8,23 @@
 
 cmake_minimum_required(VERSION 3.25) # support for C++26
 
-project(layout-tiled LANGUAGES CXX VERSION 0.2.0 DESCRIPTION "Tiled layouts for C++23's std::mdspan")
-
-# --- PROJECT-WIDE SETTINGS --- #
-# Sensible defaults
-set(CMAKE_COLOR_DIAGNOSTICS ON) # Enable colored compiler diagnostics for Ninja
-set(CMAKE_EXPORT_COMPILE_COMMANDS ON) # Export compile commands for the linter/static analyzer
+project(layout-tiled VERSION 0.3.0 LANGUAGES CXX DESCRIPTION "Tiled layouts for C++23 std::mdspan")
 
 # --- PROJECT OPTIONS --- #
-option(LayoutTiled_BUILD_TESTS "Build tests" OFF)
-option(LayoutTiled_BUILD_EXAMPLES "Build examples" OFF)
-option(LayoutTiled_BUILD_BENCHMARKS "Build benchmarks" OFF)
+option(LayoutTiled_BUILD_TESTS "Enable building tests. Values: { ON, OFF}." OFF)
+option(LayoutTiled_BUILD_EXAMPLES "Enable building examples. Values: { ON, OFF }." OFF)
+option(LayoutTiled_BUILD_BENCHMARKS "Enable building benchmarks. Values: { ON, OFF }." OFF)
+
+# --- PROJECT DEPENDENCIES --- #
+include(FetchContent)
+FetchContent_Declare(
+  mdspan
+  GIT_REPOSITORY https://github.com/kokkos/mdspan
+  GIT_TAG
+    6d3cda33cb65bbd04af5892f092c0306ed089106 # latest commit as of 2025-04-10
+)
+FetchContent_MakeAvailable(mdspan)
+target_compile_definitions(mdspan INTERFACE -DMDSPAN_USE_BRACKET_OPERATOR)
 
 # --- PROJECT TARGETS --- #
 add_subdirectory(include/layout_tiled)
@@ -26,7 +32,6 @@ add_subdirectory(include/layout_tiled)
 if(LayoutTiled_BUILD_TESTS)
   enable_testing()
 
-  include(FetchContent)
   FetchContent_Declare(googletest GIT_REPOSITORY https://github.com/google/googletest.git GIT_TAG v1.16.0)
   # Prevent GTest from getting installed along with the library
   set(INSTALL_GTEST OFF)
@@ -36,8 +41,6 @@ if(LayoutTiled_BUILD_TESTS)
 endif()
 
 if(LayoutTiled_BUILD_EXAMPLES)
-  include(FetchContent)
-
   FetchContent_Declare(fmt GIT_REPOSITORY https://github.com/fmtlib/fmt.git GIT_TAG 11.1.4)
   FetchContent_MakeAvailable(fmt)
 
@@ -45,18 +48,18 @@ if(LayoutTiled_BUILD_EXAMPLES)
 endif()
 
 if(LayoutTiled_BUILD_BENCHMARKS)
-  include(FetchContent)
-
   FetchContent_Declare(
     nanobench
     GIT_REPOSITORY
-      https://github.com/dssgabriel/nanobench.git # adds support for L1D/LLC cache events
+      https://github.com/dssgabriel/nanobench.git # Fork adding support for tracking L1D/LLC events
     GIT_TAG 05318cc617062975c36c108d7ce5454a6eb46057
     GIT_SHALLOW TRUE
   )
-  FetchContent_MakeAvailable(nanobench)
   FetchContent_Declare(fmt GIT_REPOSITORY https://github.com/fmtlib/fmt.git GIT_TAG 11.1.4)
-  FetchContent_MakeAvailable(fmt)
+  FetchContent_MakeAvailable(
+    nanobench
+    fmt
+  )
 
   add_subdirectory(benchmarks)
 endif()

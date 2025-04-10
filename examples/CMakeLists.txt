@@ -20,7 +20,6 @@ foreach(example ${ALL_EXAMPLES})
   target_compile_options(
     layout_tiled.examples.${example}
     PRIVATE
-      -stdlib=libc++
       -Wall
       -Wextra
       -Wshadow
@@ -41,6 +40,7 @@ foreach(example ${ALL_EXAMPLES})
     layout_tiled.examples.${example}
     PRIVATE
       layout_tiled::layout_tiled
+      std::mdspan
       fmt::fmt
   )
 endforeach()

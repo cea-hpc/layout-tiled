@@ -6,11 +6,10 @@
 # See https://opensource.org/license/MIT for license information.
 # SPDX-License-Identifier: MIT
 
-add_library(layout_tiled_compile_flags INTERFACE)
+add_library(layout_tiled.compile_flags INTERFACE)
 target_compile_options(
-  layout_tiled_compile_flags
+  layout_tiled.compile_flags
   INTERFACE
-    -stdlib=libc++
     -Wall
     -Wextra
     -Wshadow
@@ -21,9 +20,9 @@ target_compile_options(
     -Wformat=2
 )
 # Require C++23 w/o GNU extensions
-target_compile_features(layout_tiled_compile_flags INTERFACE cxx_std_23)
+target_compile_features(layout_tiled.compile_flags INTERFACE cxx_std_23)
 set_target_properties(
-  layout_tiled_compile_flags
+  layout_tiled.compile_flags
   PROPERTIES
     CXX_EXTENSIONS
       OFF
@@ -42,16 +41,17 @@ target_sources(
       layout_right_tiled_left.hpp
       layout_left_tiled_right.hpp
       layout_left_tiled_left.hpp
-)
-target_sources(
-  layout_tiled
-  INTERFACE
     FILE_SET layout_tiled_details_headers
     TYPE HEADERS
     BASE_DIRS ${CMAKE_SOURCE_DIR}/include
     FILES details/common.hpp
 )
-target_link_libraries(layout_tiled INTERFACE layout_tiled_compile_flags)
+target_link_libraries(
+  layout_tiled
+  INTERFACE
+    layout_tiled.compile_flags
+    std::mdspan
+)
 
 # --- PACKAGING --- #
 include(GNUInstallDirs)
@@ -60,7 +60,7 @@ include(GNUInstallDirs)
 install(
   TARGETS
     layout_tiled
-    layout_tiled_compile_flags
+    layout_tiled.compile_flags
   EXPORT LayoutTiledTargets
   FILE_SET
   layout_tiled_public_headers

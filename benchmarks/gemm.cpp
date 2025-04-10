@@ -19,7 +19,7 @@
 
 #include <fmt/core.h>
 #include <nanobench.h>
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #include <omp.h>
 #endif
 
@@ -55,13 +55,13 @@ static auto naive_gemm(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
   for (size_t i = 0; i < A.extent(0); ++i) {
     for (size_t j = 0; j < B.extent(1); ++j) {
       T acc{};
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
       for (size_t k = 0; k < A.extent(1); ++k) {
@@ -91,7 +91,7 @@ auto block_l1d_gemm(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (std::size_t bi = 0; bi < A.extent(0); bi += TILE_L1D) {
@@ -103,7 +103,7 @@ auto block_l1d_gemm(
         for (std::size_t i = bi; i < i_end; ++i) {
           for (std::size_t j = bj; j < j_end; ++j) {
             T acc{};
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
             for (std::size_t k = bk; k < k_end; ++k) {
@@ -136,7 +136,7 @@ auto block_l2_gemm(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (std::size_t bi = 0; bi < A.extent(0); bi += TILE_L2) {
@@ -148,7 +148,7 @@ auto block_l2_gemm(
         for (std::size_t i = bi; i < i_end; ++i) {
           for (std::size_t j = bj; j < j_end; ++j) {
             T acc{};
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
             for (std::size_t k = bk; k < k_end; ++k) {
@@ -181,14 +181,14 @@ static auto omp_tile_l1d_gemm(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #pragma omp tile sizes(TILE_L1D, TILE_L1D)
 #endif
   for (size_t i = 0; i < A.extent(0); ++i) {
     for (size_t j = 0; j < B.extent(1); ++j) {
       T acc{};
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
       for (size_t k = 0; k < A.extent(1); ++k) {
@@ -218,14 +218,14 @@ static auto omp_tile_l2_gemm(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #pragma omp tile sizes(TILE_L2, TILE_L2)
 #endif
   for (size_t i = 0; i < A.extent(0); ++i) {
     for (size_t j = 0; j < B.extent(1); ++j) {
       T acc{};
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
       for (size_t k = 0; k < A.extent(1); ++k) {
@@ -239,7 +239,7 @@ static auto omp_tile_l2_gemm(
 static auto run_bench(Config const& cfg) -> void {
   ankerl::nanobench::Bench bs;
   bs.output(nullptr);
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
   bs.title(fmt::format("{0}x{0} {1}C", cfg.n_, omp_get_max_threads())).timeUnit(1s, "s").relative(true);
 #else
   bs.title(fmt::format("{0}x{0} 1C", cfg.n_)).timeUnit(1s, "s").relative(true);
@@ -275,7 +275,7 @@ static auto run_bench(Config const& cfg) -> void {
   auto mtC_l2 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tC_l2.data(), cfg.n_, cfg.n_);
 
   // Matrix initializations
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
   for (size_t i = 0; i < cfg.n_; ++i) {
