@@ -263,9 +263,12 @@ static auto run_bench(Config const& cfg) -> void {
   std::vector<double> tA_l1(cfg.n_ * cfg.n_);
   std::vector<double> tB_l1(cfg.n_ * cfg.n_);
   std::vector<double> tC_l1(cfg.n_ * cfg.n_);
-  auto mtA_l1 = Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tA_l1.data(), cfg.n_, cfg.n_);
-  auto mtB_l1 = Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tB_l1.data(), cfg.n_, cfg.n_);
-  auto mtC_l1 = Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tC_l1.data(), cfg.n_, cfg.n_);
+  auto mtA_l1 =
+    Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tA_l1.data(), cfg.n_, cfg.n_);
+  auto mtB_l1 =
+    Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tB_l1.data(), cfg.n_, cfg.n_);
+  auto mtC_l1 =
+    Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tC_l1.data(), cfg.n_, cfg.n_);
 
   std::vector<double> tA_l2(cfg.n_ * cfg.n_);
   std::vector<double> tB_l2(cfg.n_ * cfg.n_);
