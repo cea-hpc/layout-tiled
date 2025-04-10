@@ -9,8 +9,8 @@
 #include <array>
 
 #include <fmt/core.h>
-#include <mdspan/mdspan.hpp>
 #include <layout_tiled/layout_right_tiled_right.hpp>
+#include <mdspan/mdspan.hpp>
 
 auto main() -> int {
   constexpr size_t ROWS  = 4;
