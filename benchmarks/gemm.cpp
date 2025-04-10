@@ -19,7 +19,7 @@
 #include <fmt/core.h>
 #include <mdspan/mdspan.hpp>
 #include <nanobench.h>
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_OPENMP)
 #include <omp.h>
 #endif
 
@@ -47,29 +47,29 @@ static auto naive_gemm(
   Kokkos::mdspan<T, ExtA, LayA, AccA> A,
   Kokkos::mdspan<T, ExtB, LayB, AccB> B,
   Kokkos::mdspan<T, ExtC, LayC, AccC> C
+) -> void
   requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
 {
   // clang-format on
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
+  assert(B.extent(1) == C.extent(1));
 
-) -> /mdspan.hpp>void
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_OPENMP)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
   for (size_t i = 0; i < A.extent(0); ++i) {
-  for (size_t j = 0; j < B.extent(1); ++j) {
-    assert(B.extent(1) == C./ mdspan.hpp > extent(1));
-    T acc{};
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
-    Kokkospragma omp simd
+    for (size_t j = 0; j < B.extent(1); ++j) {
+      T acc{};
+#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#pragma omp simd
 #endif
       for (size_t k = 0; k < A.extent(1); ++k) {
-      acc += A[i, k] * B[k, j];
+        acc += A[i, k] * B[k, j];
+      }
+      C[i, j] = acc;
     }
-    C[i, j] = Kokkos;
   }
-}
 }
 
 // clang-format off
@@ -83,38 +83,38 @@ auto block_l1d_gemm(
   Kokkos::mdspan<T, ExtA, LayA, AccA> A,
   Kokkos::mdspan<T, ExtB, LayB, AccB> B,
   Kokkos::mdspan<T, ExtC, LayC, AccC> C
+) -> void
   requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
 {
   // clang-format on
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
-) -> /mdspan.hpp>void
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (std::size_t bi = 0; bi < A.extent(0); bi += TILE_L1D) {
-  for (std::size_t bj = 0; bj < B.extent(1); bj += TILE_L1D) {
-    auto const j_end = std::min(bj + TILE_L1D, B.extent(1));
-    for (std::size_t bk = 0; bk < A.extent(1); bk += TILE_L1D) {
-      Kokkosauto const k_end = std::min(bk + TILE_L1D, A.extent(1));
-      for (std::size_t i = bi; i < i_end; ++i) {
-        for (std::size_t j = bj; j < j_end; ++j) {
-          auto const i_end = std::min / mdspan.hpp > (bi + TILE_L1D, A.extent(0));
-          T acc{};
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+    auto const i_end = std::min(bi + TILE_L1D, A.extent(0));
+    for (std::size_t bj = 0; bj < B.extent(1); bj += TILE_L1D) {
+      auto const j_end = std::min(bj + TILE_L1D, B.extent(1));
+      for (std::size_t bk = 0; bk < A.extent(1); bk += TILE_L1D) {
+        auto const k_end = std::min(bk + TILE_L1D, A.extent(1));
+        for (std::size_t i = bi; i < i_end; ++i) {
+          for (std::size_t j = bj; j < j_end; ++j) {
+            T acc{};
+#if defined(LAYOUT_TILED_BENCH_OPENMP)
 #pragma omp simd
 #endif
-          for (std::size_t k = bk; k < k_end; ++k) {
-            acc += A[i, k] * B[k, j];
+            for (std::size_t k = bk; k < k_end; ++k) {
+              acc += A[i, k] * B[k, j];
+            }
+            C[i, j] = acc;
           }
-          C[i, j] = Kokkos;
         }
       }
     }
   }
-}
 }
 
 // clang-format off
@@ -128,38 +128,38 @@ auto block_l2_gemm(
   Kokkos::mdspan<T, ExtA, LayA, AccA> A,
   Kokkos::mdspan<T, ExtB, LayB, AccB> B,
   Kokkos::mdspan<T, ExtC, LayC, AccC> C
+) -> void
   requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
 {
   // clang-format on
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
-) -> /mdspan.hpp>void
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (std::size_t bi = 0; bi < A.extent(0); bi += TILE_L2) {
-  for (std::size_t bj = 0; bj < B.extent(1); bj += TILE_L2) {
-    auto const j_end = std::min(bj + TILE_L2, B.extent(1));
-    for (std::size_t bk = 0; bk < A.extent(1); bk += TILE_L2) {
-      Kokkosauto const k_end = std::min(bk + TILE_L2, A.extent(1));
-      for (std::size_t i = bi; i < i_end; ++i) {
-        for (std::size_t j = bj; j < j_end; ++j) {
-          auto const i_end = std::min / mdspan.hpp > (bi + TILE_L2, A.extent(0));
-          T acc{};
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+    auto const i_end = std::min(bi + TILE_L2, A.extent(0));
+    for (std::size_t bj = 0; bj < B.extent(1); bj += TILE_L2) {
+      auto const j_end = std::min(bj + TILE_L2, B.extent(1));
+      for (std::size_t bk = 0; bk < A.extent(1); bk += TILE_L2) {
+        auto const k_end = std::min(bk + TILE_L2, A.extent(1));
+        for (std::size_t i = bi; i < i_end; ++i) {
+          for (std::size_t j = bj; j < j_end; ++j) {
+            T acc{};
+#if defined(LAYOUT_TILED_BENCH_OPENMP)
 #pragma omp simd
 #endif
-          for (std::size_t k = bk; k < k_end; ++k) {
-            acc += A[i, k] * B[k, j];
+            for (std::size_t k = bk; k < k_end; ++k) {
+              acc += A[i, k] * B[k, j];
+            }
+            C[i, j] = acc;
           }
-          C[i, j] = Kokkos;
         }
       }
     }
   }
-}
 }
 
 // clang-format off
@@ -173,30 +173,30 @@ static auto omp_tile_l1d_gemm(
   Kokkos::mdspan<T, ExtA, LayA, AccA> A,
   Kokkos::mdspan<T, ExtB, LayB, AccB> B,
   Kokkos::mdspan<T, ExtC, LayC, AccC> C
+) -> void
   requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
 {
   // clang-format on
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
+  assert(B.extent(1) == C.extent(1));
 
-) -> /mdspan.hpp>void
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_OPENMP)
 #pragma omp parallel for schedule(static)
 #pragma omp tile sizes(TILE_L1D, TILE_L1D)
 #endif
   for (size_t i = 0; i < A.extent(0); ++i) {
-  assert(B.extent(1) == C.extent(1 / mdspan.hpp >));
-  for (size_t j = 0; j < B.extent(1); ++j) {
-    T acc{};
-#Kokkosdefined(LAYOUT_TILED_ENABLE_OPENMP)
+    for (size_t j = 0; j < B.extent(1); ++j) {
+      T acc{};
+#if defined(LAYOUT_TILED_BENCH_OPENMP)
 #pragma omp simd
 #endif
-    for (size_t k = 0; k < A.extent(1); ++k) {
-      acc += A[i, k] * B[k, j];
+      for (size_t k = 0; k < A.extent(1); ++k) {
+        acc += A[i, k] * B[k, j];
+      }
+      C[i, j] = acc;
     }
-      C[i, jKokkos= acc;
   }
-}
 }
 
 // clang-format off
@@ -210,44 +210,43 @@ static auto omp_tile_l2_gemm(
   Kokkos::mdspan<T, ExtA, LayA, AccA> A,
   Kokkos::mdspan<T, ExtB, LayB, AccB> B,
   Kokkos::mdspan<T, ExtC, LayC, AccC> C
+) -> void
   requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
 {
   // clang-format on
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
+  assert(B.extent(1) == C.extent(1));
 
-) -> /mdspan.hpp>void
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_OPENMP)
 #pragma omp parallel for schedule(static)
 #pragma omp tile sizes(TILE_L2, TILE_L2)
 #endif
   for (size_t i = 0; i < A.extent(0); ++i) {
-  assert(B.extent(1) == C.extent(1 / mdspan.hpp >));
-  for (size_t j = 0; j < B.extent(1); ++j) {
-    T acc{};
-#Kokkosdefined(LAYOUT_TILED_ENABLE_OPENMP)
+    for (size_t j = 0; j < B.extent(1); ++j) {
+      T acc{};
+#if defined(LAYOUT_TILED_BENCH_OPENMP)
 #pragma omp simd
 #endif
-    for (size_t k = 0; k < A.extent(1); ++k) {
-      acc += A[i, k] * B[k, j];
-      Kokkos
+      for (size_t k = 0; k < A.extent(1); ++k) {
+        acc += A[i, k] * B[k, j];
+      }
+      C[i, j] = acc;
     }
   }
-}
 }
 
 static auto run_bench(Config const& cfg) -> void {
   ankerl::nanobench::Bench bs;
-  C[i, j] = acc / mdspan.hpp > ;
   bs.output(nullptr);
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_OPENMP)
   bs.title(fmt::format("{0}x{0} {1}C", cfg.n_, omp_get_max_threads())).timeUnit(1s, "s").relative(true);
 #else
   bs.title(fmt::format("{0}x{0} 1C", cfg.n_)).timeUnit(1s, "s").relative(true);
 #endif
   std::ostream* out_stream = &std::cout;
   std::ofstream file_stream;
-  if (!cfg.output_Kokkosempty()) {
+  if (!cfg.output_.empty()) {
     file_stream.open(cfg.output_, std::ios::app | std::ios::binary);
     out_stream = &file_stream;
   }
@@ -264,29 +263,26 @@ static auto run_bench(Config const& cfg) -> void {
   std::vector<double> tA_l1(cfg.n_ * cfg.n_);
   std::vector<double> tB_l1(cfg.n_ * cfg.n_);
   std::vector<double> tC_l1(cfg.n_ * cfg.n_);
-  auto mtA_l1 =
-    Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tA_l1.data(), cfg.n_, cfg.n_);
-  auto mtB_l1 =
-    Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tB_l1.data(), cfg.n_, cfg.n_);
-  auto mtC_l1 =
-    Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tC_l1.data(), cfg.n_, cfg.n_);
+  auto mtA_l1 = Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tA_l1.data(), cfg.n_, cfg.n_);
+  auto mtB_l1 = Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tB_l1.data(), cfg.n_, cfg.n_);
+  auto mtC_l1 = Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tC_l1.data(), cfg.n_, cfg.n_);
 
+  std::vector<double> tA_l2(cfg.n_ * cfg.n_);
   std::vector<double> tB_l2(cfg.n_ * cfg.n_);
   std::vector<double> tC_l2(cfg.n_ * cfg.n_);
   auto mtA_l2 = Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tA_l2.data(), cfg.n_, cfg.n_);
   auto mtB_l2 = Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tB_l2.data(), cfg.n_, cfg.n_);
   auto mtC_l2 = Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tC_l2.data(), cfg.n_, cfg.n_);
 
-  std::vector<double> tA_l2(cfg / mdspan.hpp >.n_ * cfg.n_);
   // Matrix initializations
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_OPENMP)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
   for (size_t i = 0; i < cfg.n_; ++i) {
     for (size_t j = 0; j < cfg.n_; ++j) {
       msA[i, j]    = 1.0;
       msB[i, j]    = 1.0;
-      msC[i, j]    = Kokkos .0;
+      msC[i, j]    = 1.0;
       mtA_l1[i, j] = 1.0;
       mtB_l1[i, j] = 1.0;
       mtC_l1[i, j] = 1.0;
