@@ -6,12 +6,12 @@
 // See https://opensource.org/license/MIT for license information.
 // SPDX-License-Identifier: MIT
 
-#include <layout_tiled/layout_left_tiled_left.hpp>
+#include <array>
 
+#include <mdspan/mdspan.hpp>
 #include <gtest/gtest.h>
 
-#include <array>
-#include <mdspan>
+#include <layout_tiled/layout_left_tiled_left.hpp>
 
 TEST(layout_left_tiled_left, maps_to_linear_storage) {
   constexpr std::size_t ROWS  = 4;
@@ -20,8 +20,8 @@ TEST(layout_left_tiled_left, maps_to_linear_storage) {
   constexpr std::size_t TCOLS = 3;
 
   using element_type = int;
-  using extents_type = std::dextents<std::size_t, 2>;
-  using ltl_layout   = layout_left_tiled_left<TROWS, TCOLS>::mapping<extents_type>;
+  using extents_type = Kokkos::dextents<std::size_t, 2>;
+  using layout_ltl   = layout_left_tiled_left<TROWS, TCOLS>;
 
   // clang-format off
   // Linearly ordered data
@@ -41,8 +41,8 @@ TEST(layout_left_tiled_left, maps_to_linear_storage) {
   };
   // clang-format on
 
-  auto m_lin = std::mdspan(lin.data(), ROWS, COLS);
-  auto m_ltl = std::mdspan(ltl.data(), ltl_layout(extents_type(ROWS, COLS)));
+  auto m_lin = Kokkos::mdspan<element_type, extents_type>(lin.data(), ROWS, COLS);
+  auto m_ltl = Kokkos::mdspan<element_type, extents_type, layout_ltl>(ltl.data(), ROWS, COLS);
 
   for (std::size_t i = 0; i < ROWS; ++i) {
     for (std::size_t j = 0; j < COLS; ++j) {
