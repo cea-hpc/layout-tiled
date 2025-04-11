@@ -3,9 +3,9 @@
 
 <!-- description goes here -->
 
-Related issue(s): 
+Related issue(s):
 
-Scope: 
+Scope:
 
 Type of change:
 

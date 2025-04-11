@@ -7,10 +7,9 @@
 // SPDX-License-Identifier: MIT
 
 #include <array>
-
-#include <gtest/gtest.h>
 #include <experimental/mdspan>
 
+#include <gtest/gtest.h>
 #include <layout_tiled/layout_right_tiled_right.hpp>
 
 TEST(layout_right_tiled_right, maps_to_2d_linear_storage) {
