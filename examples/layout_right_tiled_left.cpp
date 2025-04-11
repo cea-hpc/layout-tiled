@@ -7,10 +7,11 @@
 // SPDX-License-Identifier: MIT
 
 #include <array>
-#include <mdspan>
-
-#include <fmt/core.h>
+#include <cstddef> // size_t
 #include <layout_tiled/layout_right_tiled_left.hpp>
+
+#include <experimental/mdspan>
+#include <fmt/core.h>
 
 auto main() -> int {
   constexpr size_t ROWS  = 4;

@@ -8,10 +8,11 @@
 
 #pragma once
 
-#include <layout_tiled/details/common.hpp>
-
+#include <array>
 #include <cassert>
 #include <utility>
+
+#include "details/common.hpp"
 
 template <std::size_t... TileExtents>
 class layout_left_tiled_right {

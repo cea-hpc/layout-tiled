@@ -18,13 +18,13 @@ Tiled layouts also allow for better and more intuitive cache-blocking on CPU, as
 
 ## Overview & Design decisions
 
-We propose four tiled layouts (based on Z-order curves):
+We propose four tiled layouts:
 1. `layout_right_tiled_right`: tiles are stored in *Layout Right* w.r.t each other, and elements are stored in *Layout Right* within tiles;
 2. `layout_right_tiled_left`: tiles are stored in *Layout Right* w.r.t each other, and elements are stored in *Layout Left* within tiles;
 3. `layout_left_tiled_right`: tiles are stored in *Layout Left* w.r.t each other, and elements are stored in *Layout Right* within tiles;
 4. `layout_left_tiled_left`: tiles are stored in *Layout Left* w.r.t each other, and elements are stored in *Layout Left* within tiles.
 
-The proposed layouts are based on [kokkos/mdspan tiled layout example](https://github.com/kokkos/mdspan/blob/stable/examples/tiled_layout/simple_tiled_layout.cpp), and expanded to support an arbitrary number of dimensions. Tile extents are only supported as compile-time parameters.
+The proposed layouts are based on [kokkos/mdspan tiled layout example](https://github.com/kokkos/mdspan/blob/stable/examples/tiled_layout/simple_tiled_layout.cpp), and extended to support an arbitrary number of dimensions. Tile extents are only supported as compile-time parameters.
 
 
 ## Usage
@@ -33,9 +33,10 @@ The proposed layouts are based on [kokkos/mdspan tiled layout example](https://g
 
 Ensure you have the following software installed on your system:
 - C++23 conforming compiler;
-- LLVM's `libc++` C++ standard libray with `std::mdspan` support (v17+);
 - `cmake` v3.25+;
 - `make` or `ninja`.
+
+This project uses [Kokkos' `mdspan` reference implementation](https://github.com/kokkos/mdspan) (automatically fetched by CMake).
 
 ### Build
 
@@ -85,7 +86,7 @@ There is only one benchmark for now:
 - `benchmarks/gemm`;
 
 ```bash
-cmake -B <BUILDDIR> -DLayoutTiled_BUILD_BENCHMARKS=ON [-DLayoutTiled_PARALLEL_BENCH=ON]
+cmake -B <BUILDDIR> -DLayoutTiled_BUILD_BENCHMARKS=ON [-DLayoutTiled_ENABLE_OPENMP=ON]
 cmake --build <BUILDDIR> --target <BENCHMARK>
 ./<BUILDDIR>/benchmarks/layout_tiled.benchmarks.<BENCHMARK>
 ```

@@ -7,7 +7,8 @@
 // SPDX-License-Identifier: MIT
 
 #include <array>
-#include <mdspan>
+#include <cstddef> // size_t
+#include <experimental/mdspan>
 
 #include <fmt/core.h>
 #include <layout_tiled/layout_left_tiled_left.hpp>

@@ -8,16 +8,9 @@
 
 set(ALL_BENCHMARKS gemm)
 
-option(LayoutTiled_BENCH_OPENMP "Run benchmarks in parallel using OpenMP" OFF)
+option(LayoutTiled_ENABLE_OPENMP "Enable building benchmarks with OpenMP support. Values: { ON, OFF }." OFF)
 
-# We need to force-link nanobench with libc++ to avoid ABI issues (otherwise defaults to GCC's libstdc++)
-target_compile_options(nanobench PRIVATE -stdlib=libc++)
-target_link_libraries(nanobench PRIVATE c++) # Needs libc++ explicitly
-# Same for {fmt}
-target_compile_options(fmt PRIVATE -stdlib=libc++)
-target_link_libraries(fmt PRIVATE c++abi) # Linking with libc++abi is enough
-
-if(LayoutTiled_BENCH_OPENMP)
+if(LayoutTiled_ENABLE_OPENMP)
   find_package(OpenMP REQUIRED)
 endif()
 
@@ -27,7 +20,6 @@ foreach(bench ${ALL_BENCHMARKS})
   target_compile_options(
     layout_tiled.benchmarks.${bench}
     PRIVATE
-      -stdlib=libc++
       -Wall
       -Wextra
       -Wpedantic
@@ -46,11 +38,12 @@ foreach(bench ${ALL_BENCHMARKS})
     layout_tiled.benchmarks.${bench}
     PRIVATE
       layout_tiled::layout_tiled
+      std::mdspan
       fmt::fmt
       nanobench
   )
-  if(LayoutTiled_BENCH_OPENMP)
-    target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE LAYOUT_TILED_BENCH_OPENMP)
+  if(LayoutTiled_ENABLE_OPENMP)
+    target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE -DLAYOUT_TILED_ENABLE_OPENMP)
     target_link_libraries(layout_tiled.benchmarks.${bench} PRIVATE OpenMP::OpenMP_CXX)
   endif()
 endforeach()
