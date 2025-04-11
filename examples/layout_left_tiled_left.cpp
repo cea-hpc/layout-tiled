@@ -7,6 +7,7 @@
 // SPDX-License-Identifier: MIT
 
 #include <array>
+#include <cstddef> // size_t
 #include <experimental/mdspan>
 
 #include <fmt/core.h>
