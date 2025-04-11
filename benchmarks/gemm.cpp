@@ -9,6 +9,7 @@
 #include <cassert>
 #include <chrono>
 #include <cstddef>
+#include <experimental/mdspan>
 #include <fstream>
 #include <iostream>
 #include <string>
@@ -17,16 +18,14 @@
 #include <getopt.h>
 
 #include <fmt/core.h>
-#include <mdspan/mdspan.hpp>
+#include <layout_tiled/layout_right_tiled_right.hpp>
 #include <nanobench.h>
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #include <omp.h>
 #endif
 
-#include <layout_tiled/layout_right_tiled_right.hpp>
-
 using namespace std::chrono_literals;
-using ext_t = Kokkos::dextents<size_t, 2>;
+using ext_t = std::dextents<size_t, 2>;
 
 constexpr size_t TILE_L1D = 32;
 constexpr size_t TILE_L2  = 128;
@@ -44,9 +43,9 @@ template <
   class AccA, class AccB, class AccC
 >
 static auto naive_gemm(
-  Kokkos::mdspan<T, ExtA, LayA, AccA> A,
-  Kokkos::mdspan<T, ExtB, LayB, AccB> B,
-  Kokkos::mdspan<T, ExtC, LayC, AccC> C
+  std::mdspan<T, ExtA, LayA, AccA> A,
+  std::mdspan<T, ExtB, LayB, AccB> B,
+  std::mdspan<T, ExtC, LayC, AccC> C
 ) -> void
   requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
 {
@@ -55,13 +54,13 @@ static auto naive_gemm(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
   for (size_t i = 0; i < A.extent(0); ++i) {
     for (size_t j = 0; j < B.extent(1); ++j) {
       T acc{};
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
       for (size_t k = 0; k < A.extent(1); ++k) {
@@ -80,9 +79,9 @@ template <
   class AccA, class AccB, class AccC
 >
 auto block_l1d_gemm(
-  Kokkos::mdspan<T, ExtA, LayA, AccA> A,
-  Kokkos::mdspan<T, ExtB, LayB, AccB> B,
-  Kokkos::mdspan<T, ExtC, LayC, AccC> C
+  std::mdspan<T, ExtA, LayA, AccA> A,
+  std::mdspan<T, ExtB, LayB, AccB> B,
+  std::mdspan<T, ExtC, LayC, AccC> C
 ) -> void
   requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
 {
@@ -91,7 +90,7 @@ auto block_l1d_gemm(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (std::size_t bi = 0; bi < A.extent(0); bi += TILE_L1D) {
@@ -103,7 +102,7 @@ auto block_l1d_gemm(
         for (std::size_t i = bi; i < i_end; ++i) {
           for (std::size_t j = bj; j < j_end; ++j) {
             T acc{};
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
             for (std::size_t k = bk; k < k_end; ++k) {
@@ -125,9 +124,9 @@ template <
   class AccA, class AccB, class AccC
 >
 auto block_l2_gemm(
-  Kokkos::mdspan<T, ExtA, LayA, AccA> A,
-  Kokkos::mdspan<T, ExtB, LayB, AccB> B,
-  Kokkos::mdspan<T, ExtC, LayC, AccC> C
+  std::mdspan<T, ExtA, LayA, AccA> A,
+  std::mdspan<T, ExtB, LayB, AccB> B,
+  std::mdspan<T, ExtC, LayC, AccC> C
 ) -> void
   requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
 {
@@ -136,7 +135,7 @@ auto block_l2_gemm(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (std::size_t bi = 0; bi < A.extent(0); bi += TILE_L2) {
@@ -148,7 +147,7 @@ auto block_l2_gemm(
         for (std::size_t i = bi; i < i_end; ++i) {
           for (std::size_t j = bj; j < j_end; ++j) {
             T acc{};
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
             for (std::size_t k = bk; k < k_end; ++k) {
@@ -170,9 +169,9 @@ template <
   class AccA, class AccB, class AccC
 >
 static auto omp_tile_l1d_gemm(
-  Kokkos::mdspan<T, ExtA, LayA, AccA> A,
-  Kokkos::mdspan<T, ExtB, LayB, AccB> B,
-  Kokkos::mdspan<T, ExtC, LayC, AccC> C
+  std::mdspan<T, ExtA, LayA, AccA> A,
+  std::mdspan<T, ExtB, LayB, AccB> B,
+  std::mdspan<T, ExtC, LayC, AccC> C
 ) -> void
   requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
 {
@@ -181,14 +180,14 @@ static auto omp_tile_l1d_gemm(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #pragma omp tile sizes(TILE_L1D, TILE_L1D)
 #endif
   for (size_t i = 0; i < A.extent(0); ++i) {
     for (size_t j = 0; j < B.extent(1); ++j) {
       T acc{};
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
       for (size_t k = 0; k < A.extent(1); ++k) {
@@ -207,9 +206,9 @@ template <
   class AccA, class AccB, class AccC
 >
 static auto omp_tile_l2_gemm(
-  Kokkos::mdspan<T, ExtA, LayA, AccA> A,
-  Kokkos::mdspan<T, ExtB, LayB, AccB> B,
-  Kokkos::mdspan<T, ExtC, LayC, AccC> C
+  std::mdspan<T, ExtA, LayA, AccA> A,
+  std::mdspan<T, ExtB, LayB, AccB> B,
+  std::mdspan<T, ExtC, LayC, AccC> C
 ) -> void
   requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
 {
@@ -218,14 +217,14 @@ static auto omp_tile_l2_gemm(
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #pragma omp tile sizes(TILE_L2, TILE_L2)
 #endif
   for (size_t i = 0; i < A.extent(0); ++i) {
     for (size_t j = 0; j < B.extent(1); ++j) {
       T acc{};
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
       for (size_t k = 0; k < A.extent(1); ++k) {
@@ -239,7 +238,7 @@ static auto omp_tile_l2_gemm(
 static auto run_bench(Config const& cfg) -> void {
   ankerl::nanobench::Bench bs;
   bs.output(nullptr);
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
   bs.title(fmt::format("{0}x{0} {1}C", cfg.n_, omp_get_max_threads())).timeUnit(1s, "s").relative(true);
 #else
   bs.title(fmt::format("{0}x{0} 1C", cfg.n_)).timeUnit(1s, "s").relative(true);
@@ -255,30 +254,30 @@ static auto run_bench(Config const& cfg) -> void {
   std::vector<double> sA(cfg.n_ * cfg.n_);
   std::vector<double> sB(cfg.n_ * cfg.n_);
   std::vector<double> sC(cfg.n_ * cfg.n_);
-  auto msA = Kokkos::mdspan<double, ext_t>(sA.data(), cfg.n_, cfg.n_);
-  auto msB = Kokkos::mdspan<double, ext_t>(sB.data(), cfg.n_, cfg.n_);
-  auto msC = Kokkos::mdspan<double, ext_t>(sC.data(), cfg.n_, cfg.n_);
+  auto msA = std::mdspan<double, ext_t>(sA.data(), cfg.n_, cfg.n_);
+  auto msB = std::mdspan<double, ext_t>(sB.data(), cfg.n_, cfg.n_);
+  auto msC = std::mdspan<double, ext_t>(sC.data(), cfg.n_, cfg.n_);
 
   // Tiled layout matrices
   std::vector<double> tA_l1(cfg.n_ * cfg.n_);
   std::vector<double> tB_l1(cfg.n_ * cfg.n_);
   std::vector<double> tC_l1(cfg.n_ * cfg.n_);
   auto mtA_l1 =
-    Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tA_l1.data(), cfg.n_, cfg.n_);
+    std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tA_l1.data(), cfg.n_, cfg.n_);
   auto mtB_l1 =
-    Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tB_l1.data(), cfg.n_, cfg.n_);
+    std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tB_l1.data(), cfg.n_, cfg.n_);
   auto mtC_l1 =
-    Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tC_l1.data(), cfg.n_, cfg.n_);
+    std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tC_l1.data(), cfg.n_, cfg.n_);
 
   std::vector<double> tA_l2(cfg.n_ * cfg.n_);
   std::vector<double> tB_l2(cfg.n_ * cfg.n_);
   std::vector<double> tC_l2(cfg.n_ * cfg.n_);
-  auto mtA_l2 = Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tA_l2.data(), cfg.n_, cfg.n_);
-  auto mtB_l2 = Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tB_l2.data(), cfg.n_, cfg.n_);
-  auto mtC_l2 = Kokkos::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tC_l2.data(), cfg.n_, cfg.n_);
+  auto mtA_l2 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tA_l2.data(), cfg.n_, cfg.n_);
+  auto mtB_l2 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tB_l2.data(), cfg.n_, cfg.n_);
+  auto mtC_l2 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tC_l2.data(), cfg.n_, cfg.n_);
 
   // Matrix initializations
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
   for (size_t i = 0; i < cfg.n_; ++i) {

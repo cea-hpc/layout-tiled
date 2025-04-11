@@ -7,10 +7,10 @@
 // SPDX-License-Identifier: MIT
 
 #include <array>
+#include <layout_tiled/layout_right_tiled_left.hpp>
 
 #include <fmt/core.h>
-#include <layout_tiled/layout_right_tiled_left.hpp>
-#include <mdspan/mdspan.hpp>
+#include <experimental/mdspan>
 
 auto main() -> int {
   constexpr size_t ROWS  = 4;
@@ -19,7 +19,7 @@ auto main() -> int {
   constexpr size_t TCOLS = 3;
 
   using element_type = int;
-  using extents_type = Kokkos::extents<size_t, ROWS, COLS>;
+  using extents_type = std::extents<size_t, ROWS, COLS>;
   fmt::print("Array dimensions: {}x{}\nTile dimensions:  {}x{}\n", ROWS, COLS, TROWS, TCOLS);
 
   // clang-format off
@@ -32,8 +32,8 @@ auto main() -> int {
   };
   // clang-format on
 
-  auto m_lin = Kokkos::mdspan<element_type, extents_type>(rtl.data());
-  auto m_rtl = Kokkos::mdspan<element_type, extents_type, layout_right_tiled_left<TROWS, TCOLS>>(rtl.data());
+  auto m_lin = std::mdspan<element_type, extents_type>(rtl.data());
+  auto m_rtl = std::mdspan<element_type, extents_type, layout_right_tiled_left<TROWS, TCOLS>>(rtl.data());
 
   fmt::print("\nActual storage (manually tiled):\n");
   for (size_t i = 0; i < ROWS; ++i) {
