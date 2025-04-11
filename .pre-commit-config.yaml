@@ -25,4 +25,4 @@ repos:
     hooks:
     - id: gersemi
       name: Format CMake files
-      args: ["--in-place", "--line-length", "120", "--indent", "2", "--list-expansion", "favour-inlining"]
+      args: ["--in-place", "--line-length=120", "--indent=2", "--list-expansion=favour-expansion"]
