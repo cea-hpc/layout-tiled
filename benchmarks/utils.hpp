@@ -19,10 +19,15 @@
 #include <omp.h>
 #endif
 
+/// A heap-allocated, contiguous memory slice.
+///
+/// The underlying memory allocation is backed by `mmap`.
 template <class T>
 struct MemorySlice {
+  /// Constructs a new slice of size `len * sizeof(T)` bytes.
   explicit MemorySlice(size_t len)
       : len_(len * sizeof(T)) {
+    // Allocate a page-aligned block of `len` bytes w/ read-write privileges & shared, anonymous mapping.
     ptr_ = (T*)mmap(nullptr, len_, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
     assert(MAP_FAILED != ptr_);
   }
@@ -30,12 +35,14 @@ struct MemorySlice {
   ~MemorySlice() {
     munmap((void*)ptr_, len_);
   }
+  // Prevent deep copies.
   MemorySlice(MemorySlice const& rhs) = delete;
+  auto operator=(MemorySlice const& rhs) -> MemorySlice& = delete;
+  // Allow moves.
   MemorySlice(MemorySlice&& rhs) noexcept
       : ptr_(rhs.ptr_), len_(rhs.len_) {
     rhs.ptr_ = nullptr;
   }
-  auto operator=(MemorySlice const& rhs) -> MemorySlice& = delete;
   auto operator=(MemorySlice&& rhs) -> MemorySlice& {
     munmap((void*)ptr_, len_);
     ptr_     = rhs.ptr_;
@@ -44,6 +51,7 @@ struct MemorySlice {
     return *this;
   }
 
+  /// Returns a raw pointer to the underlying allocation.
   auto get() -> T* {
     return ptr_;
   }
@@ -55,6 +63,7 @@ private:
 
 namespace benchmark_utils {
 
+/// Fill a 2D `mdspan` of `double`-typed elements with random values of uniform distribution in range [0, 1).
 template <class MdSpan>
 auto fill_2d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void
   requires(
