@@ -59,6 +59,9 @@ template <class MdSpan>
 auto fill_2d_uniform01(MdSpan&& m, ankerl::nanobench::Rng& rng) -> void
 // requires(std::is_same_v<double, typename MdSpan::value_type> && 2 == MdSpan::rank())
 {
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#pragma omp parallel for collapse(2) schedule(static)
+#endif
   for (size_t i = 0; i < m.extent(0); ++i) {
     for (size_t j = 0; j < m.extent(1); ++j) {
       m[i, j] = rng.uniform01();
