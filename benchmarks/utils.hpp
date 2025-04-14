@@ -10,9 +10,9 @@
 
 #include <sys/mman.h>
 
-#include <array>
 #include <cstddef>
 #include <cstdlib>
+#include <type_traits>
 
 #include <nanobench.h>
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
@@ -56,8 +56,11 @@ private:
 namespace benchmark_utils {
 
 template <class MdSpan>
-auto fill_2d_uniform01(MdSpan&& m, ankerl::nanobench::Rng& rng) -> void
-// requires(std::is_same_v<double, typename MdSpan::value_type> && 2 == MdSpan::rank())
+auto fill_2d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void
+  requires(
+    std::is_same_v<double, typename MdSpan::value_type> &&
+    2 == MdSpan::rank()
+  )
 {
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for collapse(2) schedule(static)
