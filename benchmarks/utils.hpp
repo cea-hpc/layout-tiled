@@ -36,7 +36,7 @@ struct MemorySlice {
     munmap((void*)ptr_, len_);
   }
   // Prevent deep copies.
-  MemorySlice(MemorySlice const& rhs) = delete;
+  MemorySlice(MemorySlice const& rhs)                    = delete;
   auto operator=(MemorySlice const& rhs) -> MemorySlice& = delete;
   // Allow moves.
   MemorySlice(MemorySlice&& rhs) noexcept
@@ -66,10 +66,7 @@ namespace benchmark_utils {
 /// Fill a 2D `mdspan` of `double`-typed elements with random values of uniform distribution in range [0, 1).
 template <class MdSpan>
 auto fill_2d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void
-  requires(
-    std::is_same_v<double, typename MdSpan::value_type> &&
-    2 == MdSpan::rank()
-  )
+  requires(std::is_same_v<double, typename MdSpan::value_type> && 2 == MdSpan::rank())
 {
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for collapse(2) schedule(static)
