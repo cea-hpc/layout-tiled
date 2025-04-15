@@ -285,6 +285,27 @@ auto run_bench(Config const& cfg) -> void {
   benchmark_utils::fill_2d_random(mlrtr_l1_in, rng_tiled_l1);
   benchmark_utils::fill_2d_random(mlrtr_l2_in, rng_tiled_l2);
 
+  // Checks
+#if defined(LAYOUT_TILED_ENABLE_CHECKS)
+  stencil_2d::naive(mlr_in, mlr_out);
+  double ref = benchmark_utils::frobenius_norm(mlr_out);
+
+  stencil_2d::naive(mlrtr_l1_in, mlrtr_l1_out);
+  benchmark_utils::check(ref, benchmark_utils::frobenius_norm(mlrtr_l1_out));
+  stencil_2d::naive(mlrtr_l2_in, mlrtr_l2_out);
+  benchmark_utils::check(ref, benchmark_utils::frobenius_norm(mlrtr_l2_out));
+
+  stencil_2d::manual_blocked_tiled(mlrtr_l1_in, mlrtr_l1_out, TILE_L1, TILE_L1);
+  benchmark_utils::check(ref, benchmark_utils::frobenius_norm(mlrtr_l1_out));
+  stencil_2d::manual_blocked_tiled(mlrtr_l2_in, mlrtr_l2_out, TILE_L2, TILE_L2);
+  benchmark_utils::check(ref, benchmark_utils::frobenius_norm(mlrtr_l2_out));
+
+  stencil_2d::cache_blocked(mlr_in, mlr_out, TILE_L1, TILE_L1);
+  benchmark_utils::check(ref, benchmark_utils::frobenius_norm(mlr_out));
+  stencil_2d::cache_blocked(mlr_in, mlr_out, TILE_L2, TILE_L2);
+  benchmark_utils::check(ref, benchmark_utils::frobenius_norm(mlr_out));
+#endif
+
   // Benchmarks
   bs.run("lright naive", [&]() { stencil_2d::naive(mlr_in, mlr_out); });
 

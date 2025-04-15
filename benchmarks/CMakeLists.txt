@@ -9,6 +9,7 @@
 set(ALL_BENCHMARKS gemm)
 
 option(LayoutTiled_ENABLE_OPENMP "Enable building benchmarks with OpenMP support. Values: { ON, OFF }." OFF)
+option(LayoutTiled_ENABLE_CHECKS "Enable checking the computed results of benchmarks. Values: { ON, OFF }." OFF)
 
 if(LayoutTiled_ENABLE_OPENMP)
   find_package(OpenMP REQUIRED)
@@ -45,5 +46,8 @@ foreach(bench ${ALL_BENCHMARKS})
   if(LayoutTiled_ENABLE_OPENMP)
     target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE -DLAYOUT_TILED_ENABLE_OPENMP)
     target_link_libraries(layout_tiled.benchmarks.${bench} PRIVATE OpenMP::OpenMP_CXX)
+  endif()
+  if(LayoutTiled_ENABLE_CHECKS)
+    target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE -DLAYOUT_TILED_ENABLE_CHECKS)
   endif()
 endforeach()
