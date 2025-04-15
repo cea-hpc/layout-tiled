@@ -8,8 +8,10 @@
 
 #pragma once
 
-#include <sys/mman.h>
+#include <sys/mman.h> // mmamp/munmap
+#include <unistd.h>   // sysconf
 
+#include <cassert>
 #include <cstddef>
 #include <cstdlib>
 #include <type_traits>
@@ -21,19 +23,21 @@
 
 /// A heap-allocated, contiguous memory slice.
 ///
-/// The underlying memory allocation is backed by `mmap`.
+/// The underlying memory allocation is backed by `mmap` and is left uninitialized to allow leveraging
+/// "first touch" policy in parallel execution contexts.
 template <class T>
 struct MemorySlice {
   /// Constructs a new slice of size `len * sizeof(T)` bytes.
   explicit MemorySlice(size_t len)
       : len_(len * sizeof(T)) {
     // Allocate a page-aligned block of `len` bytes w/ read-write privileges & shared, anonymous mapping.
-    ptr_ = (T*)mmap(nullptr, len_, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0);
+    ptr_ = static_cast<T*>(mmap(nullptr, len_, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0));
     assert(MAP_FAILED != ptr_);
   }
 
   ~MemorySlice() {
-    munmap((void*)ptr_, len_);
+    int ret = munmap(static_cast<void*>(ptr_), len_);
+    assert(0 == ret);
   }
   // Prevent deep copies.
   MemorySlice(MemorySlice const& rhs)                    = delete;
@@ -44,7 +48,8 @@ struct MemorySlice {
     rhs.ptr_ = nullptr;
   }
   auto operator=(MemorySlice&& rhs) -> MemorySlice& {
-    munmap((void*)ptr_, len_);
+    int ret = munmap(static_cast<void*>(ptr_), len_);
+    assert(0 == ret);
     ptr_     = rhs.ptr_;
     len_     = rhs.len_;
     rhs.ptr_ = nullptr;
