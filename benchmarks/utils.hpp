@@ -62,8 +62,10 @@ struct MemorySlice {
   }
 
 private:
-  T* ptr_;
-  size_t len_;
+  /// Pointer to the underlying memory allocation.
+  T* ptr_ = nullptr;
+  /// Length in Bytes of the memory slice.
+  size_t len_ = 0;
 };
 
 namespace benchmark_utils {
