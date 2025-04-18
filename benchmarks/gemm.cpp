@@ -24,11 +24,15 @@
 #include <omp.h>
 #endif
 
-using namespace std::chrono_literals;
-using ext_t = std::dextents<size_t, 2>;
+#include "utils.hpp"
 
-constexpr size_t TILE_L1D = 32;
-constexpr size_t TILE_L2  = 128;
+using namespace std::chrono_literals;
+
+using Type = double;
+using Exts = std::dextents<size_t, 2>;
+
+constexpr size_t TILE_L1 = 32;
+constexpr size_t TILE_L2 = 128;
 
 struct Config {
   uint64_t n_ = 512;
@@ -93,12 +97,12 @@ auto block_l1d_gemm(
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
-  for (std::size_t bi = 0; bi < A.extent(0); bi += TILE_L1D) {
-    auto const i_end = std::min(bi + TILE_L1D, A.extent(0));
-    for (std::size_t bj = 0; bj < B.extent(1); bj += TILE_L1D) {
-      auto const j_end = std::min(bj + TILE_L1D, B.extent(1));
-      for (std::size_t bk = 0; bk < A.extent(1); bk += TILE_L1D) {
-        auto const k_end = std::min(bk + TILE_L1D, A.extent(1));
+  for (std::size_t bi = 0; bi < A.extent(0); bi += TILE_L1) {
+    auto const i_end = std::min(bi + TILE_L1, A.extent(0));
+    for (std::size_t bj = 0; bj < B.extent(1); bj += TILE_L1) {
+      auto const j_end = std::min(bj + TILE_L1, B.extent(1));
+      for (std::size_t bk = 0; bk < A.extent(1); bk += TILE_L1) {
+        auto const k_end = std::min(bk + TILE_L1, A.extent(1));
         for (std::size_t i = bi; i < i_end; ++i) {
           for (std::size_t j = bj; j < j_end; ++j) {
             T acc{};
@@ -161,80 +165,6 @@ auto block_l2_gemm(
   }
 }
 
-// clang-format off
-template <
-  class T,
-  class ExtA, class ExtB, class ExtC,
-  class LayA, class LayB, class LayC,
-  class AccA, class AccB, class AccC
->
-static auto omp_tile_l1d_gemm(
-  std::mdspan<T, ExtA, LayA, AccA> A,
-  std::mdspan<T, ExtB, LayB, AccB> B,
-  std::mdspan<T, ExtC, LayC, AccC> C
-) -> void
-  requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
-{
-  // clang-format on
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
-#pragma omp parallel for schedule(static)
-#pragma omp tile sizes(TILE_L1D, TILE_L1D)
-#endif
-  for (size_t i = 0; i < A.extent(0); ++i) {
-    for (size_t j = 0; j < B.extent(1); ++j) {
-      T acc{};
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
-#pragma omp simd
-#endif
-      for (size_t k = 0; k < A.extent(1); ++k) {
-        acc += A[i, k] * B[k, j];
-      }
-      C[i, j] = acc;
-    }
-  }
-}
-
-// clang-format off
-template <
-  class T,
-  class ExtA, class ExtB, class ExtC,
-  class LayA, class LayB, class LayC,
-  class AccA, class AccB, class AccC
->
-static auto omp_tile_l2_gemm(
-  std::mdspan<T, ExtA, LayA, AccA> A,
-  std::mdspan<T, ExtB, LayB, AccB> B,
-  std::mdspan<T, ExtC, LayC, AccC> C
-) -> void
-  requires(ExtA::rank() == 2 && ExtA::rank() == ExtB::rank() && ExtA::rank() == ExtC::rank())
-{
-  // clang-format on
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
-#pragma omp parallel for schedule(static)
-#pragma omp tile sizes(TILE_L2, TILE_L2)
-#endif
-  for (size_t i = 0; i < A.extent(0); ++i) {
-    for (size_t j = 0; j < B.extent(1); ++j) {
-      T acc{};
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
-#pragma omp simd
-#endif
-      for (size_t k = 0; k < A.extent(1); ++k) {
-        acc += A[i, k] * B[k, j];
-      }
-      C[i, j] = acc;
-    }
-  }
-}
-
 static auto run_bench(Config const& cfg) -> void {
   ankerl::nanobench::Bench bs;
   bs.output(nullptr);
@@ -251,54 +181,48 @@ static auto run_bench(Config const& cfg) -> void {
   }
 
   // Standard layout matrices
-  std::vector<double> sA(cfg.n_ * cfg.n_);
-  std::vector<double> sB(cfg.n_ * cfg.n_);
-  std::vector<double> sC(cfg.n_ * cfg.n_);
-  auto msA = std::mdspan<double, ext_t>(sA.data(), cfg.n_, cfg.n_);
-  auto msB = std::mdspan<double, ext_t>(sB.data(), cfg.n_, cfg.n_);
-  auto msC = std::mdspan<double, ext_t>(sC.data(), cfg.n_, cfg.n_);
+  auto sA  = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto sB  = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto sC  = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto msA = std::mdspan<Type, Exts>(sA.get(), cfg.n_, cfg.n_);
+  auto msB = std::mdspan<Type, Exts>(sB.get(), cfg.n_, cfg.n_);
+  auto msC = std::mdspan<Type, Exts>(sC.get(), cfg.n_, cfg.n_);
 
   // Tiled layout matrices
-  std::vector<double> tA_l1(cfg.n_ * cfg.n_);
-  std::vector<double> tB_l1(cfg.n_ * cfg.n_);
-  std::vector<double> tC_l1(cfg.n_ * cfg.n_);
-  auto mtA_l1 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tA_l1.data(), cfg.n_, cfg.n_);
-  auto mtB_l1 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tB_l1.data(), cfg.n_, cfg.n_);
-  auto mtC_l1 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L1D, TILE_L1D>>(tC_l1.data(), cfg.n_, cfg.n_);
+  auto tA_l1  = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto tB_l1  = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto tC_l1  = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto mtA_l1 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L1, TILE_L1>>(tA_l1.get(), cfg.n_, cfg.n_);
+  auto mtB_l1 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L1, TILE_L1>>(tB_l1.get(), cfg.n_, cfg.n_);
+  auto mtC_l1 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L1, TILE_L1>>(tC_l1.get(), cfg.n_, cfg.n_);
 
-  std::vector<double> tA_l2(cfg.n_ * cfg.n_);
-  std::vector<double> tB_l2(cfg.n_ * cfg.n_);
-  std::vector<double> tC_l2(cfg.n_ * cfg.n_);
-  auto mtA_l2 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tA_l2.data(), cfg.n_, cfg.n_);
-  auto mtB_l2 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tB_l2.data(), cfg.n_, cfg.n_);
-  auto mtC_l2 = std::mdspan<double, ext_t, layout_right_tiled_right<TILE_L2, TILE_L2>>(tC_l2.data(), cfg.n_, cfg.n_);
+  auto tA_l2  = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto tB_l2  = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto tC_l2  = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto mtA_l2 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L2, TILE_L2>>(tA_l2.get(), cfg.n_, cfg.n_);
+  auto mtB_l2 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L2, TILE_L2>>(tB_l2.get(), cfg.n_, cfg.n_);
+  auto mtC_l2 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L2, TILE_L2>>(tC_l2.get(), cfg.n_, cfg.n_);
 
   // Matrix initializations
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
-#pragma omp parallel for collapse(2) schedule(static)
-#endif
-  for (size_t i = 0; i < cfg.n_; ++i) {
-    for (size_t j = 0; j < cfg.n_; ++j) {
-      msA[i, j]    = 1.0;
-      msB[i, j]    = 1.0;
-      msC[i, j]    = 1.0;
-      mtA_l1[i, j] = 1.0;
-      mtB_l1[i, j] = 1.0;
-      mtC_l1[i, j] = 1.0;
-      mtA_l2[i, j] = 1.0;
-      mtB_l2[i, j] = 1.0;
-      mtC_l2[i, j] = 1.0;
-    }
-  }
+  ankerl::nanobench::Rng rng_naive(42);
+  auto rng_tiled_l1 = rng_naive.copy();
+  auto rng_tiled_l2 = rng_naive.copy();
+  benchmark_utils::fill_2d_uniform01(msA, rng_naive);
+  benchmark_utils::fill_2d_uniform01(msB, rng_naive);
+  benchmark_utils::fill_2d_uniform01(msC, rng_naive);
+  benchmark_utils::fill_2d_uniform01(mtA_l1, rng_tiled_l1);
+  benchmark_utils::fill_2d_uniform01(mtB_l1, rng_tiled_l1);
+  benchmark_utils::fill_2d_uniform01(mtC_l1, rng_tiled_l1);
+  benchmark_utils::fill_2d_uniform01(mtA_l2, rng_tiled_l2);
+  benchmark_utils::fill_2d_uniform01(mtB_l2, rng_tiled_l2);
+  benchmark_utils::fill_2d_uniform01(mtC_l2, rng_tiled_l2);
 
   // Benchmarks
-  bs.run("right naive", [&]() { naive_gemm(msA, msB, msC); });
-  bs.run(fmt::format("tiled naive {0}x{0}", TILE_L1D), [&]() { naive_gemm(mtA_l1, mtB_l1, mtC_l1); });
-  bs.run(fmt::format("tiled naive {0}x{0}", TILE_L2), [&]() { naive_gemm(mtA_l2, mtB_l2, mtC_l2); });
-  bs.run(fmt::format("right block {0}x{0}", TILE_L1D), [&]() { block_l1d_gemm(msA, msB, msC); });
-  bs.run(fmt::format("right block {0}x{0}", TILE_L2), [&]() { block_l2_gemm(msA, msB, msC); });
-  bs.run(fmt::format("right omp tile {0}x{0}", TILE_L1D), [&]() { omp_tile_l1d_gemm(msA, msB, msC); });
-  bs.run(fmt::format("right omp tile {0}x{0}", TILE_L2), [&]() { omp_tile_l2_gemm(msA, msB, msC); });
+  bs.run("lright naive", [&]() { naive_gemm(msA, msB, msC); });
+  bs.run(fmt::format("lrtr naive {0}x{0}", TILE_L1), [&]() { naive_gemm(mtA_l1, mtB_l1, mtC_l1); });
+  bs.run(fmt::format("lrtr naive {0}x{0}", TILE_L2), [&]() { naive_gemm(mtA_l2, mtB_l2, mtC_l2); });
+  bs.run(fmt::format("lright blocked {0}x{0}", TILE_L1), [&]() { block_l1d_gemm(msA, msB, msC); });
+  bs.run(fmt::format("lright blocked {0}x{0}", TILE_L2), [&]() { block_l2_gemm(msA, msB, msC); });
 
   // Output
   bs.render(ankerl::nanobench::templates::csv(), *out_stream);
