@@ -47,7 +47,7 @@ auto naive(
   std::mdspan<T, ExtIn, LayIn, AccIn> in,
   std::mdspan<T, ExtOut, LayOut, AccOut> out
 ) -> void
-  requires(ExtIn::rank() == 2 && ExtIn::rank() == ExtOut::rank())
+  requires(ExtIn::rank() == 2, ExtIn::rank() == ExtOut::rank())
 {
   // clang-format on
   assert(in.extent(0) == out.extent(0));
@@ -69,6 +69,80 @@ auto naive(
 
 // clang-format off
 template <
+  size_t BLKSZ_I, size_t BLKSZ_J,
+  class T,
+  class ExtIn, class LayIn, class AccIn,
+  class ExtOut, class LayOut, class AccOut
+>
+auto cache_blocked(
+  std::mdspan<T, ExtIn, LayIn, AccIn> in,
+  std::mdspan<T, ExtOut, LayOut, AccOut> out
+) -> void
+  requires(ExtIn::rank() == 2, ExtIn::rank() == ExtOut::rank())
+{
+  // clang-format on
+  assert(in.extent(0) == out.extent(0));
+  assert(in.extent(1) == out.extent(1));
+
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#pragma omp parallel for schedule(static)
+#endif
+  for (size_t block_i = 1; block_i < in.extent(0) - 1; block_i += BLKSZ_I) {
+    auto i_bound = std::min(block_i + BLKSZ_I, in.extent(0) - 1);
+    for (size_t block_j = 1; block_j < in.extent(1) - 1; block_j += BLKSZ_J) {
+      auto j_bound = std::min(block_j + BLKSZ_J, in.extent(1) - 1);
+      for (size_t i = block_i; i < i_bound; ++i) {
+        for (size_t j = block_j; j < j_bound; ++j) {
+          // clang-format off
+          out[i, j] =              in[i-1, j] +
+                      in[i, j-1] + in[  i, j] + in[i, j+1] +
+                                   in[i+1, j];
+          // clang-format on
+        }
+      }
+    }
+  }
+}
+
+// clang-format off
+template <
+  class T,
+  class ExtIn, class LayIn, class AccIn,
+  class ExtOut, class LayOut, class AccOut
+>
+auto cache_blocked(
+  std::mdspan<T, ExtIn, LayIn, AccIn> in,
+  std::mdspan<T, ExtOut, LayOut, AccOut> out,
+  size_t blksz_i, size_t blksz_j
+) -> void
+  requires(ExtIn::rank() == 2, ExtIn::rank() == ExtOut::rank())
+{
+  // clang-format on
+  assert(in.extent(0) == out.extent(0));
+  assert(in.extent(1) == out.extent(1));
+
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#pragma omp parallel for schedule(static)
+#endif
+  for (size_t block_i = 1; block_i < in.extent(0) - 1; block_i += blksz_i) {
+    auto i_bound = std::min(block_i + blksz_i, in.extent(0) - 1);
+    for (size_t block_j = 1; block_j < in.extent(1) - 1; block_j += blksz_j) {
+      auto j_bound = std::min(block_j + blksz_j, in.extent(1) - 1);
+      for (size_t i = block_i; i < i_bound; ++i) {
+        for (size_t j = block_j; j < j_bound; ++j) {
+          // clang-format off
+          out[i, j] =              in[i-1, j] +
+                      in[i, j-1] + in[  i, j] + in[i, j+1] +
+                                   in[i+1, j];
+          // clang-format on
+        }
+      }
+    }
+  }
+}
+
+// clang-format off
+template <
   size_t TILE_I, size_t TILE_J,
   class T,
   class ExtIn, class LayIn, class AccIn,
@@ -78,7 +152,7 @@ auto manual_blocked_tiled(
   std::mdspan<T, ExtIn, LayIn, AccIn> in,
   std::mdspan<T, ExtOut, LayOut, AccOut> out
 ) -> void
-  requires(ExtIn::rank() == 2 && ExtIn::rank() == ExtOut::rank())
+  requires(ExtIn::rank() == 2, ExtIn::rank() == ExtOut::rank())
 {
   // clang-format on
   assert(in.extent(0) == out.extent(0));
@@ -127,7 +201,7 @@ auto manual_blocked_tiled(
   std::mdspan<T, ExtOut, LayOut, AccOut> out,
   size_t tile_i, size_t tile_j
 ) -> void
-  requires(ExtIn::rank() == 2 && ExtIn::rank() == ExtOut::rank())
+  requires(ExtIn::rank() == 2, ExtIn::rank() == ExtOut::rank())
 {
   // clang-format on
   assert(in.extent(0) == out.extent(0));
@@ -158,80 +232,6 @@ auto manual_blocked_tiled(
           hout[baseoff] =                  hin[basem1off] +
                           hin[baseoff-1] + hin[baseoff]   + hin[baseoff+1] +
                                            hin[basep1off];
-          // clang-format on
-        }
-      }
-    }
-  }
-}
-
-// clang-format off
-template <
-  size_t BLKSZ_I, size_t BLKSZ_J,
-  class T,
-  class ExtIn, class LayIn, class AccIn,
-  class ExtOut, class LayOut, class AccOut
->
-auto cache_blocked(
-  std::mdspan<T, ExtIn, LayIn, AccIn> in,
-  std::mdspan<T, ExtOut, LayOut, AccOut> out
-) -> void
-  requires(ExtIn::rank() == 2 && ExtIn::rank() == ExtOut::rank())
-{
-  // clang-format on
-  assert(in.extent(0) == out.extent(0));
-  assert(in.extent(1) == out.extent(1));
-
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
-#pragma omp parallel for schedule(static)
-#endif
-  for (size_t block_i = 1; block_i < in.extent(0) - 1; block_i += BLKSZ_I) {
-    auto i_bound = std::min(block_i + BLKSZ_I, in.extent(0) - 1);
-    for (size_t block_j = 1; block_j < in.extent(1) - 1; block_j += BLKSZ_J) {
-      auto j_bound = std::min(block_j + BLKSZ_J, in.extent(1) - 1);
-      for (size_t i = block_i; i < i_bound; ++i) {
-        for (size_t j = block_j; j < j_bound; ++j) {
-          // clang-format off
-          out[i, j] =              in[i-1, j] +
-                      in[i, j-1] + in[  i, j] + in[i, j+1] +
-                                   in[i+1, j];
-          // clang-format on
-        }
-      }
-    }
-  }
-}
-
-// clang-format off
-template <
-  class T,
-  class ExtIn, class LayIn, class AccIn,
-  class ExtOut, class LayOut, class AccOut
->
-auto cache_blocked(
-  std::mdspan<T, ExtIn, LayIn, AccIn> in,
-  std::mdspan<T, ExtOut, LayOut, AccOut> out,
-  size_t blksz_i, size_t blksz_j
-) -> void
-  requires(ExtIn::rank() == 2 && ExtIn::rank() == ExtOut::rank())
-{
-  // clang-format on
-  assert(in.extent(0) == out.extent(0));
-  assert(in.extent(1) == out.extent(1));
-
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
-#pragma omp parallel for schedule(static)
-#endif
-  for (size_t block_i = 1; block_i < in.extent(0) - 1; block_i += blksz_i) {
-    auto i_bound = std::min(block_i + blksz_i, in.extent(0) - 1);
-    for (size_t block_j = 1; block_j < in.extent(1) - 1; block_j += blksz_j) {
-      auto j_bound = std::min(block_j + blksz_j, in.extent(1) - 1);
-      for (size_t i = block_i; i < i_bound; ++i) {
-        for (size_t j = block_j; j < j_bound; ++j) {
-          // clang-format off
-          out[i, j] =              in[i-1, j] +
-                      in[i, j-1] + in[  i, j] + in[i, j+1] +
-                                   in[i+1, j];
           // clang-format on
         }
       }
@@ -291,19 +291,19 @@ auto run_bench(Config const& cfg) -> void {
   double ref = benchmark_utils::l2_norm(mlr_out);
 
   stencil_2d::naive(mlrtr_l1_in, mlrtr_l1_out);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out));
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "lrtr_naive_l1");
   stencil_2d::naive(mlrtr_l2_in, mlrtr_l2_out);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out));
-
-  stencil_2d::manual_blocked_tiled(mlrtr_l1_in, mlrtr_l1_out, TILE_L1, TILE_L1);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out));
-  stencil_2d::manual_blocked_tiled(mlrtr_l2_in, mlrtr_l2_out, TILE_L2, TILE_L2);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out));
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "lrtr_naive_l2");
 
   stencil_2d::cache_blocked(mlr_in, mlr_out, TILE_L1, TILE_L1);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out));
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "lr_blocked_l1");
   stencil_2d::cache_blocked(mlr_in, mlr_out, TILE_L2, TILE_L2);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out));
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "lr_blocked_l2");
+
+  stencil_2d::manual_blocked_tiled(mlrtr_l1_in, mlrtr_l1_out, TILE_L1, TILE_L1);
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "lrtr_manual_l1");
+  stencil_2d::manual_blocked_tiled(mlrtr_l2_in, mlrtr_l2_out, TILE_L2, TILE_L2);
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "lrtr_manual_l2");
 #endif
 
   // Benchmarks
@@ -311,19 +311,6 @@ auto run_bench(Config const& cfg) -> void {
 
   bs.run(fmt::format("lrtr naive {0}x{0}", TILE_L1), [&]() { stencil_2d::naive(mlrtr_l1_in, mlrtr_l1_out); });
   bs.run(fmt::format("lrtr naive {0}x{0}", TILE_L2), [&]() { stencil_2d::naive(mlrtr_l2_in, mlrtr_l2_out); });
-
-  bs.run(fmt::format("lrtr manual_tiled {0}x{0}", TILE_L1), [&]() {
-    stencil_2d::manual_blocked_tiled<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
-  });
-  bs.run(fmt::format("lrtr manual_tiled {0}x{0}", TILE_L2), [&]() {
-    stencil_2d::manual_blocked_tiled<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
-  });
-  bs.run(fmt::format("lrtr manual_tiled_rt {0}x{0}", TILE_L1), [&]() {
-    stencil_2d::manual_blocked_tiled(mlrtr_l1_in, mlrtr_l1_out, TILE_L1, TILE_L1);
-  });
-  bs.run(fmt::format("lrtr manual_tiled_rt {0}x{0}", TILE_L2), [&]() {
-    stencil_2d::manual_blocked_tiled(mlrtr_l2_in, mlrtr_l2_out, TILE_L2, TILE_L2);
-  });
 
   bs.run(fmt::format("lr blocked {0}x{0}", TILE_L1), [&]() {
     stencil_2d::cache_blocked<TILE_L1, TILE_L1>(mlr_in, mlr_out);
@@ -336,6 +323,19 @@ auto run_bench(Config const& cfg) -> void {
   });
   bs.run(fmt::format("lr blocked_rt {0}x{0}", TILE_L2), [&]() {
     stencil_2d::cache_blocked(mlr_in, mlr_out, TILE_L2, TILE_L2);
+  });
+
+  bs.run(fmt::format("lrtr manual_tiled {0}x{0}", TILE_L1), [&]() {
+    stencil_2d::manual_blocked_tiled<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
+  });
+  bs.run(fmt::format("lrtr manual_tiled {0}x{0}", TILE_L2), [&]() {
+    stencil_2d::manual_blocked_tiled<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
+  });
+  bs.run(fmt::format("lrtr manual_tiled_rt {0}x{0}", TILE_L1), [&]() {
+    stencil_2d::manual_blocked_tiled(mlrtr_l1_in, mlrtr_l1_out, TILE_L1, TILE_L1);
+  });
+  bs.run(fmt::format("lrtr manual_tiled_rt {0}x{0}", TILE_L2), [&]() {
+    stencil_2d::manual_blocked_tiled(mlrtr_l2_in, mlrtr_l2_out, TILE_L2, TILE_L2);
   });
 
   // Output
