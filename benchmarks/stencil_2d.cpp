@@ -23,6 +23,8 @@
 #include <omp.h>
 #endif
 
+#include "utils.hpp"
+
 using namespace std::chrono_literals;
 using Type = double;
 using Exts = std::dextents<size_t, 2>;
@@ -281,9 +283,9 @@ auto run_bench(Config const& cfg) -> void {
   auto rng_naive    = ankerl::nanobench::Rng(42);
   auto rng_tiled_l1 = rng_naive.copy();
   auto rng_tiled_l2 = rng_naive.copy();
-  benchmark_utils::fill_2d_random(mlr_in, rng_naive);
-  benchmark_utils::fill_2d_random(mlrtr_l1_in, rng_tiled_l1);
-  benchmark_utils::fill_2d_random(mlrtr_l2_in, rng_tiled_l2);
+  benchmark_utils::fill_2d_uniform01(mlr_in, rng_naive);
+  benchmark_utils::fill_2d_uniform01(mlrtr_l1_in, rng_tiled_l1);
+  benchmark_utils::fill_2d_uniform01(mlrtr_l2_in, rng_tiled_l2);
 
   // Checks
 #if defined(LAYOUT_TILED_ENABLE_CHECKS)

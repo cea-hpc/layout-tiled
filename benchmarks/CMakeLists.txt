@@ -6,7 +6,11 @@
 # See https://opensource.org/license/MIT for license information.
 # SPDX-License-Identifier: MIT
 
-set(ALL_BENCHMARKS gemm)
+set(
+  ALL_BENCHMARKS
+  gemm
+  stencil_2d
+)
 
 option(LayoutTiled_ENABLE_OPENMP "Enable building benchmarks with OpenMP support. Values: { ON, OFF }." OFF)
 option(LayoutTiled_ENABLE_CHECKS "Enable checking the computed results of benchmarks. Values: { ON, OFF }." OFF)
