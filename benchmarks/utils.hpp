@@ -52,8 +52,8 @@ struct MemorySlice {
     rhs.ptr_ = nullptr;
   }
   auto operator=(MemorySlice&& rhs) -> MemorySlice& {
-    int ret = munmap(static_cast<void*>(ptr_), len_);
-    assert(0 == ret);
+    [[maybe_unused]] int _ret = munmap(static_cast<void*>(ptr_), len_);
+    assert(0 == _ret);
     ptr_     = rhs.ptr_;
     len_     = rhs.len_;
     rhs.ptr_ = nullptr;
@@ -61,7 +61,7 @@ struct MemorySlice {
   }
 
   /// Returns a raw pointer to the underlying allocation.
-  auto get() -> T* {
+  [[nodiscard]] auto get() -> T* {
     return ptr_;
   }
 
