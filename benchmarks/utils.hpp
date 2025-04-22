@@ -100,4 +100,21 @@ auto fill_2d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void
   }
 }
 
+/// Fills a 3D `mdspan` of `double`-typed elements with random values of uniform distribution in range [0, 1).
+template <class MdSpan>
+auto fill_3d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void
+  requires(std::is_floating_point_v<typename MdSpan::value_type>, 3 == MdSpan::rank())
+{
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#pragma omp parallel for collapse(3) schedule(static)
+#endif
+  for (size_t i = 0; i < m.extent(0); ++i) {
+    for (size_t j = 0; j < m.extent(1); ++j) {
+      for (size_t k = 0; k < m.extent(2); ++k) {
+        m[i, j, k] = rng.uniform01();
+      }
+    }
+  }
+}
+
 } // namespace benchmark_utils
