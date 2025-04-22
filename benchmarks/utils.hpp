@@ -70,7 +70,6 @@ private:
 
 namespace benchmark_utils {
 
-/// Fill a 2D `mdspan` of `double`-typed elements with random values of uniform distribution in range [0, 1).
 /// Computes the L2-norm of an `mdspan`.
 template <class MdSpan>
 auto l2_norm(MdSpan m) -> double
@@ -87,8 +86,10 @@ auto l2_norm(MdSpan m) -> double
   return std::sqrt(sum);
 }
 
+/// Fills a 2D `mdspan` of `double`-typed elements with random values of uniform distribution in range [0, 1).
+template <class MdSpan>
 auto fill_2d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void
-  requires(std::is_same_v<double, typename MdSpan::value_type> && 2 == MdSpan::rank())
+  requires(std::is_floating_point_v<typename MdSpan::value_type>, 2 == MdSpan::rank())
 {
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for collapse(2) schedule(static)
