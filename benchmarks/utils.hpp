@@ -75,10 +75,10 @@ template <class MdSpan>
 auto l2_norm(MdSpan m) -> double
   requires(std::is_floating_point_v<typename MdSpan::value_type>)
 {
-  auto ptr = m.data();
+  auto ptr   = m.data();
   double sum = 0.0;
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
-#pragma omp parallel reduction(+:sum) schedule(static)
+#pragma omp parallel for reduction(+ : sum) schedule(static)
 #endif
   for (size_t e = 0; e < m.size(); ++e) {
     sum += ptr[e];
