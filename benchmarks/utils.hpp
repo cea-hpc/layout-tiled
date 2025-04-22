@@ -8,14 +8,18 @@
 
 #pragma once
 
+#include <limits>
 #include <sys/mman.h> // mmamp/munmap
 #include <unistd.h>   // sysconf
 
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
+#include <limits>
+#include <string>
 #include <type_traits>
 
+#include <fmt/core.h>
 #include <nanobench.h>
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #include <omp.h>
@@ -70,12 +74,21 @@ private:
 
 namespace benchmark_utils {
 
+template <class T>
+auto check(T reference, T result, std::string const& label) -> void
+  requires(std::is_floating_point_v<T>)
+{
+  if (std::abs(result - reference) <= std::numeric_limits<T>::epsilon()) {
+    fmt::print(stderr, "error({}): expected {}, got {}\n", label, reference, result);
+  }
+}
+
 /// Computes the L2-norm of an `mdspan`.
 template <class MdSpan>
 auto l2_norm(MdSpan m) -> double
   requires(std::is_floating_point_v<typename MdSpan::value_type>)
 {
-  auto ptr   = m.data();
+  auto ptr   = m.data_handle();
   double sum = 0.0;
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for reduction(+ : sum) schedule(static)
