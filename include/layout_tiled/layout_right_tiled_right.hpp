@@ -137,7 +137,6 @@ public:
     }
     /* --- END PUBLIC HELPER MEMBERS --- */
 
-  private:
     /* --- HELPER MEMBERS --- */
     /// Finds the starting offset of the tile in which the indexed element is located.
     template <class... Idxs>
@@ -176,6 +175,7 @@ public:
     }
     /* --- END HELPER MEMBERS --- */
 
+  private:
     extents_type extents_;
   };
 };

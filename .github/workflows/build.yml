@@ -120,9 +120,9 @@ jobs:
         run: sudo apt update && sudo apt install libc++-dev libomp-dev
 
       - name: Configure serial
-        run: cmake -S . -B build-serial -DLayoutTiled_BUILD_BENCHMARKS=ON
+        run: cmake -S . -B build-serial -DLayoutTiled_BUILD_BENCHMARKS=ON -DLayoutTiled_BENCHMARKS_ENABLE_CHECKS=ON
       - name: Configure parallel
-        run: cmake -S . -B build-parallel -DLayoutTiled_BUILD_BENCHMARKS=ON -DLayoutTiled_ENABLE_OPENMP=ON
+        run: cmake -S . -B build-parallel -DLayoutTiled_BUILD_BENCHMARKS=ON -DLayoutTiled_BENCHMARKS_ENABLE_CHECKS=ON -DLayoutTiled_BENCHMARKS_ENABLE_OPENMP=ON
 
       - name: Build serial
         run: cmake --build build-serial --config Release --verbose
