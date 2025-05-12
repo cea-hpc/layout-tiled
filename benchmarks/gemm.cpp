@@ -20,7 +20,7 @@
 #include <layout_tiled/layout_left_tiled_left.hpp>
 #include <layout_tiled/layout_right_tiled_right.hpp>
 #include <nanobench.h>
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #include <omp.h>
 #endif
 
@@ -52,13 +52,13 @@ auto naive(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
   size_t const N = B.extent(1);
   size_t const O = A.extent(1);
 
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
   for (size_t i = 0; i < M; ++i) {
     for (size_t j = 0; j < N; ++j) {
       Type acc{};
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
       for (size_t k = 0; k < O; ++k) {
@@ -80,7 +80,7 @@ auto cache_blocked(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
   size_t const N = B.extent(1);
   size_t const O = A.extent(1);
 
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
@@ -89,7 +89,7 @@ auto cache_blocked(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
         for (size_t i = x; i < std::min(TM * (x + 1), M); ++i) {
           for (size_t j = y; j < std::min(TN * (y + 1), N); ++j) {
             Type acc{};
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
             for (size_t k = 0; k < std::min(TO * (z + 1), O); ++k) {
@@ -114,7 +114,7 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
   size_t const N = B.extent(1);
   size_t const O = A.extent(1);
 
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t blk_i = 0; blk_i < M; blk_i += TM) {
@@ -133,7 +133,7 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
           for (size_t j = 0; j < j_bound; ++j) {
             size_t B_inoff = j;
             Type acc       = 0.0;
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
             for (size_t k = 0; k < k_bound; ++k) {
@@ -161,7 +161,7 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C, size_t TM, size_t TN,
   size_t const N = B.extent(1);
   size_t const O = A.extent(1);
 
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t blk_i = 0; blk_i < M; blk_i += TM) {
@@ -180,7 +180,7 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C, size_t TM, size_t TN,
           for (size_t j = 0; j < j_bound; ++j) {
             size_t B_inoff = j;
             Type acc       = 0.0;
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
             for (size_t k = 0; k < k_bound; ++k) {
@@ -202,7 +202,7 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C, size_t TM, size_t TN,
 auto run_bench(Config const& cfg) -> void {
   ankerl::nanobench::Bench bs;
   bs.output(nullptr);
-#if defined(LAYOUT_TILED_BENCH_OPENMP)
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
   bs.title(fmt::format("{0}x{0} {1}C", cfg.n_, omp_get_max_threads())).timeUnit(1s, "s").relative(true);
 #else
   bs.title(fmt::format("{0}x{0} 1C", cfg.n_)).timeUnit(1s, "s").relative(true);
