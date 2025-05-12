@@ -40,8 +40,8 @@ struct MemorySlice {
   }
 
   ~MemorySlice() {
-    int ret = munmap(static_cast<void*>(ptr_), len_);
-    assert(0 == ret);
+    [[maybe_unused]] int _ret = munmap(static_cast<void*>(ptr_), len_);
+    assert(0 == _ret);
   }
   // Prevent deep copies.
   MemorySlice(MemorySlice const& rhs)                    = delete;
