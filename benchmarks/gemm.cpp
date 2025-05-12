@@ -320,10 +320,10 @@ auto run_bench(Config const& cfg) -> void {
     gemm::manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtlB_l2, mtrC_l2);
   });
 
-  bs.run(fmt::format("RTR-{0}x{0} mbt_rt", cfg.t_), [&]() {
+  bs.run(fmt::format("RTR-{0}x{0} mbt (runtime)", cfg.t_), [&]() {
     gemm::manual_blocked_tiled(mtrA_l1, mtrB_l1, mtrC_l1, cfg.t_, cfg.t_, cfg.t_);
   });
-  bs.run(fmt::format("RTR_BLTL-{0}x{0} mbt_rt", cfg.t_), [&]() {
+  bs.run(fmt::format("RTR_BLTL-{0}x{0} mbt (runtime)", cfg.t_), [&]() {
     gemm::manual_blocked_tiled(mtrA_l1, mtlB_l1, mtrC_l1, cfg.t_, cfg.t_, cfg.t_);
   });
 
