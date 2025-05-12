@@ -84,15 +84,18 @@ auto cache_blocked(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
+    size_t const tx = std::min(x + TM, M);
     for (size_t y = 0; y < N; y += TN) {
+      size_t const ty = std::min(y + TN, N);
       for (size_t z = 0; z < O; z += TO) {
-        for (size_t i = x; i < std::min(TM * (x + 1), M); ++i) {
-          for (size_t j = y; j < std::min(TN * (y + 1), N); ++j) {
+        size_t const tz = std::min(z + TO, O);
+        for (size_t i = x; i < tx; ++i) {
+          for (size_t j = y; j < ty; ++j) {
             Type acc{};
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
-            for (size_t k = 0; k < std::min(TO * (z + 1), O); ++k) {
+            for (size_t k = 0; k < tz; ++k) {
               acc += A[i, k] * B[k, j];
             }
             C[i, j] = acc;
@@ -117,26 +120,26 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
-  for (size_t blk_i = 0; blk_i < M; blk_i += TM) {
-    size_t const i_bound = std::min(TM, M - blk_i);
-    for (size_t blk_j = 0; blk_j < N; blk_j += TN) {
-      double* C_outoff     = C.data_handle() + C.mapping().tile_offset_outer(blk_i, blk_j);
-      size_t const j_bound = std::min(TN, N - blk_j);
-      for (size_t blk_k = 0; blk_k < O; blk_k += TO) {
-        double const* A_outoff = A.data_handle() + A.mapping().tile_offset_outer(blk_i, blk_k);
-        double const* B_outoff = A.data_handle() + B.mapping().tile_offset_outer(blk_k, blk_j);
-        size_t const k_bound   = std::min(TO, O - blk_k);
-        for (size_t i = 0; i < i_bound; ++i) {
+  for (size_t x = 0; x < M; x += TM) {
+    size_t const tx = std::min(TM, M - x);
+    for (size_t y = 0; y < N; y += TN) {
+      double* C_outoff = C.data_handle() + C.mapping().tile_offset_outer(x, y);
+      size_t const ty  = std::min(TN, N - y);
+      for (size_t z = 0; z < O; z += TO) {
+        double const* A_outoff = A.data_handle() + A.mapping().tile_offset_outer(x, z);
+        double const* B_outoff = A.data_handle() + B.mapping().tile_offset_outer(z, y);
+        size_t const tz = std::min(TO, O - z);
+        for (size_t i = 0; i < tx; ++i) {
           size_t const ti = i * TM;
           size_t A_inoff  = ti;
           size_t C_inoff  = ti;
-          for (size_t j = 0; j < j_bound; ++j) {
+          for (size_t j = 0; j < ty; ++j) {
             size_t B_inoff = j;
             Type acc       = 0.0;
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
-            for (size_t k = 0; k < k_bound; ++k) {
+            for (size_t k = 0; k < tz; ++k) {
               acc += A_outoff[A_inoff] * B_outoff[B_inoff];
               A_inoff += 1;
               B_inoff += TO;
@@ -164,26 +167,26 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C, size_t TM, size_t TN,
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
-  for (size_t blk_i = 0; blk_i < M; blk_i += TM) {
-    size_t const i_bound = std::min(TM, M - blk_i);
-    for (size_t blk_j = 0; blk_j < N; blk_j += TN) {
-      double* C_outoff     = C.data_handle() + C.mapping().tile_offset_outer(blk_i, blk_j);
-      size_t const j_bound = std::min(TN, N - blk_j);
-      for (size_t blk_k = 0; blk_k < O; blk_k += TO) {
-        double const* A_outoff = A.data_handle() + A.mapping().tile_offset_outer(blk_i, blk_k);
-        double const* B_outoff = A.data_handle() + B.mapping().tile_offset_outer(blk_k, blk_j);
-        size_t const k_bound   = std::min(TO, O - blk_k);
-        for (size_t i = 0; i < i_bound; ++i) {
+  for (size_t x = 0; x < M; x += TM) {
+    size_t const tx = std::min(TM, M - x);
+    for (size_t y = 0; y < N; y += TN) {
+      double* C_outoff = C.data_handle() + C.mapping().tile_offset_outer(x, y);
+      size_t const ty  = std::min(TN, N - y);
+      for (size_t z = 0; z < O; z += TO) {
+        double const* A_outoff = A.data_handle() + A.mapping().tile_offset_outer(x, z);
+        double const* B_outoff = A.data_handle() + B.mapping().tile_offset_outer(z, y);
+        size_t const tz = std::min(TO, O - z);
+        for (size_t i = 0; i < tx; ++i) {
           size_t const ti = i * TM;
           size_t A_inoff  = ti;
           size_t C_inoff  = ti;
-          for (size_t j = 0; j < j_bound; ++j) {
+          for (size_t j = 0; j < ty; ++j) {
             size_t B_inoff = j;
             Type acc       = 0.0;
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
-            for (size_t k = 0; k < k_bound; ++k) {
+            for (size_t k = 0; k < tz; ++k) {
               acc += A_outoff[A_inoff] * B_outoff[B_inoff];
               A_inoff += 1;
               B_inoff += TO;
@@ -266,20 +269,18 @@ auto run_bench(Config const& cfg) -> void {
   gemm::naive(mrA, mrB, mrB);
   double ref = frobenius_norm(mrC);
 
+  gemm::cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC);
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L1");
+  gemm::cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mrB, mrC);
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L2");
+
   gemm::naive(mtrA_l1, mtrB_l1, mtrC_l1);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_naive");
   gemm::naive(mtrA_l2, mtrB_l2, mtrC_l2);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_naive");
 
-  gemm::cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L1");
-
-  gemm::cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mrB, mrC);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L2");
-
   gemm::manual_blocked_tiled<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_mbt");
-
   gemm::manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_mbt");
 #endif
