@@ -15,3 +15,8 @@ BinPackArguments: false
 BinPackParameters: false
 PackConstructorInitializers: NextLineOnly
 RequiresClausePosition: OwnLine
+IndentRequiresClause: false
+SpaceBeforeParens: Custom
+SpaceBeforeParensOptions:
+ AfterRequiresInClause: true
+# BreakBeforeTemplateCloser: true
