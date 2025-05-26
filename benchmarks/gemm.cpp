@@ -206,7 +206,12 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C, size_t TM, size_t TN,
 #if defined(LAYOUT_TILED_ENABLE_BLAS)
 /// Only supported with `LayoutRight` matrices
 template <class MdSpanA, class MdSpanB, class MdSpanC>
-  requires(MdSpanA::extents_type::rank() == 2, MdSpanB::extents_type::rank() == 2, MdSpanC::extents_type::rank() == 2, std::is_same_v<typename MdSpanA::layout_type, std::layout_right>, std::is_same_v<typename MdSpanB::layout_type, std::layout_right>, std::is_same_v<typename MdSpanC::layout_type, std::layout_right>)
+  requires(MdSpanA::extents_type::rank() == 2,
+           MdSpanB::extents_type::rank() == 2,
+           MdSpanC::extents_type::rank() == 2,
+           std::is_same_v<typename MdSpanA::layout_type, std::layout_right>,
+           std::is_same_v<typename MdSpanB::layout_type, std::layout_right>,
+           std::is_same_v<typename MdSpanC::layout_type, std::layout_right>)
 auto blas(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(0) == C.extent(0));
   assert(A.extent(1) == B.extent(0));
@@ -215,12 +220,12 @@ auto blas(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
   int const M            = static_cast<int>(A.extent(0));
   int const N            = static_cast<int>(B.extent(1));
   int const O            = static_cast<int>(A.extent(1));
-  const double alpha     = 1.0;
+  double const alpha     = 1.0;
   double const* A_handle = A.data_handle();
   int const lda          = static_cast<int>(A.stride(0));
   double const* B_handle = B.data_handle();
   int const ldb          = static_cast<int>(B.stride(0));
-  const double beta      = 0.0;
+  double const beta      = 0.0;
   double* C_handle       = C.data_handle();
   int const ldc          = static_cast<int>(C.stride(0));
 
