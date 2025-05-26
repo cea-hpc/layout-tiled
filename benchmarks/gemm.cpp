@@ -23,6 +23,9 @@
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #include <omp.h>
 #endif
+#if defined(LAYOUT_TILED_ENABLE_BLAS)
+#include <cblas.h>
+#endif
 
 #include "utils.hpp"
 
@@ -200,6 +203,38 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C, size_t TM, size_t TN,
   }
 }
 
+#if defined(LAYOUT_TILED_ENABLE_BLAS)
+/// Only supported with `LayoutRight` matrices
+template <class MdSpanA, class MdSpanB, class MdSpanC>
+  requires(MdSpanA::extents_type::rank() == 2,
+           MdSpanB::extents_type::rank() == 2,
+           MdSpanC::extents_type::rank() == 2,
+           std::is_same_v<typename MdSpanA::layout_type, std::layout_right>,
+           std::is_same_v<typename MdSpanB::layout_type, std::layout_right>,
+           std::is_same_v<typename MdSpanC::layout_type, std::layout_right>)
+auto blas(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
+  assert(A.extent(0) == C.extent(0));
+  assert(A.extent(1) == B.extent(0));
+  assert(B.extent(1) == C.extent(1));
+
+  int const M            = static_cast<int>(A.extent(0));
+  int const N            = static_cast<int>(B.extent(1));
+  int const O            = static_cast<int>(A.extent(1));
+  double const alpha     = 1.0;
+  double const* A_handle = A.data_handle();
+  int const lda          = static_cast<int>(A.stride(0));
+  double const* B_handle = B.data_handle();
+  int const ldb          = static_cast<int>(B.stride(0));
+  double const beta      = 0.0;
+  double* C_handle       = C.data_handle();
+  int const ldc          = static_cast<int>(C.stride(0));
+
+  cblas_dgemm(
+    CblasRowMajor, CblasNoTrans, CblasNoTrans, M, N, O, alpha, A_handle, lda, B_handle, ldb, beta, C_handle, ldc
+  );
+}
+#endif
+
 } // namespace gemm
 
 auto run_bench(Config const& cfg) -> void {
@@ -288,6 +323,9 @@ auto run_bench(Config const& cfg) -> void {
   // Benchmarks
   bs.run("R naive", [&]() { gemm::naive(mrA, mrB, mrC); });
   bs.run("R_BL naive", [&]() { gemm::naive(mrA, mlB, mrC); });
+#if defined(LAYOUT_TILED_ENABLE_BLAS)
+  bs.run("R blas", [&]() { gemm::blas(mrA, mrB, mrC); });
+#endif
 
   bs.run(fmt::format("R cb-{0}x{0}", TILE_L1), [&]() {
     gemm::cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC);
