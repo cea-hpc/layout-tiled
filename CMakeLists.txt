@@ -7,11 +7,33 @@ option(LayoutTiled_BUILD_TESTS "Enable building tests. Values: { ON, OFF}." OFF)
 option(LayoutTiled_BUILD_EXAMPLES "Enable building examples. Values: { ON, OFF }." OFF)
 option(LayoutTiled_BUILD_BENCHMARKS "Enable building benchmarks. Values: { ON, OFF }." OFF)
 
+option(LayoutTiled_ENABLE_DEVICE_OFFLOAD "Enable support for offloading to devices (GPUs). Values: { ON, OFF }." OFF)
+
 # --- PROJECT DEPENDENCIES --- #
 include(FetchContent)
 FetchContent_Declare(mdspan GIT_REPOSITORY https://github.com/kokkos/mdspan.git GIT_TAG origin/stable)
 FetchContent_MakeAvailable(mdspan)
 target_compile_definitions(mdspan INTERFACE -DMDSPAN_USE_BRACKET_OPERATOR)
+
+if(LayoutTiled_ENABLE_DEVICE_OFFLOAD)
+  message(STATUS "Enabling support for device offload:")
+  include(CheckLanguage)
+  check_language(CUDA)
+  if(CMAKE_CUDA_COMPILER)
+    message(STATUS "Using ${CMAKE_CXX_STANDARD} as CMAKE_CUDA_STANDARD")
+    set(CMAKE_CUDA_STANDARD ${CMAKE_CXX_STANDARD})
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+    enable_language(CUDA)
+  elseif(CMAKE_HIP_COMPILER)
+    message(STATUS "Using ${CMAKE_CXX_STANDARD} as CMAKE_HIP_STANDARD")
+    set(CMAKE_HIP_STANDARD ${CMAKE_CXX_STANDARD})
+    set(CMAKE_HIP_STANDARD_REQUIRED ON)
+    enable_language(HIP)
+  else()
+    message(FATAL_ERROR "Requested device offload support, but no CUDA or HIP compilers available.")
+  endif()
+  check_language(HIP)
+endif()
 
 # --- PROJECT TARGETS --- #
 add_subdirectory(include/layout_tiled)

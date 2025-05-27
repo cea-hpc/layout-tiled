@@ -45,6 +45,10 @@ target_link_libraries(
     mdspan::mdspan
 )
 
+if(LayoutTiled_ENABLE_DEVICE_OFFLOAD)
+  target_compile_definitions(layout_tiled INTERFACE -DLAYOUT_TILED_ENABLE)
+endif()
+
 # --- PACKAGING --- #
 include(GNUInstallDirs)
 
