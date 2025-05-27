@@ -261,7 +261,7 @@ auto run_bench(Config const& cfg) -> void {
   stencil_2d::cache_blocked<TILE_L1, TILE_L1>(mlr_in, mlr_out);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L1");
   stencil_2d::cache_blocked<TILE_L2, TILE_L2>(mlr_in, mlr_out);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_CB-L2");
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L2");
 
   stencil_2d::manual_blocked_tiled(mlrtr_l1_in, mlrtr_l1_out, TILE_L1, TILE_L1);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_mbt");
