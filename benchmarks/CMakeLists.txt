@@ -10,6 +10,7 @@ set(
   ALL_BENCHMARKS
   gemm
   stencil_2d
+  stencil_3d
 )
 
 option(LayoutTiled_BENCHMARKS_ENABLE_OPENMP "Enable building benchmarks with OpenMP support. Values: { ON, OFF }." OFF)
