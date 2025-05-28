@@ -53,6 +53,18 @@ public:
       "layout_right_tiled_right::mapping: product of static extents must be representable as index_type"
     );
 
+    static constexpr auto tile_extents_are_multiples_of_extents(extents_type const& ext) -> bool {
+      if constexpr (extents_type::rank() == 0) {
+        return true;
+      }
+      for (rank_type r = 0; r < extents_type::rank(); ++r) {
+        if (0 != (ext.extent(r) % textent(r))) {
+          return false;
+        }
+      }
+      return true;
+    }
+
   public:
     // [mdspan.layout_right_tiled_right.cons]
     constexpr mapping() noexcept               = default;
@@ -63,6 +75,7 @@ public:
       for (rank_type i = 0; i < exts.rank(); ++i) {
         assert(exts.extent(i) > 0);
       }
+      assert(tile_extents_are_multiples_of_extents(exts));
     }
 
     constexpr auto operator=(mapping const&) noexcept -> mapping& = default;
@@ -97,39 +110,45 @@ public:
     static constexpr auto is_always_unique() noexcept -> bool {
       return true;
     }
-    // Only exhaustive if `extents_.extent(i) % ntiles_in_extent(i) == 0`, so not always.
+    /// Only exhaustive if `extents_.extent(i) % ntiles_in_extent(i) == 0`, so always.
     static constexpr auto is_always_exhaustive() noexcept -> bool {
-      return false;
+      return true;
     }
-    // There is not always a regular stride between elements in a given dimension.
+    /// Tile extents must be multiples of extents, hence there is always a regular stride between elements in a given
+    /// dimension.
     static constexpr auto is_always_strided() noexcept -> bool {
-      return false;
+      return true;
     }
 
     static constexpr auto is_unique() noexcept -> bool {
       return true;
     }
-    // Only exhaustive if extents fit exactly into tile sizes.
+    /// Always exhaustive.
     constexpr auto is_exhaustive() const noexcept -> bool {
-      return []<std::size_t... Is>(auto const& self, std::index_sequence<Is...>) {
-        return ((self.extents_.extent(Is) % self.textent(Is) == 0) && ...);
-      }(*this, std::make_index_sequence<extents_type::rank()>{});
+      return true;
     }
-    // There are some circumstances where this is strided, but we're currently not concerned about that optimization, so
-    // we're allowed to just return false here.
+    /// Always strided.
     constexpr auto is_strided() const noexcept -> bool {
-      return false;
+      return true;
+    }
+
+    /// Stride is the reverse product of tile extents.
+    constexpr auto stride(rank_type r) const noexcept -> index_type {
+      return details::rev_prod_of_extents<TileExtents...>(r);
     }
     /* --- END REQUIRED MEMBERS --- */
 
     /* --- PUBLIC HELPER MEMBERS --- */
-    constexpr auto tile_size() const noexcept -> index_type {
-      return (1 * ... * TileExtents);
+    static constexpr auto textents() noexcept -> std::array<index_type, sizeof...(TileExtents)> {
+      return std::to_array({TileExtents...});
     }
 
-    constexpr auto textent(index_type i) const noexcept -> index_type {
-      constexpr index_type pack_values[] = {TileExtents...};
-      return pack_values[i];
+    static constexpr auto textent(index_type i) noexcept -> index_type {
+      return textents()[i];
+    }
+
+    static constexpr auto tile_size() noexcept -> index_type {
+      return (1 * ... * TileExtents);
     }
 
     constexpr auto ntiles_in_extent(index_type ext) const noexcept -> index_type {
