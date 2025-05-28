@@ -10,11 +10,12 @@
 
 #include <array>
 #include <cassert>
+#include <cstddef>
 #include <utility>
 
 #include "details/common.hpp"
 
-template <std::size_t... TileExtents>
+template <size_t... TileExtents>
 class layout_right_tiled_right {
 public:
   template <class Extents>
@@ -33,13 +34,24 @@ public:
     static_assert(((TileExtents > 0) && ...), "layout_right_tiled_right::mapping: all tile extents must be positive");
 
   private:
+    static constexpr auto extents_are_strictly_positive(extents_type const& ext) -> bool {
+      if constexpr (extents_type::rank() == 0) {
+        return true;
+      }
+      for (rank_type i = 0; i < ext.rank(); ++i) {
+        if (0 >= ext.extent(i)) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     static constexpr auto required_span_size_is_representable(extents_type const& ext) -> bool {
       if constexpr (extents_type::rank() == 0) {
         return true;
       }
-
       index_type prod = ext.extent(0);
-      for (rank_type r = 1; r < extents_type::rank(); r++) {
+      for (rank_type r = 1; r < extents_type::rank(); ++r) {
         bool overflowed = __builtin_mul_overflow(prod, ext.extent(r), &prod);
         if (overflowed) {
           return false;
@@ -47,7 +59,6 @@ public:
       }
       return true;
     }
-
     static_assert(
       extents_type::rank_dynamic() > 0 || required_span_size_is_representable(extents_type()),
       "layout_right_tiled_right::mapping: product of static extents must be representable as index_type"
@@ -71,10 +82,8 @@ public:
     constexpr mapping(mapping const&) noexcept = default;
     mapping(extents_type const& exts) noexcept
         : extents_(exts) {
+      assert(extents_are_strictly_positive(exts));
       assert(required_span_size_is_representable(exts));
-      for (rank_type i = 0; i < exts.rank(); ++i) {
-        assert(exts.extent(i) > 0);
-      }
       assert(tile_extents_are_multiples_of_extents(exts));
     }
 
@@ -106,7 +115,7 @@ public:
       return tile_offset_outer(idxs...) + tile_offset_inner(idxs...);
     }
 
-    // Mapping is always unique.
+    /// Mapping is always unique.
     static constexpr auto is_always_unique() noexcept -> bool {
       return true;
     }
@@ -120,7 +129,8 @@ public:
       return true;
     }
 
-    static constexpr auto is_unique() noexcept -> bool {
+    /// Always unique.
+    constexpr auto is_unique() noexcept -> bool {
       return true;
     }
     /// Always exhaustive.
@@ -160,36 +170,32 @@ public:
     /// Finds the starting offset of the tile in which the indexed element is located.
     template <class... Idxs>
     constexpr auto tile_offset_outer(Idxs... idxs) const noexcept -> index_type {
-      constexpr rank_type rank        = extents_type::rank();
-      std::array<size_t, rank> coords = [this, idxs...]<std::size_t... Is>(std::index_sequence<Is...>) {
+      constexpr rank_type rank = extents_type::rank();
+      auto coords              = [this, idxs...]<size_t... Is>(std::index_sequence<Is...>) {
         return std::array<index_type, rank>{(idxs / textent(Is))...};
       }(std::make_index_sequence<rank>());
-
       index_type offset = 0;
       index_type stride = 1;
       for (size_type i = rank; i > 0; --i) {
         offset += coords[i - 1] * stride;
         stride *= ntiles_in_extent(i - 1);
       }
-
       return offset * tile_size();
     }
 
     /// Finds the offset of the indexed element within a tile.
     template <class... Idxs>
     constexpr auto tile_offset_inner(Idxs... idxs) const noexcept -> index_type {
-      constexpr rank_type rank        = extents_type::rank();
-      std::array<size_t, rank> coords = [this, idxs...]<std::size_t... Is>(std::index_sequence<Is...>) {
+      constexpr rank_type rank = extents_type::rank();
+      auto coords              = [this, idxs...]<std::size_t... Is>(std::index_sequence<Is...>) {
         return std::array<index_type, rank>{(idxs % textent(Is))...};
       }(std::make_index_sequence<rank>());
-
       index_type offset = 0;
       index_type stride = 1;
       for (size_type i = rank; i > 0; --i) {
         offset += coords[i - 1] * stride;
         stride *= textent(i - 1);
       }
-
       return offset;
     }
     /* --- END HELPER MEMBERS --- */
