@@ -143,7 +143,7 @@ public:
     }
 
     /// Stride is the forward product of tile extents.
-    constexpr auto stride(rank_type r) -> index_type {
+    constexpr auto stride(rank_type r) const noexcept -> index_type {
       details::fwd_prod_of_extents<TileExtents...>(r);
     }
     /* --- END REQUIRED MEMBERS --- */
