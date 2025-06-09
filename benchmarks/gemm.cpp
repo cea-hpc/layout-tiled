@@ -98,7 +98,7 @@ auto cache_blocked(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
-            for (size_t k = 0; k < tz; ++k) {
+            for (size_t k = z; k < tz; ++k) {
               acc += A[i, k] * B[k, j];
             }
             C[i, j] = acc;
@@ -351,18 +351,8 @@ auto run_bench(Config const& cfg) -> void {
   bs.run(fmt::format("RTR-{0}x{0} mbt", TILE_L2), [&]() {
     gemm::manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
   });
-  bs.run(fmt::format("RTR_BLTL-{0}x{0} mbt", TILE_L1), [&]() {
-    gemm::manual_blocked_tiled<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtlB_l1, mtrC_l1);
-  });
-  bs.run(fmt::format("RTR_BLTL-{0}x{0} mbt", TILE_L2), [&]() {
-    gemm::manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtlB_l2, mtrC_l2);
-  });
-
   bs.run(fmt::format("RTR-{0}x{0} mbt (runtime)", cfg.t_), [&]() {
     gemm::manual_blocked_tiled(mtrA_l1, mtrB_l1, mtrC_l1, cfg.t_, cfg.t_, cfg.t_);
-  });
-  bs.run(fmt::format("RTR_BLTL-{0}x{0} mbt (runtime)", cfg.t_), [&]() {
-    gemm::manual_blocked_tiled(mtrA_l1, mtlB_l1, mtrC_l1, cfg.t_, cfg.t_, cfg.t_);
   });
 
   // Output
