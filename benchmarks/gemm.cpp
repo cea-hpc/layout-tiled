@@ -98,7 +98,7 @@ auto cache_blocked(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
-            for (size_t k = 0; k < tz; ++k) {
+            for (size_t k = z; k < tz; ++k) {
               acc += A[i, k] * B[k, j];
             }
             C[i, j] = acc;
