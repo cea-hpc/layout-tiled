@@ -17,12 +17,7 @@ option(LayoutTiled_BUILD_BENCHMARKS "Enable building benchmarks. Values: { ON, O
 
 # --- PROJECT DEPENDENCIES --- #
 include(FetchContent)
-FetchContent_Declare(
-  mdspan
-  GIT_REPOSITORY https://github.com/kokkos/mdspan
-  GIT_TAG
-    6d3cda33cb65bbd04af5892f092c0306ed089106 # latest commit as of 2025-04-10
-)
+FetchContent_Declare(mdspan GIT_REPOSITORY https://github.com/kokkos/mdspan.git GIT_TAG origin/stable)
 FetchContent_MakeAvailable(mdspan)
 target_compile_definitions(mdspan INTERFACE -DMDSPAN_USE_BRACKET_OPERATOR)
 
@@ -31,28 +26,25 @@ add_subdirectory(include/layout_tiled)
 
 if(LayoutTiled_BUILD_TESTS)
   enable_testing()
-
   FetchContent_Declare(googletest GIT_REPOSITORY https://github.com/google/googletest.git GIT_TAG v1.16.0)
   # Prevent GTest from getting installed along with the library
   set(INSTALL_GTEST OFF)
   FetchContent_MakeAvailable(googletest)
-
   add_subdirectory(tests/layout_tiled)
 endif()
 
 if(LayoutTiled_BUILD_EXAMPLES)
   FetchContent_Declare(fmt GIT_REPOSITORY https://github.com/fmtlib/fmt.git GIT_TAG 11.1.4)
   FetchContent_MakeAvailable(fmt)
-
   add_subdirectory(examples)
 endif()
 
 if(LayoutTiled_BUILD_BENCHMARKS)
+  # Fork adding support for tracking L1I/L1D/LLC events
   FetchContent_Declare(
     nanobench
-    GIT_REPOSITORY
-      https://github.com/dssgabriel/nanobench.git # Fork adding support for tracking L1D/LLC events
-    GIT_TAG 05318cc617062975c36c108d7ce5454a6eb46057
+    GIT_REPOSITORY https://github.com/dssgabriel/nanobench.git
+    GIT_TAG origin/feature/cache-perf-events
     GIT_SHALLOW TRUE
   )
   FetchContent_Declare(fmt GIT_REPOSITORY https://github.com/fmtlib/fmt.git GIT_TAG 11.1.4)
@@ -60,7 +52,6 @@ if(LayoutTiled_BUILD_BENCHMARKS)
     nanobench
     fmt
   )
-
   add_subdirectory(benchmarks)
 endif()
 
