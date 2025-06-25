@@ -203,6 +203,98 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C, size_t TM, size_t TN,
   }
 }
 
+template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
+  requires(MdSpanA::extents_type::rank() == 2, MdSpanB::extents_type::rank() == 2, MdSpanC::extents_type::rank() == 2)
+auto manual_blocked_tiled_submdspan(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
+  assert(A.extent(1) == B.extent(0));
+  assert(A.extent(0) == C.extent(0));
+  assert(B.extent(1) == C.extent(1));
+
+  size_t const M = A.extent(0);
+  size_t const N = B.extent(1);
+  size_t const O = A.extent(1);
+
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#pragma omp parallel for schedule(static)
+#endif
+  for (size_t x = 0; x < M; x += TM) {
+    size_t const tx = std::min(TM, M - x);
+    for (size_t y = 0; y < N; y += TN) {
+      size_t const ty = std::min(TN, N - y);
+      auto Cb         = std::mdspan<Type, std::extents<size_t, TM, TN>, std::layout_right>(
+        C.data_handle() + C.mapping().tile_offset_outer(x, y)
+      );
+      for (size_t z = 0; z < O; z += TO) {
+        size_t const tz = std::min(TO, O - z);
+        auto Ab         = std::mdspan<Type, std::extents<size_t, TM, TO>, std::layout_right>(
+          A.data_handle() + A.mapping().tile_offset_outer(x, z)
+        );
+        auto Bb = std::mdspan<Type, std::extents<size_t, TO, TN>, std::layout_right>(
+          B.data_handle() + B.mapping().tile_offset_outer(z, y)
+        );
+        for (size_t i = 0; i < tx; ++i) {
+          for (size_t j = 0; j < ty; ++j) {
+            Type acc = 0.0;
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#pragma omp simd
+#endif
+            for (size_t k = 0; k < tz; ++k) {
+              acc += Ab[i, k] * Bb[k, j];
+            }
+            Cb[i, j] = acc;
+          }
+        }
+      }
+    }
+  }
+}
+
+template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
+  requires(MdSpanA::extents_type::rank() == 2, MdSpanB::extents_type::rank() == 2, MdSpanC::extents_type::rank() == 2)
+auto manual_blocked_tiled_submdspan_BLTL(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
+  assert(A.extent(1) == B.extent(0));
+  assert(A.extent(0) == C.extent(0));
+  assert(B.extent(1) == C.extent(1));
+
+  size_t const M = A.extent(0);
+  size_t const N = B.extent(1);
+  size_t const O = A.extent(1);
+
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#pragma omp parallel for schedule(static)
+#endif
+  for (size_t x = 0; x < M; x += TM) {
+    size_t const tx = std::min(TM, M - x);
+    for (size_t y = 0; y < N; y += TN) {
+      size_t const ty = std::min(TN, N - y);
+      auto Cb         = std::mdspan<Type, std::extents<size_t, TM, TN>, std::layout_right>(
+        C.data_handle() + C.mapping().tile_offset_outer(x, y)
+      );
+      for (size_t z = 0; z < O; z += TO) {
+        size_t const tz = std::min(TO, O - z);
+        auto const Ab   = std::mdspan<Type, std::extents<size_t, TM, TO>, std::layout_right>(
+          A.data_handle() + A.mapping().tile_offset_outer(x, z)
+        );
+        auto const Bb = std::mdspan<Type, std::extents<size_t, TO, TN>, std::layout_left>(
+          B.data_handle() + B.mapping().tile_offset_outer(z, y)
+        );
+        for (size_t i = 0; i < tx; ++i) {
+          for (size_t j = 0; j < ty; ++j) {
+            Type acc = 0.0;
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#pragma omp simd
+#endif
+            for (size_t k = 0; k < tz; ++k) {
+              acc += Ab[i, k] * Bb[k, j];
+            }
+            Cb[i, j] = acc;
+          }
+        }
+      }
+    }
+  }
+}
+
 #if defined(LAYOUT_TILED_ENABLE_BLAS)
 template <class MdSpanA, class MdSpanB, class MdSpanC>
   requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC> && IsLayoutRight<MdSpanA>
@@ -361,6 +453,17 @@ auto run_bench(const Config& cfg) -> void {
   });
   bs.run(fmt::format("RTR-{0}x{0} mbt (runtime)", cfg.t_), [&]() {
     gemm::manual_blocked_tiled(mtrA_l1, mtrB_l1, mtrC_l1, cfg.t_, cfg.t_, cfg.t_);
+  bs.run(fmt::format("RTR-{0}x{0} mbtsv", TILE_L1), [&]() {
+    gemm::manual_blocked_tiled_submdspan<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
+  });
+  bs.run(fmt::format("RTR-{0}x{0} mbtsv", TILE_L1), [&]() {
+    gemm::manual_blocked_tiled_submdspan<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
+  });
+  bs.run(fmt::format("RTR_BLTL-{0}x{0} mbtsv", TILE_L1), [&]() {
+    gemm::manual_blocked_tiled_submdspan_BLTL<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtlB_l1, mtrC_l1);
+  });
+  bs.run(fmt::format("RTR_BLTL-{0}x{0} mbtsv", TILE_L2), [&]() {
+    gemm::manual_blocked_tiled_submdspan_BLTL<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtlB_l2, mtrC_l2);
   });
 
   // Output
