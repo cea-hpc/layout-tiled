@@ -171,7 +171,7 @@ public:
     template <class... Idxs>
     constexpr auto tile_offset_outer(Idxs... idxs) const noexcept -> index_type {
       constexpr rank_type rank = extents_type::rank();
-      auto coords              = [this, idxs...]<size_t... Is>(std::index_sequence<Is...>) {
+      auto coords              = [idxs...]<size_t... Is>(std::index_sequence<Is...>) {
         return std::array<index_type, rank>{(idxs / textent(Is))...};
       }(std::make_index_sequence<rank>());
       index_type offset = 0;
@@ -187,7 +187,7 @@ public:
     template <class... Idxs>
     constexpr auto tile_offset_inner(Idxs... idxs) const noexcept -> index_type {
       constexpr rank_type rank = extents_type::rank();
-      auto coords              = [this, idxs...]<std::size_t... Is>(std::index_sequence<Is...>) {
+      auto coords              = [idxs...]<std::size_t... Is>(std::index_sequence<Is...>) {
         return std::array<index_type, rank>{(idxs % textent(Is))...};
       }(std::make_index_sequence<rank>());
       index_type offset = 0;
