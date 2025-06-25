@@ -453,6 +453,8 @@ auto run_bench(const Config& cfg) -> void {
   });
   bs.run(fmt::format("RTR-{0}x{0} mbt (runtime)", cfg.t_), [&]() {
     gemm::manual_blocked_tiled(mtrA_l1, mtrB_l1, mtrC_l1, cfg.t_, cfg.t_, cfg.t_);
+  });
+
   bs.run(fmt::format("RTR-{0}x{0} mbtsv", TILE_L1), [&]() {
     gemm::manual_blocked_tiled_submdspan<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
   });
