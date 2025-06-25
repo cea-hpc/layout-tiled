@@ -130,7 +130,7 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
       size_t const ty  = std::min(TN, N - y);
       for (size_t z = 0; z < O; z += TO) {
         double const* A_outoff = A.data_handle() + A.mapping().tile_offset_outer(x, z);
-        double const* B_outoff = A.data_handle() + B.mapping().tile_offset_outer(z, y);
+        double const* B_outoff = B.data_handle() + B.mapping().tile_offset_outer(z, y);
         size_t const tz        = std::min(TO, O - z);
         for (size_t i = 0; i < tx; ++i) {
           size_t const ti = i * TM;
@@ -177,7 +177,7 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C, size_t TM, size_t TN,
       size_t const ty  = std::min(TN, N - y);
       for (size_t z = 0; z < O; z += TO) {
         double const* A_outoff = A.data_handle() + A.mapping().tile_offset_outer(x, z);
-        double const* B_outoff = A.data_handle() + B.mapping().tile_offset_outer(z, y);
+        double const* B_outoff = B.data_handle() + B.mapping().tile_offset_outer(z, y);
         size_t const tz        = std::min(TO, O - z);
         for (size_t i = 0; i < tx; ++i) {
           size_t const ti = i * TM;
