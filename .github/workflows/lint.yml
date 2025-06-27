@@ -35,8 +35,19 @@ env:
 jobs:
   format:
     runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      checks: write
+      issues: write
+      pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - uses: DoozyX/clang-format-lint-action@v0.18.1
-
-  # TODO: add linting job, e.g. with clang-tidy
+      - uses: cpp-linter/cpp-linter-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          version: 20
+          style: 'file'
+          tidy-checks: ''
+          thread-comments: ${{ github.event_name == 'pull_request' && 'update' }}
+          tidy-review: true
