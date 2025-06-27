@@ -1,0 +1,7 @@
+Checks: '-*, bugprone-*, clang-analyzer-*, concurrency-*, cppcoreguidelines-*, google-*, llvm-*, misc-*, modernize-*, performance-*, portability-*, readability-*, '
+HeaderFilterRegex: '.*/layout_tiled/(include|src|example|tests)/.*\.(hpp)$'
+WarningsAsErrors: 'clang*'
+FormatStyle: file
+
+CheckOptions:
+  - { key: readability-identifier-naming.MemberSuffix, value: _ }
