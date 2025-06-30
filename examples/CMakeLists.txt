@@ -40,7 +40,7 @@ foreach(example ${ALL_EXAMPLES})
     layout_tiled.examples.${example}
     PRIVATE
       layout_tiled::layout_tiled
-      std::mdspan
+      mdspan::mdspan
       fmt::fmt
   )
 endforeach()
