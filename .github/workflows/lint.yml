@@ -33,7 +33,7 @@ env:
   CMAKE_EXPORT_COMPILE_COMMANDS: ON
 
 jobs:
-  format:
+  lint:
     runs-on: ubuntu-24.04
     permissions:
       contents: read
