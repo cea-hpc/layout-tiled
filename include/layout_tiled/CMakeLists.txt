@@ -50,7 +50,7 @@ target_link_libraries(
   layout_tiled
   INTERFACE
     layout_tiled.compile_flags
-    std::mdspan
+    mdspan::mdspan
 )
 
 # --- PACKAGING --- #

@@ -60,7 +60,7 @@ foreach(bench ${ALL_BENCHMARKS})
     layout_tiled.benchmarks.${bench}
     PRIVATE
       layout_tiled::layout_tiled
-      std::mdspan
+      mdspan::mdspan
       fmt::fmt
       nanobench
   )

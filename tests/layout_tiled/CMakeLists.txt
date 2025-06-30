@@ -42,7 +42,7 @@ foreach(test ${ALL_TESTS})
     layout_tiled.tests.${test}
     PRIVATE
       layout_tiled::layout_tiled
-      std::mdspan
+      mdspan::mdspan
       GTest::gtest_main
   )
 
