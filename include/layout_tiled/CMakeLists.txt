@@ -1,11 +1,3 @@
-# Copyright (C) 2024-2025 CEA
-# Copyright (C) 2024-2025 Gabriel Dos Santos
-#
-# Distributed under the MIT License.
-# You may not use this file except in compliance with the License.
-# See https://opensource.org/license/MIT for license information.
-# SPDX-License-Identifier: MIT
-
 add_library(layout_tiled.compile_flags INTERFACE)
 target_compile_options(
   layout_tiled.compile_flags

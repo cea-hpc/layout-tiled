@@ -1,11 +1,3 @@
-# Copyright (C) 2024-2025 CEA
-# Copyright (C) 2024-2025 Gabriel Dos Santos
-#
-# Distributed under the MIT License.
-# You may not use this file except in compliance with the License.
-# See https://opensource.org/license/MIT for license information.
-# SPDX-License-Identifier: MIT
-
 cmake_minimum_required(VERSION 3.25) # support for C++26
 
 project(layout-tiled VERSION 0.3.0 LANGUAGES CXX DESCRIPTION "Tiled layouts for C++23 std::mdspan")

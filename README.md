@@ -90,3 +90,13 @@ cmake -B <BUILDDIR> -DLayoutTiled_BUILD_BENCHMARKS=ON [-DLayoutTiled_ENABLE_OPEN
 cmake --build <BUILDDIR> --target <BENCHMARK>
 ./<BUILDDIR>/benchmarks/layout_tiled.benchmarks.<BENCHMARK>
 ```
+
+## License
+
+Copyright (C) 2024-2025 CEA
+
+Licensed under the Apache License, Version 2.0 ([LICENSE](LICENSE) or https://www.apache.org/licenses/LICENSE-2.0)
+
+The [SPDX](https://spdx.dev) license identifier for this project is `Apache-2.0`.
+
+Unless required by applicable law or agreed to in writing, software distributed under the Apache-2.0 License is distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
