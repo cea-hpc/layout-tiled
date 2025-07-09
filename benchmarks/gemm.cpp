@@ -204,7 +204,7 @@ auto manual_blocked_tiled(const MdSpanA A, const MdSpanB B, MdSpanC C, size_t TM
 }
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
-  requires(MdSpanA::extents_type::rank() == 2, MdSpanB::extents_type::rank() == 2, MdSpanC::extents_type::rank() == 2)
+  requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
 auto manual_blocked_tiled_subview(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
@@ -250,7 +250,7 @@ auto manual_blocked_tiled_subview(const MdSpanA A, const MdSpanB B, MdSpanC C) -
 }
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
-  requires(MdSpanA::extents_type::rank() == 2, MdSpanB::extents_type::rank() == 2, MdSpanC::extents_type::rank() == 2)
+  requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
 auto manual_blocked_tiled_subview_BLTL(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
