@@ -43,8 +43,8 @@ struct Config {
 namespace stencil_3d {
 
 template <class MdSpanIn, class MdSpanOut>
-  requires (3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
-auto naive(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
+  requires IsMdSpan3D<MdSpanIn> && IsMdSpan3D<MdSpanOut>
+auto naive(const MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(in.extent(2) == out.extent(2));
@@ -71,8 +71,8 @@ auto naive(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
 }
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanIn, class MdSpanOut>
-  requires (3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
-auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
+  requires IsMdSpan3D<MdSpanIn> && IsMdSpan3D<MdSpanOut>
+auto cache_blocked(const MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(in.extent(2) == out.extent(2));
@@ -105,8 +105,8 @@ auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
 }
 
 template <class MdSpanIn, class MdSpanOut>
-  requires (3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
-auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t TO, size_t D = DELTA) -> void {
+  requires IsMdSpan3D<MdSpanIn> && IsMdSpan3D<MdSpanOut>
+auto cache_blocked(const MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t TO, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(in.extent(2) == out.extent(2));
@@ -139,8 +139,8 @@ auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t TO, 
 }
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanIn, class MdSpanOut>
-  requires (3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
-auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
+  requires IsMdSpan3D<MdSpanIn> && IsMdSpan3D<MdSpanOut>
+auto manual_blocked_tiled(const MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(in.extent(2) == out.extent(2));
@@ -191,8 +191,9 @@ auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void 
 }
 
 template <class MdSpanIn, class MdSpanOut>
-  requires (3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
-auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t TO, size_t D = DELTA) -> void {
+  requires IsMdSpan3D<MdSpanIn> && IsMdSpan3D<MdSpanOut>
+auto manual_blocked_tiled(const MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t TO, size_t D = DELTA)
+  -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(in.extent(2) == out.extent(2));
