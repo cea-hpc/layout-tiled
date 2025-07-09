@@ -46,7 +46,7 @@ namespace gemm {
 
 template <class MdSpanA, class MdSpanB, class MdSpanC>
   requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
-auto naive(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
+auto naive(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
@@ -74,7 +74,7 @@ auto naive(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
   requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
-auto cache_blocked(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
+auto cache_blocked(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
@@ -111,7 +111,7 @@ auto cache_blocked(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
   requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
-auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
+auto manual_blocked_tiled(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
@@ -158,7 +158,7 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
 
 template <class MdSpanA, class MdSpanB, class MdSpanC>
   requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
-auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C, size_t TM, size_t TN, size_t TO) -> void {
+auto manual_blocked_tiled(const MdSpanA A, const MdSpanB B, MdSpanC C, size_t TM, size_t TN, size_t TO) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
@@ -205,7 +205,7 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C, size_t TM, size_t TN,
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
   requires(MdSpanA::extents_type::rank() == 2, MdSpanB::extents_type::rank() == 2, MdSpanC::extents_type::rank() == 2)
-auto manual_blocked_tiled_submdspan(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
+auto manual_blocked_tiled_subview(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
@@ -251,7 +251,7 @@ auto manual_blocked_tiled_submdspan(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
   requires(MdSpanA::extents_type::rank() == 2, MdSpanB::extents_type::rank() == 2, MdSpanC::extents_type::rank() == 2)
-auto manual_blocked_tiled_submdspan_BLTL(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
+auto manual_blocked_tiled_subview_BLTL(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
@@ -299,7 +299,7 @@ auto manual_blocked_tiled_submdspan_BLTL(MdSpanA A, MdSpanB B, MdSpanC C) -> voi
 template <class MdSpanA, class MdSpanB, class MdSpanC>
   requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC> && IsLayoutRight<MdSpanA>
            && IsLayoutRight<MdSpanB> && IsLayoutRight<MdSpanC>
-auto blas(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
+auto blas(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(0) == C.extent(0));
   assert(A.extent(1) == B.extent(0));
   assert(B.extent(1) == C.extent(1));
