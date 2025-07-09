@@ -42,7 +42,7 @@ struct Config {
   std::string output_;
 };
 
-namespace gemm {
+namespace {
 
 template <class MdSpanA, class MdSpanB, class MdSpanC>
   requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
@@ -331,7 +331,7 @@ auto blas(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
 }
 #endif
 
-} // namespace gemm
+}
 
 auto run_bench(const Config& cfg) -> void {
   ankerl::nanobench::Bench bs;
@@ -397,71 +397,71 @@ auto run_bench(const Config& cfg) -> void {
 
   // Checks
 #if defined(LAYOUT_TILED_ENABLE_CHECK_RESULT)
-  gemm::naive(mrA, mrB, mrB);
+  naive(mrA, mrB, mrB);
   double ref = frobenius_norm(mrC);
 
-  gemm::cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC);
+  cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L1");
-  gemm::cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mrB, mrC);
+  cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mrB, mrC);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L2");
 
-  gemm::naive(mtrA_l1, mtrB_l1, mtrC_l1);
+  naive(mtrA_l1, mtrB_l1, mtrC_l1);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_naive");
-  gemm::naive(mtrA_l2, mtrB_l2, mtrC_l2);
+  naive(mtrA_l2, mtrB_l2, mtrC_l2);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_naive");
 
-  gemm::manual_blocked_tiled<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
+  manual_blocked_tiled<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_mbt");
-  gemm::manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
+  manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_mbt");
 #endif
 
   // Benchmarks
-  bs.run("R naive", [&]() { gemm::naive(mrA, mrB, mrC); });
-  bs.run("R_BL naive", [&]() { gemm::naive(mrA, mlB, mrC); });
+  bs.run("R naive", [&]() { naive(mrA, mrB, mrC); });
+  bs.run("R_BL naive", [&]() { naive(mrA, mlB, mrC); });
 #if defined(LAYOUT_TILED_ENABLE_BLAS)
-  bs.run("R blas", [&]() { gemm::blas(mrA, mrB, mrC); });
+  bs.run("R blas", [&]() { blas(mrA, mrB, mrC); });
 #endif
 
   bs.run(fmt::format("R cb-{0}x{0}", TILE_L1), [&]() {
-    gemm::cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC);
+    cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC);
   });
   bs.run(fmt::format("R cb-{0}x{0}", TILE_L2), [&]() {
-    gemm::cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mrB, mrC);
+    cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mrB, mrC);
   });
   bs.run(fmt::format("R_BL cb-{0}x{0}", TILE_L1), [&]() {
-    gemm::cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mlB, mrC);
+    cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mlB, mrC);
   });
   bs.run(fmt::format("R_BL cb-{0}x{0}", TILE_L2), [&]() {
-    gemm::cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mlB, mrC);
+    cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mlB, mrC);
   });
 
-  bs.run(fmt::format("RTR-{0}x{0} naive", TILE_L1), [&]() { gemm::naive(mtrA_l1, mtrB_l1, mtrC_l1); });
-  bs.run(fmt::format("RTR-{0}x{0} naive", TILE_L2), [&]() { gemm::naive(mtrA_l2, mtrB_l2, mtrC_l2); });
-  bs.run(fmt::format("RTR_BLTL-{0}x{0} naive", TILE_L1), [&]() { gemm::naive(mtrA_l1, mtlB_l1, mtrC_l1); });
-  bs.run(fmt::format("RTR_BLTL-{0}x{0} naive", TILE_L2), [&]() { gemm::naive(mtrA_l2, mtlB_l2, mtrC_l2); });
+  bs.run(fmt::format("RTR-{0}x{0} naive", TILE_L1), [&]() { naive(mtrA_l1, mtrB_l1, mtrC_l1); });
+  bs.run(fmt::format("RTR-{0}x{0} naive", TILE_L2), [&]() { naive(mtrA_l2, mtrB_l2, mtrC_l2); });
+  bs.run(fmt::format("RTR_BLTL-{0}x{0} naive", TILE_L1), [&]() { naive(mtrA_l1, mtlB_l1, mtrC_l1); });
+  bs.run(fmt::format("RTR_BLTL-{0}x{0} naive", TILE_L2), [&]() { naive(mtrA_l2, mtlB_l2, mtrC_l2); });
 
   bs.run(fmt::format("RTR-{0}x{0} mbt", TILE_L1), [&]() {
-    gemm::manual_blocked_tiled<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
+    manual_blocked_tiled<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
   });
   bs.run(fmt::format("RTR-{0}x{0} mbt", TILE_L2), [&]() {
-    gemm::manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
+    manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
   });
   bs.run(fmt::format("RTR-{0}x{0} mbt (runtime)", cfg.t_), [&]() {
-    gemm::manual_blocked_tiled(mtrA_l1, mtrB_l1, mtrC_l1, cfg.t_, cfg.t_, cfg.t_);
+    manual_blocked_tiled(mtrA_l1, mtrB_l1, mtrC_l1, cfg.t_, cfg.t_, cfg.t_);
   });
 
   bs.run(fmt::format("RTR-{0}x{0} mbtsv", TILE_L1), [&]() {
-    gemm::manual_blocked_tiled_submdspan<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
+    manual_blocked_tiled_subview<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
   });
   bs.run(fmt::format("RTR-{0}x{0} mbtsv", TILE_L1), [&]() {
-    gemm::manual_blocked_tiled_submdspan<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
+    manual_blocked_tiled_subview<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
   });
   bs.run(fmt::format("RTR_BLTL-{0}x{0} mbtsv", TILE_L1), [&]() {
-    gemm::manual_blocked_tiled_submdspan_BLTL<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtlB_l1, mtrC_l1);
+    manual_blocked_tiled_subview_BLTL<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtlB_l1, mtrC_l1);
   });
   bs.run(fmt::format("RTR_BLTL-{0}x{0} mbtsv", TILE_L2), [&]() {
-    gemm::manual_blocked_tiled_submdspan_BLTL<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtlB_l2, mtrC_l2);
+    manual_blocked_tiled_subview_BLTL<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtlB_l2, mtrC_l2);
   });
 
   // Output
