@@ -103,9 +103,8 @@ public:
     }
 
     template <class... Idxs>
-    constexpr auto operator()(Idxs... idxs) const noexcept -> index_type
       requires (extents_type::rank() == sizeof...(Idxs))
-    {
+    constexpr auto operator()(Idxs... idxs) const noexcept -> index_type {
       assert(
         "layout_left_tiled_right::mapping: out of bounds indexing"
         && details::is_md_idx_in_span(std::make_index_sequence<extents_type::rank()>(), extents_, idxs...)
