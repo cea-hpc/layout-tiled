@@ -45,15 +45,16 @@ struct Config {
 namespace gemm {
 
 template <class MdSpanA, class MdSpanB, class MdSpanC>
-  requires(MdSpanA::extents_type::rank() == 2, MdSpanB::extents_type::rank() == 2, MdSpanC::extents_type::rank() == 2)
+  requires (2 == MdSpanA::extents_type::rank()) && (2 == MdSpanB::extents_type::rank())
+           && (2 == MdSpanC::extents_type::rank())
 auto naive(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-  size_t const M = A.extent(0);
-  size_t const N = B.extent(1);
-  size_t const O = A.extent(1);
+  const size_t M = A.extent(0);
+  const size_t N = B.extent(1);
+  const size_t O = A.extent(1);
 
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for collapse(2) schedule(static)
@@ -73,25 +74,26 @@ auto naive(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
 }
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
-  requires(MdSpanA::extents_type::rank() == 2, MdSpanB::extents_type::rank() == 2, MdSpanC::extents_type::rank() == 2)
+  requires (2 == MdSpanA::extents_type::rank()) && (2 == MdSpanB::extents_type::rank())
+           && (2 == MdSpanC::extents_type::rank())
 auto cache_blocked(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-  size_t const M = A.extent(0);
-  size_t const N = B.extent(1);
-  size_t const O = A.extent(1);
+  const size_t M = A.extent(0);
+  const size_t N = B.extent(1);
+  const size_t O = A.extent(1);
 
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
-    size_t const tx = std::min(x + TM, M);
+    const size_t tx = std::min(x + TM, M);
     for (size_t y = 0; y < N; y += TN) {
-      size_t const ty = std::min(y + TN, N);
+      const size_t ty = std::min(y + TN, N);
       for (size_t z = 0; z < O; z += TO) {
-        size_t const tz = std::min(z + TO, O);
+        const size_t tz = std::min(z + TO, O);
         for (size_t i = x; i < tx; ++i) {
           for (size_t j = y; j < ty; ++j) {
             Type acc{};
@@ -110,30 +112,31 @@ auto cache_blocked(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
 }
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
-  requires(MdSpanA::extents_type::rank() == 2, MdSpanB::extents_type::rank() == 2, MdSpanC::extents_type::rank() == 2)
+  requires (2 == MdSpanA::extents_type::rank()) && (2 == MdSpanB::extents_type::rank())
+           && (2 == MdSpanC::extents_type::rank())
 auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-  size_t const M = A.extent(0);
-  size_t const N = B.extent(1);
-  size_t const O = A.extent(1);
+  const size_t M = A.extent(0);
+  const size_t N = B.extent(1);
+  const size_t O = A.extent(1);
 
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
-    size_t const tx = std::min(TM, M - x);
+    const size_t tx = std::min(TM, M - x);
     for (size_t y = 0; y < N; y += TN) {
       double* C_outoff = C.data_handle() + C.mapping().tile_offset_outer(x, y);
-      size_t const ty  = std::min(TN, N - y);
+      const size_t ty  = std::min(TN, N - y);
       for (size_t z = 0; z < O; z += TO) {
-        double const* A_outoff = A.data_handle() + A.mapping().tile_offset_outer(x, z);
-        double const* B_outoff = B.data_handle() + B.mapping().tile_offset_outer(z, y);
-        size_t const tz        = std::min(TO, O - z);
+        const double* A_outoff = A.data_handle() + A.mapping().tile_offset_outer(x, z);
+        const double* B_outoff = B.data_handle() + B.mapping().tile_offset_outer(z, y);
+        const size_t tz        = std::min(TO, O - z);
         for (size_t i = 0; i < tx; ++i) {
-          size_t const ti = i * TM;
+          const size_t ti = i * TM;
           size_t A_inoff  = ti;
           size_t C_inoff  = ti;
           for (size_t j = 0; j < ty; ++j) {
@@ -157,30 +160,31 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
 }
 
 template <class MdSpanA, class MdSpanB, class MdSpanC>
-  requires(MdSpanA::extents_type::rank() == 2, MdSpanB::extents_type::rank() == 2, MdSpanC::extents_type::rank() == 2)
+  requires (2 == MdSpanA::extents_type::rank()) && (2 == MdSpanB::extents_type::rank())
+           && (2 == MdSpanC::extents_type::rank())
 auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C, size_t TM, size_t TN, size_t TO) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-  size_t const M = A.extent(0);
-  size_t const N = B.extent(1);
-  size_t const O = A.extent(1);
+  const size_t M = A.extent(0);
+  const size_t N = B.extent(1);
+  const size_t O = A.extent(1);
 
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
-    size_t const tx = std::min(TM, M - x);
+    const size_t tx = std::min(TM, M - x);
     for (size_t y = 0; y < N; y += TN) {
       double* C_outoff = C.data_handle() + C.mapping().tile_offset_outer(x, y);
-      size_t const ty  = std::min(TN, N - y);
+      const size_t ty  = std::min(TN, N - y);
       for (size_t z = 0; z < O; z += TO) {
-        double const* A_outoff = A.data_handle() + A.mapping().tile_offset_outer(x, z);
-        double const* B_outoff = B.data_handle() + B.mapping().tile_offset_outer(z, y);
-        size_t const tz        = std::min(TO, O - z);
+        const double* A_outoff = A.data_handle() + A.mapping().tile_offset_outer(x, z);
+        const double* B_outoff = B.data_handle() + B.mapping().tile_offset_outer(z, y);
+        const size_t tz        = std::min(TO, O - z);
         for (size_t i = 0; i < tx; ++i) {
-          size_t const ti = i * TM;
+          const size_t ti = i * TM;
           size_t A_inoff  = ti;
           size_t C_inoff  = ti;
           for (size_t j = 0; j < ty; ++j) {
@@ -204,40 +208,50 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C, size_t TM, size_t TN,
 }
 
 #if defined(LAYOUT_TILED_ENABLE_BLAS)
-/// Only supported with `LayoutRight` matrices
 template <class MdSpanA, class MdSpanB, class MdSpanC>
-  requires(MdSpanA::extents_type::rank() == 2,
-           MdSpanB::extents_type::rank() == 2,
-           MdSpanC::extents_type::rank() == 2,
-           std::is_same_v<typename MdSpanA::layout_type, std::layout_right>,
-           std::is_same_v<typename MdSpanB::layout_type, std::layout_right>,
-           std::is_same_v<typename MdSpanC::layout_type, std::layout_right>)
+  requires (2 == MdSpanA::extents_type::rank()) && (2 == MdSpanB::extents_type::rank())
+           && (2 == MdSpanC::extents_type::rank()) && std::is_same_v<typename MdSpanA::layout_type, std::layout_right>
+           && std::is_same_v<typename MdSpanB::layout_type, std::layout_right>
+           && std::is_same_v<typename MdSpanC::layout_type, std::layout_right>
 auto blas(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(0) == C.extent(0));
   assert(A.extent(1) == B.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-  int const M            = static_cast<int>(A.extent(0));
-  int const N            = static_cast<int>(B.extent(1));
-  int const O            = static_cast<int>(A.extent(1));
-  double const alpha     = 1.0;
-  double const* A_handle = A.data_handle();
-  int const lda          = static_cast<int>(A.stride(0));
-  double const* B_handle = B.data_handle();
-  int const ldb          = static_cast<int>(B.stride(0));
-  double const beta      = 0.0;
+  const int M            = static_cast<int>(A.extent(0));
+  const int N            = static_cast<int>(B.extent(1));
+  const int O            = static_cast<int>(A.extent(1));
+  const double alpha     = 1.0;
+  const double* A_handle = A.data_handle();
+  const int lda          = static_cast<int>(A.stride(0));
+  const double* B_handle = B.data_handle();
+  const int ldb          = static_cast<int>(B.stride(0));
+  const double beta      = 0.0;
   double* C_handle       = C.data_handle();
-  int const ldc          = static_cast<int>(C.stride(0));
+  const int ldc          = static_cast<int>(C.stride(0));
 
   cblas_dgemm(
-    CblasRowMajor, CblasNoTrans, CblasNoTrans, M, N, O, alpha, A_handle, lda, B_handle, ldb, beta, C_handle, ldc
+    CblasRowMajor,
+    CblasNoTrans,
+    CblasNoTrans,
+    M,
+    N,
+    O,
+    alpha,
+    A_handle,
+    lda,
+    B_handle,
+    ldb,
+    beta,
+    C_handle,
+    ldc
   );
 }
 #endif
 
 } // namespace gemm
 
-auto run_bench(Config const& cfg) -> void {
+auto run_bench(const Config& cfg) -> void {
   ankerl::nanobench::Bench bs;
   bs.output(nullptr);
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)

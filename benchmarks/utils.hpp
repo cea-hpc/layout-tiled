@@ -28,12 +28,11 @@
 /// A heap-allocated, contiguous memory slice.
 ///
 /// The underlying memory allocation is backed by `mmap` and is left uninitialized to allow leveraging
-/// "first touch" policy in parallel execution contexts.
+/// "first-touch" policy in parallel execution contexts.
 template <class T>
 struct MemorySlice {
   /// Constructs a new slice of size `len * sizeof(T)` bytes.
-  explicit MemorySlice(size_t len)
-      : len_(len * sizeof(T)) {
+  explicit MemorySlice(size_t len) : len_(len * sizeof(T)) {
     // Allocate a page-aligned block of `len` bytes w/ read-write privileges & shared, anonymous mapping.
     ptr_ = static_cast<T*>(mmap(nullptr, len_, PROT_READ | PROT_WRITE, MAP_SHARED | MAP_ANONYMOUS, -1, 0));
     assert(MAP_FAILED != ptr_);
@@ -43,12 +42,13 @@ struct MemorySlice {
     [[maybe_unused]] int _ret = munmap(static_cast<void*>(ptr_), len_);
     assert(0 == _ret);
   }
+
   // Prevent deep copies.
-  MemorySlice(MemorySlice const& rhs)                    = delete;
-  auto operator=(MemorySlice const& rhs) -> MemorySlice& = delete;
+  MemorySlice(const MemorySlice& rhs)                    = delete;
+  auto operator=(const MemorySlice& rhs) -> MemorySlice& = delete;
+
   // Allow moves.
-  MemorySlice(MemorySlice&& rhs) noexcept
-      : ptr_(rhs.ptr_), len_(rhs.len_) {
+  MemorySlice(MemorySlice&& rhs) noexcept : ptr_(rhs.ptr_), len_(rhs.len_) {
     rhs.ptr_ = nullptr;
   }
   auto operator=(MemorySlice&& rhs) -> MemorySlice& {
@@ -75,9 +75,8 @@ private:
 namespace benchmark_utils {
 
 template <class T>
-auto check(T reference, T result, std::string const& label) -> void
-  requires(std::is_floating_point_v<T>)
-{
+  requires std::is_floating_point_v<T>
+auto check(T reference, T result, const std::string& label) -> void {
   if (std::abs(result - reference) <= std::numeric_limits<T>::epsilon()) {
     fmt::print(stderr, "error({}): expected {}, got {}\n", label, reference, result);
   }
@@ -85,9 +84,8 @@ auto check(T reference, T result, std::string const& label) -> void
 
 /// Computes the L2-norm of an `mdspan`.
 template <class MdSpan>
-auto l2_norm(MdSpan m) -> double
-  requires(std::is_floating_point_v<typename MdSpan::value_type>)
-{
+  requires std::is_floating_point_v<typename MdSpan::value_type>
+auto l2_norm(MdSpan m) -> double {
   auto ptr   = m.data_handle();
   double sum = 0.0;
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
@@ -101,9 +99,8 @@ auto l2_norm(MdSpan m) -> double
 
 /// Fills a 2D `mdspan` of `double`-typed elements with random values of uniform distribution in range [0, 1).
 template <class MdSpan>
-auto fill_2d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void
-  requires(std::is_floating_point_v<typename MdSpan::value_type>, 2 == MdSpan::rank())
-{
+  requires std::is_floating_point_v<typename MdSpan::value_type> && (2 == MdSpan::rank())
+auto fill_2d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void {
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
@@ -116,9 +113,8 @@ auto fill_2d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void
 
 /// Fills a 3D `mdspan` of `double`-typed elements with random values of uniform distribution in range [0, 1).
 template <class MdSpan>
-auto fill_3d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void
-  requires(std::is_floating_point_v<typename MdSpan::value_type>, 3 == MdSpan::rank())
-{
+  requires std::is_floating_point_v<typename MdSpan::value_type> && (3 == MdSpan::rank())
+auto fill_3d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void {
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for collapse(3) schedule(static)
 #endif
