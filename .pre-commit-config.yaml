@@ -13,7 +13,7 @@ repos:
     # This brings in a portable version of clang-format.
     # See also: https://github.com/ssciwr/clang-format-wheel
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v18.1.8
+    rev: v20.1.7
     hooks:
     - id: clang-format
       name: Format C++ files
@@ -21,8 +21,8 @@ repos:
 
     # CMake linting and formatting
   - repo: https://github.com/BlankSpruce/gersemi
-    rev: 0.17.1
+    rev: 0.20.0
     hooks:
     - id: gersemi
       name: Format CMake files
-      args: ["--in-place", "--line-length=120", "--indent=2", "--list-expansion=favour-expansion"]
+      args: ["--config=.cmake-format"]
