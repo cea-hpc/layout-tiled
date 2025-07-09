@@ -45,8 +45,7 @@ struct Config {
 namespace gemm {
 
 template <class MdSpanA, class MdSpanB, class MdSpanC>
-  requires (2 == MdSpanA::extents_type::rank()) && (2 == MdSpanB::extents_type::rank())
-           && (2 == MdSpanC::extents_type::rank())
+  requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
 auto naive(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
@@ -74,8 +73,7 @@ auto naive(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
 }
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
-  requires (2 == MdSpanA::extents_type::rank()) && (2 == MdSpanB::extents_type::rank())
-           && (2 == MdSpanC::extents_type::rank())
+  requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
 auto cache_blocked(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
@@ -112,8 +110,7 @@ auto cache_blocked(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
 }
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
-  requires (2 == MdSpanA::extents_type::rank()) && (2 == MdSpanB::extents_type::rank())
-           && (2 == MdSpanC::extents_type::rank())
+  requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
 auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
@@ -160,8 +157,7 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
 }
 
 template <class MdSpanA, class MdSpanB, class MdSpanC>
-  requires (2 == MdSpanA::extents_type::rank()) && (2 == MdSpanB::extents_type::rank())
-           && (2 == MdSpanC::extents_type::rank())
+  requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
 auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C, size_t TM, size_t TN, size_t TO) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
@@ -209,10 +205,8 @@ auto manual_blocked_tiled(MdSpanA A, MdSpanB B, MdSpanC C, size_t TM, size_t TN,
 
 #if defined(LAYOUT_TILED_ENABLE_BLAS)
 template <class MdSpanA, class MdSpanB, class MdSpanC>
-  requires (2 == MdSpanA::extents_type::rank()) && (2 == MdSpanB::extents_type::rank())
-           && (2 == MdSpanC::extents_type::rank()) && std::is_same_v<typename MdSpanA::layout_type, std::layout_right>
-           && std::is_same_v<typename MdSpanB::layout_type, std::layout_right>
-           && std::is_same_v<typename MdSpanC::layout_type, std::layout_right>
+  requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC> && IsLayoutRight<MdSpanA>
+           && IsLayoutRight<MdSpanB> && IsLayoutRight<MdSpanC>
 auto blas(MdSpanA A, MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(0) == C.extent(0));
   assert(A.extent(1) == B.extent(0));
@@ -267,20 +261,20 @@ auto run_bench(const Config& cfg) -> void {
   }
 
   // Standard layout matrices
-  auto rA = MemorySlice<double>(cfg.n_ * cfg.n_);
-  auto rB = MemorySlice<double>(cfg.n_ * cfg.n_);
-  auto lB = MemorySlice<double>(cfg.n_ * cfg.n_);
-  auto rC = MemorySlice<double>(cfg.n_ * cfg.n_);
+  auto rA = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto rB = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto lB = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto rC = MemorySlice<Type>(cfg.n_ * cfg.n_);
   // Tiled layout matrices (L1 tiles)
-  auto trA_l1 = MemorySlice<double>(cfg.n_ * cfg.n_);
-  auto trB_l1 = MemorySlice<double>(cfg.n_ * cfg.n_);
-  auto trC_l1 = MemorySlice<double>(cfg.n_ * cfg.n_);
-  auto tlB_l1 = MemorySlice<double>(cfg.n_ * cfg.n_);
+  auto trA_l1 = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto trB_l1 = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto trC_l1 = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto tlB_l1 = MemorySlice<Type>(cfg.n_ * cfg.n_);
   // Tiled layout matrices (L2 tiles)
-  auto trA_l2 = MemorySlice<double>(cfg.n_ * cfg.n_);
-  auto trB_l2 = MemorySlice<double>(cfg.n_ * cfg.n_);
-  auto trC_l2 = MemorySlice<double>(cfg.n_ * cfg.n_);
-  auto tlB_l2 = MemorySlice<double>(cfg.n_ * cfg.n_);
+  auto trA_l2 = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto trB_l2 = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto trC_l2 = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto tlB_l2 = MemorySlice<Type>(cfg.n_ * cfg.n_);
 
   // Associated MDSPANs
   auto mrA     = std::mdspan<Type, Exts>(rA.get(), cfg.n_, cfg.n_);

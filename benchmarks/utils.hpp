@@ -15,6 +15,7 @@
 #include <cassert>
 #include <cstddef>
 #include <cstdlib>
+#include <experimental/mdspan>
 #include <limits>
 #include <string>
 #include <type_traits>
@@ -24,6 +25,18 @@
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #include <omp.h>
 #endif
+
+template <class MdSpan>
+concept IsMdSpan2D = 2 == MdSpan::rank();
+
+template <class MdSpan>
+concept IsMdSpan3D = 3 == MdSpan::rank();
+
+template <class MdSpan>
+concept IsLayoutRight = std::is_same_v<typename MdSpan::layout_type, std::layout_right>;
+
+template <class MdSpan>
+concept IsLayoutLeft = std::is_same_v<typename MdSpan::layout_type, std::layout_left>;
 
 /// A heap-allocated, contiguous memory slice.
 ///
@@ -68,7 +81,7 @@ struct MemorySlice {
 private:
   /// Pointer to the underlying memory allocation.
   T* ptr_ = nullptr;
-  /// Length in Bytes of the memory slice.
+  /// Length in bytes of the memory slice.
   size_t len_ = 0;
 };
 

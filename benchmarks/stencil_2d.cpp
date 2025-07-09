@@ -43,7 +43,7 @@ struct Config {
 namespace stencil_2d {
 
 template <class MdSpanIn, class MdSpanOut>
-  requires (2 == MdSpanIn::extents_type::rank()) && (2 == MdSpanOut::extents_type::rank())
+  requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
 auto naive(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
@@ -67,7 +67,7 @@ auto naive(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
 }
 
 template <size_t TM, size_t TN, class MdSpanIn, class MdSpanOut>
-  requires (2 == MdSpanIn::extents_type::rank()) && (2 == MdSpanOut::extents_type::rank())
+  requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
 auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
@@ -95,7 +95,7 @@ auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
 }
 
 template <class MdSpanIn, class MdSpanOut>
-  requires (2 == MdSpanIn::extents_type::rank()) && (2 == MdSpanOut::extents_type::rank())
+  requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
 auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
@@ -123,7 +123,7 @@ auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t D = 
 }
 
 template <size_t TM, size_t TN, class MdSpanIn, class MdSpanOut>
-  requires (2 == MdSpanIn::extents_type::rank()) && (2 == MdSpanOut::extents_type::rank())
+  requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
 auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
@@ -163,7 +163,7 @@ auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void 
 }
 
 template <class MdSpanIn, class MdSpanOut>
-  requires (2 == MdSpanIn::extents_type::rank()) && (2 == MdSpanOut::extents_type::rank())
+  requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
 auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
