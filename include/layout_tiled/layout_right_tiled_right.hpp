@@ -34,7 +34,7 @@ public:
     static_assert(((TileExtents > 0) && ...), "layout_right_tiled_right::mapping: all tile extents must be positive");
 
   private:
-    static constexpr auto extents_are_strictly_positive(extents_type const& ext) -> bool {
+    static constexpr auto extents_are_strictly_positive(const extents_type& ext) -> bool {
       if constexpr (extents_type::rank() == 0) {
         return true;
       }
@@ -46,7 +46,7 @@ public:
       return true;
     }
 
-    static constexpr auto required_span_size_is_representable(extents_type const& ext) -> bool {
+    static constexpr auto required_span_size_is_representable(const extents_type& ext) -> bool {
       if constexpr (extents_type::rank() == 0) {
         return true;
       }
@@ -64,7 +64,7 @@ public:
       "layout_right_tiled_right::mapping: product of static extents must be representable as index_type"
     );
 
-    static constexpr auto tile_extents_are_multiples_of_extents(extents_type const& ext) -> bool {
+    static constexpr auto tile_extents_are_multiples_of_extents(const extents_type& ext) -> bool {
       if constexpr (extents_type::rank() == 0) {
         return true;
       }
@@ -79,19 +79,18 @@ public:
   public:
     // [mdspan.layout_right_tiled_right.cons]
     constexpr mapping() noexcept               = default;
-    constexpr mapping(mapping const&) noexcept = default;
-    mapping(extents_type const& exts) noexcept
-        : extents_(exts) {
+    constexpr mapping(const mapping&) noexcept = default;
+    mapping(const extents_type& exts) noexcept : extents_(exts) {
       assert(extents_are_strictly_positive(exts));
       assert(required_span_size_is_representable(exts));
       assert(tile_extents_are_multiples_of_extents(exts));
     }
 
-    constexpr auto operator=(mapping const&) noexcept -> mapping& = default;
+    constexpr auto operator=(const mapping&) noexcept -> mapping& = default;
 
     /* --- REQUIRED MEMBERS --- */
     // [mdspan.layout_right_tiled_right.obs]
-    constexpr auto extents() const -> extents_type const& {
+    constexpr auto extents() const -> const extents_type& {
       return extents_;
     }
 
@@ -105,11 +104,11 @@ public:
 
     template <class... Idxs>
     constexpr auto operator()(Idxs... idxs) const noexcept -> index_type
-      requires(extents_type::rank() == sizeof...(Idxs))
+      requires (extents_type::rank() == sizeof...(Idxs))
     {
       assert(
-        "layout_right_tiled_right::mapping: out of bounds indexing" &&
-        details::is_md_idx_in_span(std::make_index_sequence<extents_type::rank()>(), extents_, idxs...)
+        "layout_right_tiled_right::mapping: out of bounds indexing"
+        && details::is_md_idx_in_span(std::make_index_sequence<extents_type::rank()>(), extents_, idxs...)
       );
 
       return tile_offset_outer(idxs...) + tile_offset_inner(idxs...);

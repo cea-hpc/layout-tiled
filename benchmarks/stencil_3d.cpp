@@ -43,16 +43,16 @@ struct Config {
 namespace stencil_3d {
 
 template <class MdSpanIn, class MdSpanOut>
-  requires(3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
+  requires (3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
 auto naive(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(in.extent(2) == out.extent(2));
   assert(D != 0);
 
-  size_t const M = out.extent(0);
-  size_t const N = out.extent(1);
-  size_t const O = out.extent(2);
+  const size_t M = out.extent(0);
+  const size_t N = out.extent(1);
+  const size_t O = out.extent(2);
 
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for collapse(3) schedule(static)
@@ -71,16 +71,16 @@ auto naive(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
 }
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanIn, class MdSpanOut>
-  requires(3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
+  requires (3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
 auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(in.extent(2) == out.extent(2));
   assert(D != 0);
 
-  size_t const M = out.extent(0);
-  size_t const N = out.extent(1);
-  size_t const O = out.extent(2);
+  const size_t M = out.extent(0);
+  const size_t N = out.extent(1);
+  const size_t O = out.extent(2);
 
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
@@ -105,16 +105,16 @@ auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
 }
 
 template <class MdSpanIn, class MdSpanOut>
-  requires(3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
+  requires (3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
 auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t TO, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(in.extent(2) == out.extent(2));
   assert(D != 0);
 
-  size_t const M = out.extent(0);
-  size_t const N = out.extent(1);
-  size_t const O = out.extent(2);
+  const size_t M = out.extent(0);
+  const size_t N = out.extent(1);
+  const size_t O = out.extent(2);
 
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
@@ -139,20 +139,20 @@ auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t TO, 
 }
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanIn, class MdSpanOut>
-  requires(3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
+  requires (3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
 auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(in.extent(2) == out.extent(2));
   assert(D != 0);
 
-  size_t const M = out.extent(0);
-  size_t const N = out.extent(1);
-  size_t const O = out.extent(2);
+  const size_t M = out.extent(0);
+  const size_t N = out.extent(1);
+  const size_t O = out.extent(2);
 
-  size_t const i_stride = TN * TO;
-  size_t const j_stride = TO;
-  size_t const k_stride = 1;
+  const size_t i_stride = TN * TO;
+  const size_t j_stride = TO;
+  const size_t k_stride = 1;
 
   auto hin  = in.data_handle();
   auto hout = out.data_handle();
@@ -162,20 +162,20 @@ auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void 
   for (size_t x = D; x < M - D; x += TM) {
     for (size_t y = D; y < N - D; y += TN) {
       for (size_t z = D; z < O - D; z += TO) {
-        size_t const outoff = in.mapping().tile_offset_outer(x, y, z);
+        const size_t outoff = in.mapping().tile_offset_outer(x, y, z);
         for (size_t i = 0; i < std::min(TM, M - D - x); ++i) {
-          size_t const i_off = outoff + i * i_stride;
+          const size_t i_off = outoff + i * i_stride;
           for (size_t j = 0; j < std::min(TN, N - D - y); ++j) {
-            size_t const ij_off = i_off + j * j_stride;
+            const size_t ij_off = i_off + j * j_stride;
             for (size_t k = 0; k < std::min(TO, O - D - z); ++k) {
-              size_t const center = ij_off + k * k_stride;
+              const size_t center = ij_off + k * k_stride;
 
-              size_t const left   = center - D * i_stride;
-              size_t const right  = center + D * i_stride;
-              size_t const bottom = center - D * j_stride;
-              size_t const top    = center + D * j_stride;
-              size_t const back   = center - D * k_stride;
-              size_t const front  = center + D * k_stride;
+              const size_t left   = center - D * i_stride;
+              const size_t right  = center + D * i_stride;
+              const size_t bottom = center - D * j_stride;
+              const size_t top    = center + D * j_stride;
+              const size_t back   = center - D * k_stride;
+              const size_t front  = center + D * k_stride;
 
               // clang-format off
                 hout[center] =              hin[top]    + hin[back] +
@@ -191,20 +191,20 @@ auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void 
 }
 
 template <class MdSpanIn, class MdSpanOut>
-  requires(3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
+  requires (3 == MdSpanIn::extents_type::rank(), 3 == MdSpanOut::extents_type::rank())
 auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t TO, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(in.extent(2) == out.extent(2));
   assert(D != 0);
 
-  size_t const M = out.extent(0);
-  size_t const N = out.extent(1);
-  size_t const O = out.extent(2);
+  const size_t M = out.extent(0);
+  const size_t N = out.extent(1);
+  const size_t O = out.extent(2);
 
-  size_t const i_stride = TN * TO;
-  size_t const j_stride = TO;
-  size_t const k_stride = 1;
+  const size_t i_stride = TN * TO;
+  const size_t j_stride = TO;
+  const size_t k_stride = 1;
 
   auto hin  = in.data_handle();
   auto hout = out.data_handle();
@@ -214,20 +214,20 @@ auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size
   for (size_t x = D; x < M - D; x += TM) {
     for (size_t y = D; y < N - D; y += TN) {
       for (size_t z = D; z < O - D; z += TO) {
-        size_t const outoff = in.mapping().tile_offset_outer(x, y, z);
+        const size_t outoff = in.mapping().tile_offset_outer(x, y, z);
         for (size_t i = 0; i < std::min(TM, M - D - x); ++i) {
-          size_t const i_off = outoff + i * i_stride;
+          const size_t i_off = outoff + i * i_stride;
           for (size_t j = 0; j < std::min(TN, N - D - y); ++j) {
-            size_t const ij_off = i_off + j * j_stride;
+            const size_t ij_off = i_off + j * j_stride;
             for (size_t k = 0; k < std::min(TO, O - D - z); ++k) {
-              size_t const center = ij_off + k * k_stride;
+              const size_t center = ij_off + k * k_stride;
 
-              size_t const left   = center - D * i_stride;
-              size_t const right  = center + D * i_stride;
-              size_t const bottom = center - D * j_stride;
-              size_t const top    = center + D * j_stride;
-              size_t const back   = center - D * k_stride;
-              size_t const front  = center + D * k_stride;
+              const size_t left   = center - D * i_stride;
+              const size_t right  = center + D * i_stride;
+              const size_t bottom = center - D * j_stride;
+              const size_t top    = center + D * j_stride;
+              const size_t back   = center - D * k_stride;
+              const size_t front  = center + D * k_stride;
 
               // clang-format off
                 hout[center] =              hin[top] + hin[back] +
@@ -244,7 +244,7 @@ auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size
 
 } // namespace stencil_3d
 
-auto run_bench(Config const& cfg) -> void {
+auto run_bench(const Config& cfg) -> void {
   ankerl::nanobench::Bench bs;
   bs.output(nullptr).timeUnit(1s, "s").relative(true);
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
@@ -269,19 +269,31 @@ auto run_bench(Config const& cfg) -> void {
   auto lrtr_l1_in  = MemorySlice<Type>(cfg.n_ * cfg.n_ * cfg.n_);
   auto lrtr_l1_out = MemorySlice<Type>(cfg.n_ * cfg.n_ * cfg.n_);
   auto mlrtr_l1_in = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L1, TILE_L1, TILE_L1>>(
-    lrtr_l1_in.get(), cfg.n_, cfg.n_, cfg.n_
+    lrtr_l1_in.get(),
+    cfg.n_,
+    cfg.n_,
+    cfg.n_
   );
   auto mlrtr_l1_out = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L1, TILE_L1, TILE_L1>>(
-    lrtr_l1_out.get(), cfg.n_, cfg.n_, cfg.n_
+    lrtr_l1_out.get(),
+    cfg.n_,
+    cfg.n_,
+    cfg.n_
   );
 
   auto lrtr_l2_in  = MemorySlice<Type>(cfg.n_ * cfg.n_ * cfg.n_);
   auto lrtr_l2_out = MemorySlice<Type>(cfg.n_ * cfg.n_ * cfg.n_);
   auto mlrtr_l2_in = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L2, TILE_L2, TILE_L2>>(
-    lrtr_l2_in.get(), cfg.n_, cfg.n_, cfg.n_
+    lrtr_l2_in.get(),
+    cfg.n_,
+    cfg.n_,
+    cfg.n_
   );
   auto mlrtr_l2_out = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L2, TILE_L2, TILE_L2>>(
-    lrtr_l2_out.get(), cfg.n_, cfg.n_, cfg.n_
+    lrtr_l2_out.get(),
+    cfg.n_,
+    cfg.n_,
+    cfg.n_
   );
 
   // Initializations
