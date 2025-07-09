@@ -210,6 +210,10 @@ auto manual_blocked_tiled_subview(const MdSpanA A, const MdSpanB B, MdSpanC C) -
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
+  using ATile = std::mdspan<Type, std::extents<size_t, TM, TO>, std::layout_right>;
+  using BTile = std::mdspan<Type, std::extents<size_t, TO, TN>, std::layout_right>;
+  using CTile = std::mdspan<Type, std::extents<size_t, TM, TN>, std::layout_right>;
+
   size_t const M = A.extent(0);
   size_t const N = B.extent(1);
   size_t const O = A.extent(1);
@@ -221,17 +225,11 @@ auto manual_blocked_tiled_subview(const MdSpanA A, const MdSpanB B, MdSpanC C) -
     size_t const tx = std::min(TM, M - x);
     for (size_t y = 0; y < N; y += TN) {
       size_t const ty = std::min(TN, N - y);
-      auto Cb         = std::mdspan<Type, std::extents<size_t, TM, TN>, std::layout_right>(
-        C.data_handle() + C.mapping().tile_offset_outer(x, y)
-      );
+      auto tC         = CTile(C.data_handle() + C.mapping().tile_offset_outer(x, y));
       for (size_t z = 0; z < O; z += TO) {
         size_t const tz = std::min(TO, O - z);
-        auto Ab         = std::mdspan<Type, std::extents<size_t, TM, TO>, std::layout_right>(
-          A.data_handle() + A.mapping().tile_offset_outer(x, z)
-        );
-        auto Bb = std::mdspan<Type, std::extents<size_t, TO, TN>, std::layout_right>(
-          B.data_handle() + B.mapping().tile_offset_outer(z, y)
-        );
+        auto const tA = ATile(A.data_handle() + A.mapping().tile_offset_outer(x, z));
+        auto const tB = BTile(B.data_handle() + B.mapping().tile_offset_outer(z, y));
         for (size_t i = 0; i < tx; ++i) {
           for (size_t j = 0; j < ty; ++j) {
             Type acc = 0.0;
@@ -239,9 +237,9 @@ auto manual_blocked_tiled_subview(const MdSpanA A, const MdSpanB B, MdSpanC C) -
 #pragma omp simd
 #endif
             for (size_t k = 0; k < tz; ++k) {
-              acc += Ab[i, k] * Bb[k, j];
+              acc += tA[i, k] * tB[k, j];
             }
-            Cb[i, j] = acc;
+            tC[i, j] = acc;
           }
         }
       }
@@ -256,6 +254,10 @@ auto manual_blocked_tiled_subview_BLTL(const MdSpanA A, const MdSpanB B, MdSpanC
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
+  using ATile = std::mdspan<Type, std::extents<size_t, TM, TO>, std::layout_right>;
+  using BTile = std::mdspan<Type, std::extents<size_t, TO, TN>, std::layout_left>;
+  using CTile = std::mdspan<Type, std::extents<size_t, TM, TN>, std::layout_right>;
+
   size_t const M = A.extent(0);
   size_t const N = B.extent(1);
   size_t const O = A.extent(1);
@@ -267,17 +269,11 @@ auto manual_blocked_tiled_subview_BLTL(const MdSpanA A, const MdSpanB B, MdSpanC
     size_t const tx = std::min(TM, M - x);
     for (size_t y = 0; y < N; y += TN) {
       size_t const ty = std::min(TN, N - y);
-      auto Cb         = std::mdspan<Type, std::extents<size_t, TM, TN>, std::layout_right>(
-        C.data_handle() + C.mapping().tile_offset_outer(x, y)
-      );
+      auto tC         = CTile(C.data_handle() + C.mapping().tile_offset_outer(x, y));
       for (size_t z = 0; z < O; z += TO) {
         size_t const tz = std::min(TO, O - z);
-        auto const Ab   = std::mdspan<Type, std::extents<size_t, TM, TO>, std::layout_right>(
-          A.data_handle() + A.mapping().tile_offset_outer(x, z)
-        );
-        auto const Bb = std::mdspan<Type, std::extents<size_t, TO, TN>, std::layout_left>(
-          B.data_handle() + B.mapping().tile_offset_outer(z, y)
-        );
+        auto const tA = ATile(A.data_handle() + A.mapping().tile_offset_outer(x, z));
+        auto const tB = BTile(B.data_handle() + B.mapping().tile_offset_outer(z, y));
         for (size_t i = 0; i < tx; ++i) {
           for (size_t j = 0; j < ty; ++j) {
             Type acc = 0.0;
@@ -285,9 +281,9 @@ auto manual_blocked_tiled_subview_BLTL(const MdSpanA A, const MdSpanB B, MdSpanC
 #pragma omp simd
 #endif
             for (size_t k = 0; k < tz; ++k) {
-              acc += Ab[i, k] * Bb[k, j];
+              acc += tA[i, k] * tB[k, j];
             }
-            Cb[i, j] = acc;
+            tC[i, j] = acc;
           }
         }
       }
