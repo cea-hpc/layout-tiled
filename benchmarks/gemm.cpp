@@ -396,7 +396,7 @@ auto run_bench(const Config& cfg) -> void {
   benchmark_utils::fill_2d_uniform01(mtrC_l2, rng_tiled_l2);
 
   // Checks
-#if defined(LAYOUT_TILED_ENABLE_CHECK_RESULT)
+#if defined(LAYOUT_TILED_ENABLE_CHECKS)
   naive(mrA, mrB, mrB);
   double ref = frobenius_norm(mrC);
 
