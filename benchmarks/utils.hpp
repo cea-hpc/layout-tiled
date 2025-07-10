@@ -17,7 +17,7 @@
 #include <cstdlib>
 #include <experimental/mdspan>
 #include <limits>
-#include <string>
+#include <string_view>
 #include <type_traits>
 
 #include <fmt/core.h>
@@ -89,7 +89,7 @@ namespace benchmark_utils {
 
 template <class T>
   requires std::is_floating_point_v<T>
-auto check(T reference, T result, const std::string& label) -> void {
+auto check(T reference, T result, const std::string_view label) -> void {
   if (std::abs(result - reference) <= std::numeric_limits<T>::epsilon()) {
     fmt::print(stderr, "error({}): expected {}, got {}\n", label, reference, result);
   }
