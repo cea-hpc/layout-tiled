@@ -398,7 +398,7 @@ auto run_bench(const Config& cfg) -> void {
   // Checks
 #if defined(LAYOUT_TILED_ENABLE_CHECKS)
   naive(mrA, mrB, mrB);
-  double ref = frobenius_norm(mrC);
+  double ref = benchmark_utils::frobenius_norm(mrC);
 
   cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L1");
