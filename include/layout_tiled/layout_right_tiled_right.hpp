@@ -1,19 +1,15 @@
-// Copyright (C) 2024-2025 CEA
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at: http://www.apache.org/licenses/LICENSE-2.0
-//
+// include/layout_tiled/layout_right_tiled_right.hpp -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0
 
-#pragma once
+#ifndef INCLUDED_LAYOUT_TILED_LAYOUT_RIGHT_TILED_RIGHT
+#define INCLUDED_LAYOUT_TILED_LAYOUT_RIGHT_TILED_RIGHT
 
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <utility>
 
-#include "details/common.hpp"
+#include "detail/common.hpp"
 
 template <size_t... TileExtents>
 class layout_right_tiled_right {
@@ -107,7 +103,7 @@ public:
     constexpr auto operator()(Idxs... idxs) const noexcept -> index_type {
       assert(
         "layout_right_tiled_right::mapping: out of bounds indexing"
-        && details::is_md_idx_in_span(std::make_index_sequence<extents_type::rank()>(), extents_, idxs...)
+        && detail::is_md_idx_in_span(std::make_index_sequence<extents_type::rank()>(), extents_, idxs...)
       );
 
       return tile_offset_outer(idxs...) + tile_offset_inner(idxs...);
@@ -142,7 +138,7 @@ public:
 
     /// Stride is the reverse product of tile extents.
     constexpr auto stride(rank_type r) const noexcept -> index_type {
-      return details::rev_prod_of_extents<TileExtents...>(r);
+      return detail::rev_prod_of_extents<TileExtents...>(r);
     }
     /* --- END REQUIRED MEMBERS --- */
 
@@ -202,3 +198,5 @@ public:
     extents_type extents_;
   };
 };
+
+#endif // INCLUDED_LAYOUT_TILED_LAYOUT_RIGHT_TILED_RIGHT

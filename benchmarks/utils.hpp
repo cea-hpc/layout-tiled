@@ -1,12 +1,8 @@
-// Copyright (C) 2024-2025 CEA
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at: http://www.apache.org/licenses/LICENSE-2.0
-//
+// benchmarks/utils.hpp -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0
 
-#pragma once
+#ifndef INCLUDED_BENCHMARKS_UTILS
+#define INCLUDED_BENCHMARKS_UTILS
 
 #include <limits>
 #include <sys/mman.h> // mmamp/munmap
@@ -141,3 +137,5 @@ auto fill_3d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void {
 }
 
 } // namespace benchmark_utils
+
+#endif // INCLUDED_BENCHMARKS_UTILS
