@@ -33,10 +33,10 @@ target_sources(
       layout_right_tiled_left.hpp
       layout_left_tiled_right.hpp
       layout_left_tiled_left.hpp
-    FILE_SET layout_tiled_details_headers
+    FILE_SET layout_tiled_detail_headers
     TYPE HEADERS
     BASE_DIRS ${CMAKE_SOURCE_DIR}/include
-    FILES details/common.hpp
+    FILES detail/common.hpp
 )
 target_link_libraries(
   layout_tiled
@@ -57,5 +57,5 @@ install(
   FILE_SET
   layout_tiled_public_headers
   FILE_SET
-  layout_tiled_details_headers
+  layout_tiled_detail_headers
 )
