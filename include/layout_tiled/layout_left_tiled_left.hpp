@@ -1,12 +1,8 @@
-// Copyright (C) 2024-2025 CEA
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at: http://www.apache.org/licenses/LICENSE-2.0
-//
+// include/layout_tiled/layout_left_tiled_left.hpp -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0
 
-#pragma once
+#ifndef INCLUDED_LAYOUT_TILED_LAYOUT_LEFT_TILED_LEFT
+#define INCLUDED_LAYOUT_TILED_LAYOUT_LEFT_TILED_LEFT
 
 #include <array>
 #include <cassert>
@@ -196,3 +192,5 @@ public:
     extents_type extents_;
   };
 };
+
+#endif // INCLUDED_LAYOUT_TILED_LAYOUT_LEFT_TILED_LEFT

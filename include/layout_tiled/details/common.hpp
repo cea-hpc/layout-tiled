@@ -1,22 +1,18 @@
-// Copyright (C) 2024-2025 CEA
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at: http://www.apache.org/licenses/LICENSE-2.0
-//
+// include/layout_tiled/detail/common.hpp -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0
 
-#pragma once
+#ifndef INCLUDED_LAYOUT_TILED_DETAIL_COMMON
+#define INCLUDED_LAYOUT_TILED_DETAIL_COMMON
 
 #include <array>
 #include <cstddef>
 #include <type_traits>
 #include <utility>
 
-namespace details {
+namespace detail {
 
 template <std::integral IdxType, class From>
-  requires (std::integral<From>)
+  requires std::integral<From>
 constexpr auto is_idx_in_extent(IdxType extent, From value) -> bool {
   if constexpr (std::is_signed_v<From>) {
     if (value < 0) {
@@ -65,4 +61,6 @@ constexpr auto rev_prod_of_extents(size_t i) noexcept -> size_t {
   return product;
 }
 
-} // namespace details
+} // namespace detail
+
+#endif // INCLUDED_LAYOUT_TILED_DETAIL_COMMON
