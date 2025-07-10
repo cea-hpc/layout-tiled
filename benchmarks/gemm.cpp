@@ -214,22 +214,22 @@ auto manual_blocked_tiled_subview(const MdSpanA A, const MdSpanB B, MdSpanC C) -
   using BTile = std::mdspan<Type, std::extents<size_t, TO, TN>, std::layout_right>;
   using CTile = std::mdspan<Type, std::extents<size_t, TM, TN>, std::layout_right>;
 
-  size_t const M = A.extent(0);
-  size_t const N = B.extent(1);
-  size_t const O = A.extent(1);
+  const size_t M = A.extent(0);
+  const size_t N = B.extent(1);
+  const size_t O = A.extent(1);
 
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
-    size_t const tx = std::min(TM, M - x);
+    const size_t tx = std::min(TM, M - x);
     for (size_t y = 0; y < N; y += TN) {
-      size_t const ty = std::min(TN, N - y);
+      const size_t ty = std::min(TN, N - y);
       auto tC         = CTile(C.data_handle() + C.mapping().tile_offset_outer(x, y));
       for (size_t z = 0; z < O; z += TO) {
-        size_t const tz = std::min(TO, O - z);
-        auto const tA = ATile(A.data_handle() + A.mapping().tile_offset_outer(x, z));
-        auto const tB = BTile(B.data_handle() + B.mapping().tile_offset_outer(z, y));
+        const size_t tz = std::min(TO, O - z);
+        const auto tA   = ATile(A.data_handle() + A.mapping().tile_offset_outer(x, z));
+        const auto tB   = BTile(B.data_handle() + B.mapping().tile_offset_outer(z, y));
         for (size_t i = 0; i < tx; ++i) {
           for (size_t j = 0; j < ty; ++j) {
             Type acc = 0.0;
@@ -258,22 +258,22 @@ auto manual_blocked_tiled_subview_BLTL(const MdSpanA A, const MdSpanB B, MdSpanC
   using BTile = std::mdspan<Type, std::extents<size_t, TO, TN>, std::layout_left>;
   using CTile = std::mdspan<Type, std::extents<size_t, TM, TN>, std::layout_right>;
 
-  size_t const M = A.extent(0);
-  size_t const N = B.extent(1);
-  size_t const O = A.extent(1);
+  const size_t M = A.extent(0);
+  const size_t N = B.extent(1);
+  const size_t O = A.extent(1);
 
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
-    size_t const tx = std::min(TM, M - x);
+    const size_t tx = std::min(TM, M - x);
     for (size_t y = 0; y < N; y += TN) {
-      size_t const ty = std::min(TN, N - y);
+      const size_t ty = std::min(TN, N - y);
       auto tC         = CTile(C.data_handle() + C.mapping().tile_offset_outer(x, y));
       for (size_t z = 0; z < O; z += TO) {
-        size_t const tz = std::min(TO, O - z);
-        auto const tA = ATile(A.data_handle() + A.mapping().tile_offset_outer(x, z));
-        auto const tB = BTile(B.data_handle() + B.mapping().tile_offset_outer(z, y));
+        const size_t tz = std::min(TO, O - z);
+        const auto tA   = ATile(A.data_handle() + A.mapping().tile_offset_outer(x, z));
+        const auto tB   = BTile(B.data_handle() + B.mapping().tile_offset_outer(z, y));
         for (size_t i = 0; i < tx; ++i) {
           for (size_t j = 0; j < ty; ++j) {
             Type acc = 0.0;
@@ -331,8 +331,6 @@ auto blas(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
 }
 #endif
 
-}
-
 auto run_bench(const Config& cfg) -> void {
   ankerl::nanobench::Bench bs;
   bs.output(nullptr);
@@ -351,8 +349,8 @@ auto run_bench(const Config& cfg) -> void {
   // Standard layout matrices
   auto rA = MemorySlice<Type>(cfg.n_ * cfg.n_);
   auto rB = MemorySlice<Type>(cfg.n_ * cfg.n_);
-  auto lB = MemorySlice<Type>(cfg.n_ * cfg.n_);
   auto rC = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto lB = MemorySlice<Type>(cfg.n_ * cfg.n_);
   // Tiled layout matrices (L1 tiles)
   auto trA_l1 = MemorySlice<Type>(cfg.n_ * cfg.n_);
   auto trB_l1 = MemorySlice<Type>(cfg.n_ * cfg.n_);
@@ -398,7 +396,7 @@ auto run_bench(const Config& cfg) -> void {
   // Checks
 #if defined(LAYOUT_TILED_ENABLE_CHECKS)
   naive(mrA, mrB, mrB);
-  double ref = benchmark_utils::frobenius_norm(mrC);
+  double ref = benchmark_utils::l2_norm(mrC);
 
   cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L1");
@@ -423,18 +421,10 @@ auto run_bench(const Config& cfg) -> void {
   bs.run("R blas", [&]() { blas(mrA, mrB, mrC); });
 #endif
 
-  bs.run(fmt::format("R cb-{0}x{0}", TILE_L1), [&]() {
-    cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC);
-  });
-  bs.run(fmt::format("R cb-{0}x{0}", TILE_L2), [&]() {
-    cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mrB, mrC);
-  });
-  bs.run(fmt::format("R_BL cb-{0}x{0}", TILE_L1), [&]() {
-    cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mlB, mrC);
-  });
-  bs.run(fmt::format("R_BL cb-{0}x{0}", TILE_L2), [&]() {
-    cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mlB, mrC);
-  });
+  bs.run(fmt::format("R cb-{0}x{0}", TILE_L1), [&]() { cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC); });
+  bs.run(fmt::format("R cb-{0}x{0}", TILE_L2), [&]() { cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mrB, mrC); });
+  bs.run(fmt::format("R_BL cb-{0}x{0}", TILE_L1), [&]() { cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mlB, mrC); });
+  bs.run(fmt::format("R_BL cb-{0}x{0}", TILE_L2), [&]() { cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mlB, mrC); });
 
   bs.run(fmt::format("RTR-{0}x{0} naive", TILE_L1), [&]() { naive(mtrA_l1, mtrB_l1, mtrC_l1); });
   bs.run(fmt::format("RTR-{0}x{0} naive", TILE_L2), [&]() { naive(mtrA_l2, mtrB_l2, mtrC_l2); });
@@ -454,7 +444,7 @@ auto run_bench(const Config& cfg) -> void {
   bs.run(fmt::format("RTR-{0}x{0} mbtsv", TILE_L1), [&]() {
     manual_blocked_tiled_subview<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
   });
-  bs.run(fmt::format("RTR-{0}x{0} mbtsv", TILE_L1), [&]() {
+  bs.run(fmt::format("RTR-{0}x{0} mbtsv", TILE_L2), [&]() {
     manual_blocked_tiled_subview<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
   });
   bs.run(fmt::format("RTR_BLTL-{0}x{0} mbtsv", TILE_L1), [&]() {
@@ -469,14 +459,16 @@ auto run_bench(const Config& cfg) -> void {
   file_stream.close();
 }
 
+} // namespace
+
 auto main(int argc, char* argv[]) -> int {
-  static std::string HELP_MSG = "Execute GEMM benchmark\n\n"
-                                "Usage: layout_tiled.benchmarks.gemm [OPTIONS]\n\n"
-                                "Options:\n"
-                                "  -n, --size <SIZE>             Matrix size [default: 512]\n"
-                                "  -t, --tile <SIZE>             Tile size [default: 32]\n"
-                                "  -o, --output <FILENAME>       Output file name\n"
-                                "  -h, --help                    Show this help\n";
+  constexpr std::string HELP_MSG = "Execute GEMM benchmark\n\n"
+                                   "Usage: layout_tiled.benchmarks.gemm [OPTIONS]\n\n"
+                                   "Options:\n"
+                                   "  -n, --size <SIZE>             Matrix size [default: 512]\n"
+                                   "  -t, --tile <SIZE>             Tile size [default: 32]\n"
+                                   "  -o, --output <FILENAME>       Output file name\n"
+                                   "  -h, --help                    Show this help\n";
 
   static struct option long_options[] = {
     {"size", required_argument, nullptr, 'n'},
