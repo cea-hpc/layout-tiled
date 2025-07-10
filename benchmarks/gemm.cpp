@@ -222,21 +222,18 @@ auto manual_blocked_tiled_subview(const MdSpanA A, const MdSpanB B, MdSpanC C) -
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
-    const size_t tx = std::min(TM, M - x);
     for (size_t y = 0; y < N; y += TN) {
-      const size_t ty = std::min(TN, N - y);
-      auto tC         = CTile(C.data_handle() + C.mapping().tile_offset_outer(x, y));
+      auto tC = CTile(C.data_handle() + C.mapping().tile_offset_outer(x, y));
       for (size_t z = 0; z < O; z += TO) {
-        const size_t tz = std::min(TO, O - z);
-        const auto tA   = ATile(A.data_handle() + A.mapping().tile_offset_outer(x, z));
-        const auto tB   = BTile(B.data_handle() + B.mapping().tile_offset_outer(z, y));
-        for (size_t i = 0; i < tx; ++i) {
-          for (size_t j = 0; j < ty; ++j) {
+        const auto tA = ATile(A.data_handle() + A.mapping().tile_offset_outer(x, z));
+        const auto tB = BTile(B.data_handle() + B.mapping().tile_offset_outer(z, y));
+        for (size_t i = 0; i < std::min(TM, M - x); ++i) {
+          for (size_t j = 0; j < std::min(TN, N - y); ++j) {
             Type acc = 0.0;
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
-            for (size_t k = 0; k < tz; ++k) {
+            for (size_t k = 0; k < std::min(TO, O - z); ++k) {
               acc += tA[i, k] * tB[k, j];
             }
             tC[i, j] = acc;
@@ -266,21 +263,18 @@ auto manual_blocked_tiled_subview_BLTL(const MdSpanA A, const MdSpanB B, MdSpanC
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
-    const size_t tx = std::min(TM, M - x);
     for (size_t y = 0; y < N; y += TN) {
-      const size_t ty = std::min(TN, N - y);
-      auto tC         = CTile(C.data_handle() + C.mapping().tile_offset_outer(x, y));
+      auto tC = CTile(C.data_handle() + C.mapping().tile_offset_outer(x, y));
       for (size_t z = 0; z < O; z += TO) {
-        const size_t tz = std::min(TO, O - z);
-        const auto tA   = ATile(A.data_handle() + A.mapping().tile_offset_outer(x, z));
-        const auto tB   = BTile(B.data_handle() + B.mapping().tile_offset_outer(z, y));
-        for (size_t i = 0; i < tx; ++i) {
-          for (size_t j = 0; j < ty; ++j) {
+        const auto tA = ATile(A.data_handle() + A.mapping().tile_offset_outer(x, z));
+        const auto tB = BTile(B.data_handle() + B.mapping().tile_offset_outer(z, y));
+        for (size_t i = 0; i < std::min(TM, M - x); ++i) {
+          for (size_t j = 0; j < std::min(TN, N - y); ++j) {
             Type acc = 0.0;
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
-            for (size_t k = 0; k < tz; ++k) {
+            for (size_t k = 0; k < std::min(TO, O - z); ++k) {
               acc += tA[i, k] * tB[k, j];
             }
             tC[i, j] = acc;
