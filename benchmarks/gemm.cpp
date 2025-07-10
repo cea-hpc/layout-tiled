@@ -462,13 +462,13 @@ auto run_bench(const Config& cfg) -> void {
 } // namespace
 
 auto main(int argc, char* argv[]) -> int {
-  constexpr std::string HELP_MSG = "Execute GEMM benchmark\n\n"
-                                   "Usage: layout_tiled.benchmarks.gemm [OPTIONS]\n\n"
-                                   "Options:\n"
-                                   "  -n, --size <SIZE>             Matrix size [default: 512]\n"
-                                   "  -t, --tile <SIZE>             Tile size [default: 32]\n"
-                                   "  -o, --output <FILENAME>       Output file name\n"
-                                   "  -h, --help                    Show this help\n";
+  static std::string HELP_MSG = "Execute GEMM benchmark\n\n"
+                                "Usage: layout_tiled.benchmarks.gemm [OPTIONS]\n\n"
+                                "Options:\n"
+                                "  -n, --size <SIZE>             Matrix size [default: 512]\n"
+                                "  -t, --tile <SIZE>             Tile size [default: 32]\n"
+                                "  -o, --output <FILENAME>       Output file name\n"
+                                "  -h, --help                    Show this help\n";
 
   static struct option long_options[] = {
     {"size", required_argument, nullptr, 'n'},
