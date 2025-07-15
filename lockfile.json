@@ -1,0 +1,28 @@
+{
+  "dependencies": [
+    {
+      "name": "mdspan",
+      "package_name": "mdspan",
+      "git_repository": "https://github.com/kokkos/mdspan.git",
+      "git_tag": "origin/stable"
+    },
+    {
+      "name": "googletest",
+      "package_name": "GTest",
+      "git_repository": "https://github.com/google/googletest.git",
+      "git_tag": "v1.17.0"
+    },
+    {
+      "name": "fmt",
+      "package_name": "fmt",
+      "git_repository": "https://github.com/fmtlib/fmt.git",
+      "git_tag": "11.2.0"
+    },
+    {
+      "name": "nanobench",
+      "package_name": "nanobench",
+      "git_repository": "https://github.com/dssgabriel/nanobench.git",
+      "git_tag": "origin/feature/cache-perf-events"
+    },
+  ]
+}
