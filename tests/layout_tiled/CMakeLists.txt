@@ -1,3 +1,6 @@
+find_package(mdspan)
+find_package(GTest REQUIRED)
+
 include(GoogleTest)
 
 set(
@@ -16,6 +19,7 @@ foreach(test ${ALL_TESTS})
     PRIVATE
       layout_tiled::layout_tiled
       mdspan::mdspan
+      GTest::gtest
       GTest::gtest_main
   )
 

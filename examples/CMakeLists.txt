@@ -1,3 +1,6 @@
+find_package(mdspan)
+find_package(fmt)
+
 set(
   ALL_EXAMPLES
   layout_right_tiled_right

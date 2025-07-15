@@ -1,3 +1,7 @@
+find_package(mdspan)
+find_package(fmt)
+find_package(nanobench)
+
 set(
   ALL_BENCHMARKS
   gemm

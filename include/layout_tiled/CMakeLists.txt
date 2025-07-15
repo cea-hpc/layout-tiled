@@ -1,3 +1,4 @@
+find_package(mdspan)
 
 add_library(layout_tiled INTERFACE)
 add_library(layout_tiled::layout_tiled ALIAS layout_tiled)
@@ -26,7 +27,7 @@ include(GNUInstallDirs)
 install(
   TARGETS
     layout_tiled
-  EXPORT LayoutTiledTargets
+  EXPORT layout-tiled-targets
   FILE_SET
   layout_tiled_public_headers
   FILE_SET
