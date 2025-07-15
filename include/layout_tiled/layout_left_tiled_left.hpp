@@ -10,7 +10,7 @@
 #include <utility>
 
 #include "detail/common.hpp"
-#include "details/macros.hpp"
+#include "detail/macros.hpp"
 
 template <size_t... TileExtents>
 class layout_left_tiled_left {
