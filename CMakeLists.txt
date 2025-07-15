@@ -1,72 +1,81 @@
-cmake_minimum_required(VERSION 3.25) # support for C++26
+cmake_minimum_required(VERSION 3.25)
 
-project(layout-tiled VERSION 0.3.0 LANGUAGES CXX DESCRIPTION "Tiled layouts for C++23 std::mdspan")
+project(layout-tiled LANGUAGES CXX DESCRIPTION "Tiled layouts for std::mdspan" VERSION 0.4.0)
 
 # --- PROJECT OPTIONS --- #
-option(LayoutTiled_BUILD_TESTS "Enable building tests. Values: { ON, OFF}." OFF)
-option(LayoutTiled_BUILD_EXAMPLES "Enable building examples. Values: { ON, OFF }." OFF)
-option(LayoutTiled_BUILD_BENCHMARKS "Enable building benchmarks. Values: { ON, OFF }." OFF)
+option(
+  LayoutTiled_BUILD_TESTS
+  "Enable building tests and test infrastructure. Default: ${PROJECT_IS_TOP_LEVEL}. Values: { ON, OFF }."
+  ${PROJECT_IS_TOP_LEVEL}
+)
+option(
+  LayoutTiled_BUILD_EXAMPLES
+  "Enable building examples. Default: ${PROJECT_IS_TOP_LEVEL}. Values: { ON, OFF }."
+  ${PROJECT_IS_TOP_LEVEL}
+)
+option(
+  LayoutTiled_BUILD_BENCHMARKS
+  "Enable building benchmarks. Default: ${PROJECT_IS_TOP_LEVEL}. Values: { ON, OFF }."
+  ${PROJECT_IS_TOP_LEVEL}
+)
+option(
+  LayoutTiled_INSTALL_PACKAGE
+  "Enable installing library as CMake package. Default: ${PROJECT_IS_TOP_LEVEL}. Values: { ON, OFF }."
+  ${PROJECT_IS_TOP_LEVEL}
+)
 
 # --- PROJECT DEPENDENCIES --- #
-include(FetchContent)
-FetchContent_Declare(mdspan GIT_REPOSITORY https://github.com/kokkos/mdspan.git GIT_TAG origin/stable)
-FetchContent_MakeAvailable(mdspan)
-target_compile_definitions(mdspan INTERFACE -DMDSPAN_USE_BRACKET_OPERATOR)
+include(CTest)
 
 # --- PROJECT TARGETS --- #
 add_subdirectory(include/layout_tiled)
 
 if(LayoutTiled_BUILD_TESTS)
-  enable_testing()
-  FetchContent_Declare(googletest GIT_REPOSITORY https://github.com/google/googletest.git GIT_TAG v1.16.0)
-  # Prevent GTest from getting installed along with the library
-  set(INSTALL_GTEST OFF)
-  FetchContent_MakeAvailable(googletest)
   add_subdirectory(tests/layout_tiled)
 endif()
 
 if(LayoutTiled_BUILD_EXAMPLES)
-  FetchContent_Declare(fmt GIT_REPOSITORY https://github.com/fmtlib/fmt.git GIT_TAG 11.1.4)
-  FetchContent_MakeAvailable(fmt)
   add_subdirectory(examples)
 endif()
 
 if(LayoutTiled_BUILD_BENCHMARKS)
-  # Fork adding support for tracking L1I/L1D/LLC events
-  FetchContent_Declare(
-    nanobench
-    GIT_REPOSITORY https://github.com/dssgabriel/nanobench.git
-    GIT_TAG origin/feature/cache-perf-events
-    GIT_SHALLOW TRUE
-  )
-  FetchContent_Declare(fmt GIT_REPOSITORY https://github.com/fmtlib/fmt.git GIT_TAG 11.1.4)
-  FetchContent_MakeAvailable(
-    nanobench
-    fmt
-  )
   add_subdirectory(benchmarks)
 endif()
 
 # --- PACKAGING --- #
-include(CMakePackageConfigHelpers)
+if(LayoutTiled_INSTALL_PACKAGE)
+  include(CMakePackageConfigHelpers)
 
-configure_package_config_file(
-  ${PROJECT_SOURCE_DIR}/cmake/config.cmake.in
-  ${PROJECT_BINARY_DIR}/cmake/layout_tiled/layout-tiled-config.cmake
-  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled
-  NO_SET_AND_CHECK_MACRO
-  NO_CHECK_REQUIRED_COMPONENTS_MACRO
-)
+  configure_package_config_file(
+    "${PROJECT_SOURCE_DIR}/cmake/layout-tiled-config.cmake.in"
+    "${PROJECT_BINARY_DIR}/cmake/layout-tiled-config.cmake"
+    INSTALL_DESTINATION "${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled"
+    PATH_VARS
+      PROJECT_NAME
+      PROJECT_VERSION
+    NO_SET_AND_CHECK_MACRO
+    NO_CHECK_REQUIRED_COMPONENTS_MACRO
+  )
 
-# Install CMake package config files
-install(
-  FILES
-    ${PROJECT_BINARY_DIR}/cmake/layout_tiled/layout-tiled-config.cmake
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled
-)
-install(
-  EXPORT LayoutTiledTargets
-  FILE layout-tiled-targets.cmake
-  NAMESPACE layout_tiled::
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled
-)
+  write_basic_package_version_file(
+    "${PROJECT_BINARY_DIR}/cmake/layout-tiled-config-version.cmake"
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY ExactVersion
+  )
+
+  # Install CMake package config files
+  install(
+    FILES
+      ${PROJECT_BINARY_DIR}/cmake/layout-tiled-config.cmake
+      ${PROJECT_BINARY_DIR}/cmake/layout-tiled-config-version.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled
+    COMPONENT layout-tiled
+  )
+  install(
+    EXPORT layout-tiled-targets
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled
+    NAMESPACE layout_tiled::
+    FILE layout-tiled-targets.cmake
+    COMPONENT layout-tiled
+  )
+endif()
