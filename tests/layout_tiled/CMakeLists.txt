@@ -11,25 +11,6 @@ set(
 foreach(test ${ALL_TESTS})
   add_executable(layout_tiled.tests.${test})
   target_sources(layout_tiled.tests.${test} PRIVATE ${test}.test.cpp)
-  target_compile_options(
-    layout_tiled.tests.${test}
-    PRIVATE
-      -Wall
-      -Wextra
-      -Wshadow
-      -Wpedantic
-      -Wcast-align
-      -Wconversion
-      -Wmissing-include-dirs
-      -Wformat=2
-  )
-  target_compile_features(layout_tiled.tests.${test} PRIVATE cxx_std_23)
-  set_target_properties(
-    layout_tiled.tests.${test}
-    PROPERTIES
-      CXX_EXTENSIONS
-        OFF
-  )
   target_link_libraries(
     layout_tiled.tests.${test}
     PRIVATE
