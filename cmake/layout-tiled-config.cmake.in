@@ -1,0 +1,10 @@
+# cmake/config.cmake.in -*-makefile-*-
+# SPDX-License-Identifier: Apache-2.0
+
+set(LAYOUT_TILED_VERSION @PROJECT_VERSION@)
+
+@PACKAGE_INIT@
+
+INCLUDE("${CMAKE_CURRENT_LIST_DIR}/@PROJECT_NAME@-targets.cmake")
+
+check_required_components(@PROJECT_NAME@)
