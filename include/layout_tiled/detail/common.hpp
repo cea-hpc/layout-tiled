@@ -9,10 +9,13 @@
 #include <type_traits>
 #include <utility>
 
+#include "macros.hpp"
+
 namespace detail {
 
 template <std::integral IdxType, class From>
   requires std::integral<From>
+LAYOUT_TILED_IMPL_HOST_DEVICE
 constexpr auto is_idx_in_extent(IdxType extent, From value) -> bool {
   if constexpr (std::is_signed_v<From>) {
     if (value < 0) {
@@ -23,6 +26,7 @@ constexpr auto is_idx_in_extent(IdxType extent, From value) -> bool {
   return static_cast<Tp>(value) < static_cast<Tp>(extent);
 }
 
+LAYOUT_TILED_INLINE_FUNCTION
 template <std::size_t... Idxs, class Extents, class... From>
 constexpr auto is_md_idx_in_span(std::index_sequence<Idxs...>, const Extents& ext, From... values) -> bool {
   return (is_idx_in_extent(ext.extent(Idxs), values) && ...);
@@ -32,6 +36,7 @@ constexpr auto is_md_idx_in_span(std::index_sequence<Idxs...>, const Extents& ex
 ///
 /// Pre-condition: `i < sizeof...(Exts)`
 template <size_t... Exts>
+LAYOUT_TILED_IMPL_HOST_DEVICE
 constexpr auto fwd_prod_of_extents(size_t i) noexcept -> size_t {
   if (0 == i) {
     return 1;
@@ -49,6 +54,7 @@ constexpr auto fwd_prod_of_extents(size_t i) noexcept -> size_t {
 ///
 /// Pre-condition: `i < sizeof...(Exts)`
 template <size_t... Exts>
+LAYOUT_TILED_IMPL_HOST_DEVICE
 constexpr auto rev_prod_of_extents(size_t i) noexcept -> size_t {
   if (sizeof...(Exts) < i + 1) {
     return 1;
