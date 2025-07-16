@@ -46,7 +46,7 @@ target_link_libraries(
 )
 
 if(LayoutTiled_ENABLE_DEVICE_OFFLOAD)
-  target_compile_definitions(layout_tiled INTERFACE -DLAYOUT_TILED_ENABLE)
+  target_compile_definitions(layout_tiled INTERFACE -DLAYOUT_TILED_ENABLE_DEVICE_OFFLOAD)
 endif()
 
 # --- PACKAGING --- #
