@@ -9,11 +9,20 @@ set(
   stencil_3d
 )
 
-option(LayoutTiled_BENCHMARKS_ENABLE_OPENMP "Enable building benchmarks with OpenMP support. Values: { ON, OFF }." OFF)
 option(
   LayoutTiled_BENCHMARKS_ENABLE_CHECKS
-  "Enable checking the computed results of benchmarks. Values: { ON, OFF }."
-  OFF
+  "Enable checking the computed results of benchmarks. Default: ON. Values: { ON, OFF }."
+  ON
+)
+option(
+  LayoutTiled_BENCHMARKS_ENABLE_OPENMP
+  "Enable building benchmarks with OpenMP support. Default: ON. Values: { ON, OFF }."
+  ON
+)
+option(
+  LayoutTiled_BENCHMARKS_ENABLE_BLAS
+  "Enable building the GEMM benchmark with a BLAS version. Default: ON. Values: { ON, OFF }."
+  ON
 )
 
 if(LayoutTiled_BENCHMARKS_ENABLE_OPENMP)
@@ -35,23 +44,7 @@ endif()
 foreach(bench ${ALL_BENCHMARKS})
   add_executable(layout_tiled.benchmarks.${bench})
   target_sources(layout_tiled.benchmarks.${bench} PRIVATE ${bench}.cpp)
-  target_compile_options(
-    layout_tiled.benchmarks.${bench}
-    PRIVATE
-      -Wall
-      -Wextra
-      -Wpedantic
-      -pedantic
-      -march=native
-      -g3
-  )
-  target_compile_features(layout_tiled.benchmarks.${bench} PRIVATE cxx_std_23)
-  set_target_properties(
-    layout_tiled.benchmarks.${bench}
-    PROPERTIES
-      CXX_EXTENSIONS
-        OFF
-  )
+  target_compile_options(layout_tiled.benchmarks.${bench} PRIVATE -march=native)
   target_link_libraries(
     layout_tiled.benchmarks.${bench}
     PRIVATE
