@@ -3,10 +3,10 @@
 
 #include <array>
 #include <cstddef> // size_t
-#include <layout_tiled/layout_right_tiled_left.hpp>
-
 #include <experimental/mdspan>
+
 #include <fmt/core.h>
+#include <layout_tiled/layout_right_tiled_left.hpp>
 
 auto main() -> int {
   constexpr size_t ROWS  = 4;
