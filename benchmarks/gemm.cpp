@@ -55,7 +55,7 @@ auto naive(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
 #endif
   for (size_t i = 0; i < M; ++i) {
     for (size_t j = 0; j < N; ++j) {
-      Type acc{};
+      Type acc = 0.0;
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
@@ -82,21 +82,18 @@ auto cache_blocked(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
-    const size_t tx = std::min(x + TM, M);
     for (size_t y = 0; y < N; y += TN) {
-      const size_t ty = std::min(y + TN, N);
       for (size_t z = 0; z < O; z += TO) {
-        const size_t tz = std::min(z + TO, O);
-        for (size_t i = x; i < tx; ++i) {
-          for (size_t j = y; j < ty; ++j) {
-            Type acc{};
+        for (size_t i = x; i < std::min(x + TM, M); ++i) {
+          for (size_t j = y; j < std::min(y + TN, N); ++j) {
+            Type acc = 0.0;
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
-            for (size_t k = z; k < tz; ++k) {
+            for (size_t k = z; k < std::min(z + TO, O); ++k) {
               acc += A[i, k] * B[k, j];
             }
-            C[i, j] = acc;
+            C[i, j] += acc;
           }
         }
       }
@@ -121,29 +118,24 @@ auto manual_blocked_tiled(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   for (size_t x = 0; x < M; x += TM) {
     const size_t tx = std::min(TM, M - x);
     for (size_t y = 0; y < N; y += TN) {
-      double* C_outoff = C.data_handle() + C.mapping().tile_offset_outer(x, y);
-      const size_t ty  = std::min(TN, N - y);
+      double* tC      = C.data_handle() + C.mapping().tile_offset_outer(x, y);
+      const size_t ty = std::min(TN, N - y);
       for (size_t z = 0; z < O; z += TO) {
-        const double* A_outoff = A.data_handle() + A.mapping().tile_offset_outer(x, z);
-        const double* B_outoff = B.data_handle() + B.mapping().tile_offset_outer(z, y);
-        const size_t tz        = std::min(TO, O - z);
+        const size_t tz  = std::min(TO, O - z);
+        const double* tA = A.data_handle() + A.mapping().tile_offset_outer(x, z);
+        const double* tB = B.data_handle() + B.mapping().tile_offset_outer(z, y);
         for (size_t i = 0; i < tx; ++i) {
-          const size_t ti = i * TM;
-          size_t A_inoff  = ti;
-          size_t C_inoff  = ti;
+          size_t A_inoff = i * TO;
+          size_t C_inoff = i * TN;
           for (size_t j = 0; j < ty; ++j) {
-            size_t B_inoff = j;
-            Type acc       = 0.0;
+            Type acc = 0.0;
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
             for (size_t k = 0; k < tz; ++k) {
-              acc += A_outoff[A_inoff] * B_outoff[B_inoff];
-              A_inoff += 1;
-              B_inoff += TO;
+              acc += tA[A_inoff + k] * tB[k * TN + j];
             }
-            C_outoff[C_inoff] = acc;
-            C_inoff += 1;
+            tC[C_inoff + j] += acc;
           }
         }
       }
@@ -168,29 +160,24 @@ auto manual_blocked_tiled(const MdSpanA A, const MdSpanB B, MdSpanC C, size_t TM
   for (size_t x = 0; x < M; x += TM) {
     const size_t tx = std::min(TM, M - x);
     for (size_t y = 0; y < N; y += TN) {
-      double* C_outoff = C.data_handle() + C.mapping().tile_offset_outer(x, y);
-      const size_t ty  = std::min(TN, N - y);
+      double* tC      = C.data_handle() + C.mapping().tile_offset_outer(x, y);
+      const size_t ty = std::min(TN, N - y);
       for (size_t z = 0; z < O; z += TO) {
-        const double* A_outoff = A.data_handle() + A.mapping().tile_offset_outer(x, z);
-        const double* B_outoff = B.data_handle() + B.mapping().tile_offset_outer(z, y);
-        const size_t tz        = std::min(TO, O - z);
+        const size_t tz  = std::min(TO, O - z);
+        const double* tA = A.data_handle() + A.mapping().tile_offset_outer(x, z);
+        const double* tB = B.data_handle() + B.mapping().tile_offset_outer(z, y);
         for (size_t i = 0; i < tx; ++i) {
-          const size_t ti = i * TM;
-          size_t A_inoff  = ti;
-          size_t C_inoff  = ti;
+          size_t A_inoff = i * TO;
+          size_t C_inoff = i * TN;
           for (size_t j = 0; j < ty; ++j) {
-            size_t B_inoff = j;
-            Type acc       = 0.0;
+            Type acc = 0.0;
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
 #pragma omp simd
 #endif
             for (size_t k = 0; k < tz; ++k) {
-              acc += A_outoff[A_inoff] * B_outoff[B_inoff];
-              A_inoff += 1;
-              B_inoff += TO;
+              acc += tA[A_inoff + k] * tB[k * TN + j];
             }
-            C_outoff[C_inoff] = acc;
-            C_inoff += 1;
+            tC[C_inoff + j] += acc;
           }
         }
       }
@@ -231,7 +218,7 @@ auto manual_blocked_tiled_subview(const MdSpanA A, const MdSpanB B, MdSpanC C) -
             for (size_t k = 0; k < std::min(TO, O - z); ++k) {
               acc += tA[i, k] * tB[k, j];
             }
-            tC[i, j] = acc;
+            tC[i, j] += acc;
           }
         }
       }
@@ -272,7 +259,7 @@ auto manual_blocked_tiled_subview_BLTL(const MdSpanA A, const MdSpanB B, MdSpanC
             for (size_t k = 0; k < std::min(TO, O - z); ++k) {
               acc += tA[i, k] * tB[k, j];
             }
-            tC[i, j] = acc;
+            tC[i, j] += acc;
           }
         }
       }
@@ -354,8 +341,8 @@ auto run_bench(const Config& cfg) -> void {
   // Associated MDSPANs
   auto mrA     = std::mdspan<Type, Exts>(rA.get(), cfg.n_, cfg.n_);
   auto mrB     = std::mdspan<Type, Exts>(rB.get(), cfg.n_, cfg.n_);
-  auto mlB     = std::mdspan<Type, Exts, std::layout_left>(lB.get(), cfg.n_, cfg.n_);
   auto mrC     = std::mdspan<Type, Exts>(rC.get(), cfg.n_, cfg.n_);
+  auto mlB     = std::mdspan<Type, Exts, std::layout_left>(lB.get(), cfg.n_, cfg.n_);
   auto mtrA_l1 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L1, TILE_L1>>(trA_l1.get(), cfg.n_, cfg.n_);
   auto mtrB_l1 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L1, TILE_L1>>(trB_l1.get(), cfg.n_, cfg.n_);
   auto mtrC_l1 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L1, TILE_L1>>(trC_l1.get(), cfg.n_, cfg.n_);
@@ -367,40 +354,52 @@ auto run_bench(const Config& cfg) -> void {
 
   // Matrix initializations
   ankerl::nanobench::Rng rng_naive(42);
-  auto rng_tiled_l1 = rng_naive.copy();
-  auto rng_tiled_l2 = rng_naive.copy();
   benchmark_utils::fill_2d_uniform01(mrA, rng_naive);
   benchmark_utils::fill_2d_uniform01(mrB, rng_naive);
   benchmark_utils::fill_2d_uniform01(mlB, rng_naive);
-  benchmark_utils::fill_2d_uniform01(mrC, rng_naive);
-  benchmark_utils::fill_2d_uniform01(mtrA_l1, rng_tiled_l1);
-  benchmark_utils::fill_2d_uniform01(mtrB_l1, rng_tiled_l1);
-  benchmark_utils::fill_2d_uniform01(mtlB_l1, rng_tiled_l1);
-  benchmark_utils::fill_2d_uniform01(mtrC_l1, rng_tiled_l1);
-  benchmark_utils::fill_2d_uniform01(mtrA_l2, rng_tiled_l2);
-  benchmark_utils::fill_2d_uniform01(mtrB_l2, rng_tiled_l2);
-  benchmark_utils::fill_2d_uniform01(mtlB_l2, rng_tiled_l2);
-  benchmark_utils::fill_2d_uniform01(mtrC_l2, rng_tiled_l2);
+  benchmark_utils::fill_2d_copy(mtrA_l1, mrA);
+  benchmark_utils::fill_2d_copy(mtrB_l1, mrB);
+  benchmark_utils::fill_2d_copy(mtlB_l1, mlB);
+  benchmark_utils::fill_2d_copy(mtrA_l2, mrA);
+  benchmark_utils::fill_2d_copy(mtrB_l2, mrB);
+  benchmark_utils::fill_2d_copy(mtlB_l2, mlB);
 
   // Checks
 #if defined(LAYOUT_TILED_ENABLE_CHECKS)
-  naive(mrA, mrB, mrB);
+  const double n     = static_cast<double>(cfg.n_);
+  const double big_o = 2.0 * n * n * n;
+
+  naive(mrA, mrB, mrC);
   double ref = benchmark_utils::l2_norm(mrC);
+  benchmark_utils::fill_zeroes(mrC);
 
   cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L1");
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L1", big_o);
+  benchmark_utils::fill_zeroes(mrC);
   cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mrB, mrC);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L2");
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L2", big_o);
+  benchmark_utils::fill_zeroes(mrC);
 
   naive(mtrA_l1, mtrB_l1, mtrC_l1);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_naive");
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_naive", big_o);
+  benchmark_utils::fill_zeroes(mtrC_l1);
   naive(mtrA_l2, mtrB_l2, mtrC_l2);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_naive");
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_naive", big_o);
+  benchmark_utils::fill_zeroes(mtrC_l2);
 
   manual_blocked_tiled<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_mbt");
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_mbt", big_o);
+  benchmark_utils::fill_zeroes(mtrC_l1);
   manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_mbt");
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_mbt", big_o);
+  benchmark_utils::fill_zeroes(mtrC_l2);
+
+  manual_blocked_tiled_subview<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_mbtsv", big_o);
+  benchmark_utils::fill_zeroes(mtrC_l1);
+  manual_blocked_tiled_subview<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
+  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_mbtsv", big_o);
+  benchmark_utils::fill_zeroes(mtrC_l2);
 #endif
 
   // Benchmarks

@@ -95,15 +95,46 @@ auto check(T reference, T result, const std::string_view label, T big_o = 1.0) -
 template <class MdSpan>
   requires std::is_floating_point_v<typename MdSpan::value_type>
 [[nodiscard]] auto l2_norm(MdSpan m) -> double {
-  auto ptr   = m.data_handle();
-  double sum = 0.0;
+  const auto ptr = m.data_handle();
+  double sum     = 0.0;
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
-#pragma omp parallel for reduction(+ : sum) schedule(static)
+#pragma omp parallel for reduction(+ : sum)
 #endif
   for (size_t e = 0; e < m.size(); ++e) {
     sum += ptr[e];
   }
   return std::sqrt(sum);
+}
+
+/// Fills an `mdspan` with zeroes.
+template <class MdSpan>
+  requires std::is_floating_point_v<typename MdSpan::value_type>
+auto fill_zeroes(MdSpan m) -> void {
+  auto ptr = m.data_handle();
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#pragma omp parallel for schedule(static)
+#endif
+  for (size_t e = 0; e < m.size(); ++e) {
+    ptr[e] = 0.0;
+  }
+}
+
+/// Fills a 2D `mdspan` of `double`-typed elements with values of an other `mdspan` of identical extents.
+template <class MdSpanSrc, class MdSpanDst>
+  requires IsMdSpan2D<MdSpanSrc> && IsMdSpan2D<MdSpanDst> && std::is_floating_point_v<typename MdSpanSrc::value_type>
+           && std::is_floating_point_v<typename MdSpanDst::value_type>
+auto fill_2d_copy(MdSpanDst dst, const MdSpanSrc src) -> void {
+  assert(src.extent(0) == dst.extent(0));
+  assert(src.extent(1) == dst.extent(1));
+
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#pragma omp parallel for collapse(2) schedule(static)
+#endif
+  for (size_t i = 0; i < dst.extent(0); ++i) {
+    for (size_t j = 0; j < dst.extent(1); ++j) {
+      dst[i, j] = src[i, j];
+    }
+  }
 }
 
 /// Fills a 2D `mdspan` of `double`-typed elements with random values of uniform distribution in range [0, 1).
