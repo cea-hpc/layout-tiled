@@ -1,6 +1,8 @@
 // benchmarks/stencil_3d.cpp -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0
 
+#include <getopt.h>
+
 #include <cassert>
 #include <chrono>
 #include <cstddef>
@@ -8,8 +10,6 @@
 #include <fstream>
 #include <iostream>
 #include <string>
-
-#include <getopt.h>
 
 #include <fmt/core.h>
 #include <layout_tiled/layout_right_tiled_right.hpp>
@@ -35,7 +35,7 @@ struct Config {
   std::string output_;
 };
 
-namespace stencil_3d {
+namespace {
 
 template <class MdSpanIn, class MdSpanOut>
   requires IsMdSpan3D<MdSpanIn> && IsMdSpan3D<MdSpanOut>
@@ -238,7 +238,45 @@ auto manual_blocked_tiled(const MdSpanIn in, MdSpanOut out, size_t TM, size_t TN
   }
 }
 
-} // namespace stencil_3d
+template <size_t TM, size_t TN, size_t TO, class MdSpanIn, class MdSpanOut>
+  requires IsMdSpan3D<MdSpanIn> && IsMdSpan3D<MdSpanOut>
+auto manual_blocked_tiled_subview(const MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
+  assert(in.extent(0) == out.extent(0));
+  assert(in.extent(1) == out.extent(1));
+  assert(in.extent(2) == out.extent(2));
+  assert(D != 0);
+
+  using InTile  = std::mdspan<Type, std::extents<size_t, TM, TN, TO>, std::layout_right>;
+  using OutTile = std::mdspan<Type, std::extents<size_t, TM, TN, TO>, std::layout_right>;
+
+  const size_t M = out.extent(0) - 2 * D;
+  const size_t N = out.extent(1) - 2 * D;
+  const size_t O = out.extent(2) - 2 * D;
+
+#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#pragma omp parallel for schedule(static)
+#endif
+  for (size_t x = D; x < M; x += TM) {
+    for (size_t y = D; y < N; y += TN) {
+      for (size_t z = D; z < O; z += TO) {
+        const size_t outer_offset = out.mapping().tile_offset_outer(x, y, z);
+        const auto t_in           = InTile(in.data_handle() + outer_offset);
+        auto t_out                = OutTile(out.data_handle() + outer_offset);
+        for (size_t i = 0; i < std::min(TM, M - x); ++i) {
+          for (size_t j = 0; j < std::min(TN, N - y); ++j) {
+            for (size_t k = 0; k < std::min(TO, O - z); ++k) {
+              // clang-format off
+                t_out[i, j, k] =                     ( t_in[i-D, j, k] + t_in[i,   j, k-D]
+                                 + t_in[i, j-D,   k] + t_in[  i, j, k] + t_in[i, j+D,   k]  
+                                 + t_in[i,   j, k+D] + t_in[i+D, j, k] ) / 7.0;
+              // clang-format on
+            }
+          }
+        }
+      }
+    }
+  }
+}
 
 auto run_bench(const Config& cfg) -> void {
   ankerl::nanobench::Bench bs;
@@ -302,59 +340,66 @@ auto run_bench(const Config& cfg) -> void {
 
   // Checks
 #if defined(LAYOUT_TILED_ENABLE_CHECKS)
-  stencil_3d::naive(mlr_in, mlr_out);
+  naive(mlr_in, mlr_out);
   double ref = benchmark_utils::l2_norm(mlr_out);
 
-  stencil_3d::naive(mlrtr_l1_in, mlrtr_l1_out);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_naive");
-  stencil_3d::naive(mlrtr_l2_in, mlrtr_l2_out);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_naive");
 
-  stencil_3d::cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mlr_in, mlr_out);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L1");
-  stencil_3d::cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mlr_in, mlr_out);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L2");
 
-  stencil_3d::manual_blocked_tiled(mlrtr_l1_in, mlrtr_l1_out, TILE_L1, TILE_L1, TILE_L1);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_mbt");
-  stencil_3d::manual_blocked_tiled(mlrtr_l2_in, mlrtr_l2_out, TILE_L2, TILE_L2, TILE_L2);
   benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_mbt");
+  naive(mlrtr_l1_in, mlrtr_l1_out);
+  naive(mlrtr_l2_in, mlrtr_l2_out);
+  cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mlr_in, mlr_out);
+  cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mlr_in, mlr_out);
+  manual_blocked_tiled<TILE_L1, TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
+  manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
+  manual_blocked_tiled_subview<TILE_L1, TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
+  manual_blocked_tiled_subview<TILE_L2, TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
 #endif
 
   // Benchmarks
-  bs.run("R naive", [&]() { stencil_3d::naive(mlr_in, mlr_out, cfg.d_); });
+  bs.run("R naive", [&]() { naive(mlr_in, mlr_out, cfg.d_); });
 
   bs.run(fmt::format("R cb-{0}x{0}x{0}", TILE_L1), [&]() {
-    stencil_3d::cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mlr_in, mlr_out, cfg.d_);
+    cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mlr_in, mlr_out, cfg.d_);
   });
   bs.run(fmt::format("R cb-{0}x{0}x{0}", TILE_L2), [&]() {
-    stencil_3d::cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mlr_in, mlr_out, cfg.d_);
+    cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mlr_in, mlr_out, cfg.d_);
   });
   bs.run(fmt::format("R cb-{0}x{0}x{0} (runtime)", cfg.t_), [&]() {
-    stencil_3d::cache_blocked(mlr_in, mlr_out, TILE_L1, TILE_L1, TILE_L1, cfg.d_);
+    cache_blocked(mlr_in, mlr_out, TILE_L1, TILE_L1, TILE_L1, cfg.d_);
   });
 
-  bs.run(fmt::format("RTR-{0}x{0}x{0} naive", TILE_L1), [&]() {
-    stencil_3d::naive(mlrtr_l1_in, mlrtr_l1_out, cfg.d_);
-  });
-  bs.run(fmt::format("RTR-{0}x{0}x{0} naive", TILE_L2), [&]() {
-    stencil_3d::naive(mlrtr_l2_in, mlrtr_l2_out, cfg.d_);
-  });
+  bs.run(fmt::format("RTR-{0}x{0}x{0} naive", TILE_L1), [&]() { naive(mlrtr_l1_in, mlrtr_l1_out, cfg.d_); });
+  bs.run(fmt::format("RTR-{0}x{0}x{0} naive", TILE_L2), [&]() { naive(mlrtr_l2_in, mlrtr_l2_out, cfg.d_); });
 
   bs.run(fmt::format("RTR-{0}x{0}x{0} mbt", TILE_L1), [&]() {
-    stencil_3d::manual_blocked_tiled<TILE_L1, TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out, cfg.d_);
+    manual_blocked_tiled<TILE_L1, TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out, cfg.d_);
   });
   bs.run(fmt::format("RTR-{0}x{0}x{0} mbt", TILE_L2), [&]() {
-    stencil_3d::manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out, cfg.d_);
+    manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out, cfg.d_);
   });
   bs.run(fmt::format("RTR-{0}x{0}x{0} mbt (runtime)", cfg.t_), [&]() {
-    stencil_3d::manual_blocked_tiled(mlrtr_l1_in, mlrtr_l1_out, TILE_L1, TILE_L1, TILE_L1, cfg.d_);
+    manual_blocked_tiled(mlrtr_l1_in, mlrtr_l1_out, TILE_L1, TILE_L1, TILE_L1, cfg.d_);
+  });
+
+  bs.run(fmt::format("RTR-{0}x{0}x{0} mbtsv", TILE_L1), [&]() {
+    manual_blocked_tiled_subview<TILE_L1, TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out, cfg.d_);
+  });
+  bs.run(fmt::format("RTR-{0}x{0}x{0} mbtsv", TILE_L2), [&]() {
+    manual_blocked_tiled_subview<TILE_L2, TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out, cfg.d_);
   });
 
   // Output
   bs.render(ankerl::nanobench::templates::csv(), *out_stream);
   file_stream.close();
 }
+
+} // namespace
 
 auto main(int argc, char* argv[]) -> int {
   static std::string HELP_MSG         = "Execute 3D stencil benchmark\n\n"
