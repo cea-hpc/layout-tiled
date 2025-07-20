@@ -85,16 +85,16 @@ namespace benchmark_utils {
 
 template <class T>
   requires std::is_floating_point_v<T>
-auto check(T reference, T result, const std::string_view label) -> void {
-  if (std::abs(result - reference) <= std::numeric_limits<T>::epsilon()) {
-    fmt::print(stderr, "error({}): expected {}, got {}\n", label, reference, result);
+auto check(T reference, T result, const std::string_view label, T big_o = 1.0) -> void {
+  if (std::abs(result - reference) > (big_o * std::numeric_limits<T>::epsilon())) {
+    fmt::print(stderr, "error({}):\n  expected {:.18f}\n       got {:.18f}\n", label, reference, result);
   }
 }
 
 /// Computes the L2-norm of an `mdspan`.
 template <class MdSpan>
   requires std::is_floating_point_v<typename MdSpan::value_type>
-auto l2_norm(MdSpan m) -> double {
+[[nodiscard]] auto l2_norm(MdSpan m) -> double {
   auto ptr   = m.data_handle();
   double sum = 0.0;
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
