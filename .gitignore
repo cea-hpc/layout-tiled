@@ -1,6 +1,7 @@
 build
 container_images
 results
+__pycache__
 .cache
 .vscode
 .idea
