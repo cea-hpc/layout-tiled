@@ -12,7 +12,6 @@ EVENTS = [
     "inst",
     "mips",
     "bra",
-    "l1i",
     "l1d",
     "llc",
 ]
