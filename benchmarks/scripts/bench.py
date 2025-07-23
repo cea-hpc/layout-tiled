@@ -1,16 +1,9 @@
-# Copyright (C) 2024-2025 CEA
-# Copyright (C) 2024-2025 Gabriel Dos Santos
-#
-# Distributed under the MIT License.
-# You may not use this file except in compliance with the License.
-# See https://opensource.org/license/MIT for license information.
-# SPDX-License-Identifier: MIT
+#!/usr/bin/env python3
+# SPDX-License-Identifier: Apache-2.0
 
 import argparse
 import os
 import subprocess
-
-BENCH_PREFIX: str = "./build/benchmarks/Release"
 
 # fmt: off
 PB_DIMS = {
@@ -56,7 +49,7 @@ def remove_header_duplicates(path: str):
         file.writelines(filtered_lines)
 
 
-def problem_scaling(bench: str, nthreads: int, output: str):
+def problem_scaling(exec: str, bench: str, nthreads: int, output: str):
     dims = PB_DIMS[bench]
     env_vars = os.environ.copy()
     env_vars["OMP_PROC_BIND"] = "spread"
@@ -69,7 +62,7 @@ def problem_scaling(bench: str, nthreads: int, output: str):
         command = [
             "numactl",
             f"--physcpubind=0-{nthreads - 1}",
-            f"{BENCH_PREFIX}/layout_tiled.benchmarks.{bench}",
+            f"./{exec}",
             f"-n{d}",
             f"-o{output}",
         ]
@@ -77,7 +70,7 @@ def problem_scaling(bench: str, nthreads: int, output: str):
     remove_header_duplicates(output)
 
 
-def strong_scaling(bench: str, dims: int, output: str):
+def strong_scaling(exec: str, bench: str, dims: int, output: str):
     nthreads = [1, 2, 4, 8, 12, 16, 24, 32, 48, 64, 96, 128]
     env_vars = os.environ.copy()
     env_vars["OMP_PROC_BIND"] = "spread"
@@ -90,7 +83,7 @@ def strong_scaling(bench: str, dims: int, output: str):
         command = [
             "numactl",
             f"--physcpubind=0-{t - 1}",
-            f"{BENCH_PREFIX}/layout_tiled.benchmarks.{bench}",
+            f"{exec}",
             f"-n{dims}",
             f"-o{output}",
         ]
@@ -98,7 +91,7 @@ def strong_scaling(bench: str, dims: int, output: str):
     remove_header_duplicates(output)
 
 
-def weak_scaling(bench: str, output: str):
+def weak_scaling(exec: str, bench: str, output: str):
     # fmt: off
     dims     = [512, 1024, 2048, 4096, 8192]
     nthreads = [  1,    4,   16,   64,  128]
@@ -115,7 +108,7 @@ def weak_scaling(bench: str, output: str):
         command = [
             "numactl",
             f"--physcpubind=0-{t - 1}",
-            f"{BENCH_PREFIX}/layout_tiled.benchmarks.{bench}",
+            f"{exec}",
             f"-n{d}",
             f"-o{output}",
         ]
@@ -126,10 +119,18 @@ def weak_scaling(bench: str, output: str):
 def main() -> None:
     parser = argparse.ArgumentParser(description="Tiled layout benchmarks suite utility runner")
     parser.add_argument(
-        "bench",
+        "-e",
+        "--executable",
+        type=str,
+        help="executable binary",
+        metavar="EXEC",
+    )
+    parser.add_argument(
+        "-b",
+        "--bench",
         type=str,
         choices=["gemm", "stencil_2d", "stencil_3d"],
-        help="Benchmark name",
+        help="benchmark name",
         metavar="BENCH",
     )
     parser.add_argument(
@@ -141,7 +142,7 @@ def main() -> None:
         nargs="?",
         const=(True, 64, "./results/data/problem_scaling.csv"),
         default=(False, 64, "./results/data/problem_scaling.csv"),
-        help="Compare layout performance on increasing problem sizes",
+        help="perform problem scaling study",
         metavar="NUM_THREADS,OUTPUT",
     )
     parser.add_argument(
@@ -153,7 +154,7 @@ def main() -> None:
         nargs="?",
         const=(True, 2048, "./results/data/strong_scaling.csv"),
         default=(False, 2048, "./results/data/strong_scaling.csv"),
-        help="Run strong scaling study",
+        help="perform strong scaling study",
         metavar="DIMS,OUTPUT",
     )
     parser.add_argument(
@@ -165,17 +166,17 @@ def main() -> None:
         nargs="?",
         const=(True, "./results/data/weak_scaling.csv"),
         default=(False, "./results/data/weak_scaling.csv"),
-        help="Run weak scaling study",
+        help="perform weak scaling study",
         metavar="OUTPUT",
     )
 
     args = parser.parse_args()
     if args.p_nthreads_output[0]:
-        problem_scaling(args.bench, args.p_nthreads_output[1], args.p_nthreads_output[2])
+        problem_scaling(args.executable, args.bench, args.p_nthreads_output[1], args.p_nthreads_output[2])
     if args.s_dims_output[0]:
-        strong_scaling(args.bench, args.s_dims_output[1], args.s_dims_output[2])
+        strong_scaling(args.executable, args.bench, args.s_dims_output[1], args.s_dims_output[2])
     if args.w_output[0]:
-        weak_scaling(args.bench, args.w_output[1])
+        weak_scaling(args.executable, args.bench, args.w_output[1])
 
     return 0
 

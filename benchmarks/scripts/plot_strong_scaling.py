@@ -23,7 +23,7 @@ def plot_strong_scaling_efficiency(results: pl.DataFrame, args: argparse.Argumen
     filtered = results.filter(
         ~pl.col("name").str.contains("(runtime)")
         # Users may add further constraints on filter
-        & ~pl.col("name").str.contains("_BL")
+        # & ~pl.col("name").str.contains("_BL")
     )
     groups = filtered.group_by("name", maintain_order=True)
     min_cores = filtered.select(pl.col("cores")).min().item()

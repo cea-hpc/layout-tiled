@@ -1,10 +1,4 @@
-# Copyright (C) 2024-2025 CEA
-# Copyright (C) 2024-2025 Gabriel Dos Santos
-#
-# Distributed under the MIT License.
-# You may not use this file except in compliance with the License.
-# See https://opensource.org/license/MIT for license information.
-# SPDX-License-Identifier: MIT
+# SPDX-License-Identifier: Apache-2.0
 
 import argparse
 import logging
@@ -46,25 +40,25 @@ def default_parser(desc: str) -> argparse.ArgumentParser:
         desc (str): Description of the parser.
     """
     parser = argparse.ArgumentParser(description=f"{desc}")
-    parser.add_argument("--csv", type=str, help="Path to the input CSV")
+    parser.add_argument("--csv", type=str, help="path to the input CSV")
     parser.add_argument(
         "--bench",
         type=str,
-        help="Benchmark name",
+        help="benchmark name",
         choices=["gemm", "stencil_2d", "stencil_3d"],
     )
     parser.add_argument(
         "--hardware",
         type=str,
-        help="Hardware configuration",
+        help="hardware configuration",
         choices=["default", "laptop", "workstation", "milan"],
         default="default",
     )
-    parser.add_argument("-o", "--output", type=str, help="File name of the output plot")
+    parser.add_argument("-o", "--output", type=str, help="file name of the output plot")
     parser.add_argument(
         "--use-custom-fonts",
         action="store_true",
-        help="Enable using custom fonts in the output plot",
+        help="enable using custom fonts in the output plot",
     )
 
     return parser
