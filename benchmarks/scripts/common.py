@@ -8,11 +8,13 @@
 
 import argparse
 import logging
+from math import log2
 from matplotlib import font_manager as fm, pyplot as plt, rcParams
 import numpy as np
 import os
 import polars as pl
 import sys
+from typing import Tuple
 
 ALGO_COMPLEXITY = {
     "gemm": lambda n: 2 * n * n * n,
@@ -85,20 +87,21 @@ def configure_plot_fonts(use_custom_fonts: bool) -> None:
     # Use context manager for font configuration
     if use_custom_fonts:
         font_dirs = [
-            f"{os.path.expanduser('~')}/.local/share/fonts/TX-02",
-            f"{os.path.expanduser('~')}/.local/share/fonts/Poppins",
+            f"{os.path.expanduser('~')}/.local/share/fonts/geist-mono",
+            f"{os.path.expanduser('~')}/.local/share/fonts/geist-sans",
         ]
         font_files = fm.findSystemFonts(fontpaths=font_dirs)
         for font_file in font_files:
             fm.fontManager.addfont(font_file)
-        rcParams["font.family"] = "TX-02"
+        rcParams["font.family"] = "Geist Mono"
 
 
 def configure_plot_axes(
     ax: plt.Axes,
-    x_ticks: np.array,
     x_label: str,
     y_label: str,
+    x_lim: Tuple[int, int],
+    y_lim: Tuple[int, int] = None,
     x_scale: str = "linear",
 ) -> None:
     """
@@ -115,10 +118,16 @@ def configure_plot_axes(
     ax.set_ylabel(f"{y_label}", fontsize=24)
 
     # Configure ticks
-    ax.set_xticks(x_ticks, labels=x_ticks)
-    ax.tick_params(axis="both", labelsize=24)
     if x_scale != "linear":
         ax.set_xscale(x_scale, base=2)
+
+    ticks = np.array([2**i for i in range(int(log2(x_lim[0])), int(log2(x_lim[1])) + 1) if x_lim[0] <= 2**i <= x_lim[1]])
+    ax.set_xticks(ticks)
+    ax.set_xticklabels(ticks)
+    ax.set_xlim(x_lim[0], x_lim[1])
+    if y_lim is not None:
+        ax.set_ylim(y_lim[0], y_lim[1])
+    ax.tick_params(axis="both", labelsize=16)
 
     # Set color cycle and grid
     ax.set_prop_cycle(color=COLOR_PALETTE)
@@ -139,7 +148,7 @@ def configure_plot_titles(
         bench (str): Benchmark name.
         use_custom_fonts (bool): Whether to use custom fonts.
     """
-    title_font = "Poppins" if use_custom_fonts else "sans-serif"
+    title_font = "Geist" if use_custom_fonts else "sans-serif"
 
     # Set main title
     fig.suptitle(

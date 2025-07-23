@@ -20,17 +20,26 @@ def process_dataframe(df: pl.DataFrame, bench: str) -> pl.DataFrame:
 
 def plot_strong_scaling_efficiency(results: pl.DataFrame, args: argparse.ArgumentParser) -> None:
     # By default, ignore runtime runs (suffixed with `(runtime)`)
-    groups = results.filter(
-        ~pl.col("name").str.contains("\(runtime\)")
+    filtered = results.filter(
+        ~pl.col("name").str.contains("(runtime)")
         # Users may add further constraints on filter
         & ~pl.col("name").str.contains("_BL")
-    ).group_by("name", maintain_order=True)
-    max_cores = results.select(pl.col("cores")).max().item()
-    cores = np.array(sorted([x for x in results["cores"] if (x & (x - 1)) == 0]))
+    )
+    groups = filtered.group_by("name", maintain_order=True)
+    min_cores = filtered.select(pl.col("cores")).min().item()
+    max_cores = filtered.select(pl.col("cores")).max().item()
+    cores = np.array(sorted([x for x in filtered["cores"] if (x & (x - 1)) == 0]))
 
     common.configure_plot_fonts(args.use_custom_fonts)
     fig, ax = plt.subplots(figsize=(12, 9))
-    common.configure_plot_axes(ax, x_ticks=cores, x_label="NUMBER OF CORES", y_label="EFFICIENCY", x_scale="log")
+    common.configure_plot_axes(
+        ax,
+        x_label="NUMBER OF CORES",
+        y_label="EFFICIENCY",
+        x_lim=(min_cores * 0.9, max_cores * 1.1),
+        y_lim=(-0.05, 1.05),
+        x_scale="log",
+    )
 
     # Ideal efficiency line (perfect speedup)
     ax.plot(cores, np.ones_like(cores), "k--")

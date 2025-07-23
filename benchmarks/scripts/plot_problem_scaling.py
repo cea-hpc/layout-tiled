@@ -50,7 +50,7 @@ def compute_speedups(results: pl.DataFrame) -> pl.DataFrame:
     )
     # Filter tiled implementations
     tiled_results = results_with_speedup.filter(
-        ~pl.col("name").str.contains("\(runtime\)") & pl.col("name").str.contains("x")
+        ~pl.col("name").str.contains("runtime") & pl.col("name").str.contains("x")
     )
     # Compute speedup stats
     speedups = (
@@ -68,21 +68,22 @@ def compute_speedups(results: pl.DataFrame) -> pl.DataFrame:
 
 def plot_problem_scaling_performance(results: pl.DataFrame, args: argparse.ArgumentParser) -> None:
     # By default, ignore runtime runs (suffixed with `(runtime)`)
-    groups = results.filter(
-        ~pl.col("name").str.contains("\(runtime\)")
+    filtered = results.filter(
+        ~pl.col("name").str.contains("(runtime)")
         # Users may add further constraints on filter
-        & ~pl.col("name").str.contains("_BL")
-    ).group_by("name", maintain_order=True)
-    min_size = results.select(pl.col("problem size")).min().item()
-    max_size = results.select(pl.col("problem size")).max().item()
+    )
+    groups = filtered.group_by("name", maintain_order=True)
+    min_size = filtered.select(pl.col("problem size")).min().item()
+    max_size = filtered.select(pl.col("problem size")).max().item()
 
     common.configure_plot_fonts(args.use_custom_fonts)
     fig, ax = plt.subplots(figsize=(12, 9))
     common.configure_plot_axes(
         ax,
-        x_ticks=np.arange(min_size, max_size + 1, step=min_size),
-        x_label="PROBLEM SIZE",
+        x_label="MATRIX SIZE (M=N=O)",
         y_label="PERFORMANCE (GFlop/s)",
+        x_lim=(min_size * 0.9, max_size * 1.1),
+        x_scale="log",
     )
     if args.report_blas and args.hardware == "milan":
         ax.axhline(y=2080.58, color="black", linestyle="--")
