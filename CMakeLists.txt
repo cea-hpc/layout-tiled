@@ -1,6 +1,6 @@
-cmake_minimum_required(VERSION 3.25) # support for C++26
+cmake_minimum_required(VERSION 3.25)
 
-project(layout-tiled VERSION 0.3.0 LANGUAGES CXX DESCRIPTION "Tiled layouts for C++23 std::mdspan")
+project(layout-tiled VERSION 0.4.0 LANGUAGES CXX DESCRIPTION "Tiled layouts for `std::mdspan`")
 
 # --- PROJECT OPTIONS --- #
 option(LAYOUT_TILED_BUILD_TESTS "Enable building tests. Default: OFF. Values: { ON, OFF}." OFF)
