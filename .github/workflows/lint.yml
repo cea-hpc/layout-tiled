@@ -11,11 +11,15 @@ on:
     branches: [ "main" ]
 
 env:
+  CC: clang
+  CXX: clang++
+  CMAKE_GENERATOR: "Ninja Multi-Config"
+  CMAKE_COLOR_DIAGNOSTICS: ON
   CMAKE_EXPORT_COMPILE_COMMANDS: ON
 
 jobs:
   lint:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       checks: write
@@ -23,6 +27,15 @@ jobs:
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+
+      # Configure project so that clangd & clang-tidy have a compilation database before linting
+      - run: >
+          cmake
+          -B build
+          -DLAYOUT_TILED_BUILD_TESTS=ON
+          -DLAYOUT_TILED_BUILD_EXAMPLES=ON
+          -DLAYOUT_TILED_BUILD_BENCHMARKS=ON
+
       - uses: cpp-linter/cpp-linter-action@v2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
