@@ -34,7 +34,7 @@ jobs:
           examples:
             - 'examples/**'
           benchmarks:
-            - 'benchmarks/**/*.cpp'
+            - 'benchmarks/**'
 
   build-and-test:
     needs: changes
@@ -115,10 +115,12 @@ jobs:
             -DLayoutTiled_BUILD_TESTS=OFF
             -DLayoutTiled_BUILD_EXAMPLES=OFF
             -DLayoutTiled_BENCHMARKS_ENABLE_OMP=OFF
+      - name: Run sequential benchmarks
         run: build/${{ matrix.workflow_type }} ${{ matrix.benchmark }}
 
-      - name: Configure and build parallel benchmarks
+      - name: Clean sequential benchmarks
         run: rm --recursive --force build/${{ matrix.workflow_type }}
+      - name: Configure and build parallel benchmarks
         run: >
           cmake
             --workflow
@@ -126,6 +128,7 @@ jobs:
             --verbose
             -DLayoutTiled_BUILD_TESTS=OFF
             -DLayoutTiled_BUILD_EXAMPLES=OFF
+      - name: Run parallel benchmarks
         run: build/${{ matrix.workflow_type }} ${{ matrix.benchmark }}
 
   install:
