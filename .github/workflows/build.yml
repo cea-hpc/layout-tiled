@@ -44,7 +44,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: [{ c: clang, cpp: clang++, build_dir: llvm }, { c: gcc, cpp: g++, build_dir: gcc }]
+        compiler: [ {cpp: clang++, build_dir: llvm }, {cpp: g++, build_dir: gcc} ]
         build_type: [Debug, Release]
     runs-on: ubuntu-latest
     steps:
@@ -60,7 +60,6 @@ jobs:
         run: >
           cmake
           -B build/${{ matrix.compiler.build_dir }}
-          -DCMAKE_C_COMPILER=${{ matrix.compiler.c }}
           -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cpp }}
           -DLAYOUT_TILED_BUILD_TESTS=ON
       - name: Build
@@ -74,7 +73,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: [{ c: clang, cpp: clang++, build_dir: llvm }, { c: gcc, cpp: g++, build_dir: gcc }]
+        compiler: [ {cpp: clang++, build_dir: llvm }, {cpp: g++, build_dir: gcc} ]
         build_type: [Debug, Release]
     runs-on: ubuntu-latest
     steps:
@@ -90,7 +89,6 @@ jobs:
         run: >
           cmake
           -B build/${{ matrix.compiler.build_dir }}
-          -DCMAKE_C_COMPILER=${{ matrix.compiler.c }}
           -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cpp }}
           -DLAYOUT_TILED_BUILD_EXAMPLES=ON
       - name: Build
@@ -102,7 +100,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        compiler: [{ c: clang, cpp: clang++, build_dir: llvm }, { c: gcc, cpp: g++, build_dir: gcc }]
+        compiler: [ {cpp: clang++, build_dir: llvm }, {cpp: g++, build_dir: gcc} ]
         benchmark: [{ name: gemm, args: "-n 256" }, { name: stencil_2d, args: "-n 512"}, { name: stencil_3d, args: "-n 64" }]
     runs-on: ubuntu-latest
     steps:
@@ -120,7 +118,6 @@ jobs:
         run: >
           cmake
           -B build/seq-${{ matrix.compiler.build_dir }}
-          -DCMAKE_C_COMPILER=${{ matrix.compiler.c }}
           -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cpp }}
           -DLAYOUT_TILED_BUILD_BENCHMARKS=ON
           -DLAYOUT_TILED_BENCH_ENABLE_BLAS=ON
@@ -133,7 +130,6 @@ jobs:
         run: >
           cmake
           -B build/par-${{ matrix.compiler.build_dir }}
-          -DCMAKE_C_COMPILER=${{ matrix.compiler.c }}
           -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cpp }}
           -DLAYOUT_TILED_BUILD_BENCHMARKS=ON
           -DLAYOUT_TILED_BENCH_ENABLE_BLAS=ON
