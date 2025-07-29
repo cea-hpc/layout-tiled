@@ -54,7 +54,7 @@ jobs:
           ninjaVersion: "^1.12.1"
 
       - name: Install BLAS
-        run: apt install -y libopenblas-dev
+        run: sudo apt update && sudo apt install libopenblas-dev
 
       - name: Configure, build and run tests
         run: cmake --workflow --preset ${{ matrix.workflow_type }}
@@ -77,7 +77,7 @@ jobs:
           ninjaVersion: "^1.12.1"
 
       - name: Install BLAS
-        run: apt install -y libopenblas-dev
+        run: sudo apt update && sudo apt install libopenblas-dev
 
       - name: Configure and build examples
         run: cmake --workflow --preset ${{ matrix.workflow_type }}
@@ -101,7 +101,7 @@ jobs:
           ninjaVersion: "^1.12.1"
 
       - name: Install BLAS
-        run: apt install -y libopenblas-dev
+        run: sudo apt update && sudo apt install libopenblas-dev
 
       - name: Configure and build sequential benchmarks
         run: cmake --workflow --preset ${{ matrix.workflow_type }}
@@ -134,7 +134,7 @@ jobs:
           ninjaVersion: "^1.12.1"
 
       - name: Install BLAS
-        run: apt install -y libopenblas-dev
+        run: sudo apt update && sudo apt install libopenblas-dev
 
       - name: Configure and build
         run: |
