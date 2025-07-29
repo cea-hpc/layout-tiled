@@ -5,9 +5,9 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CXX: clang++
   CMAKE_GENERATOR: "Ninja Multi-Config"
   CMAKE_COLOR_DIAGNOSTICS: ON
+  CMAKE_EXPORT_COMPILE_COMMANDS: ON
 
 on:
   pull_request:
@@ -16,7 +16,7 @@ on:
 jobs:
   # Detect changes to only run the relevant jobs
   changes:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     permissions:
       pull-requests: read
     outputs:
@@ -44,8 +44,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        compiler: [{ c: clang, cpp: clang++, build_dir: llvm }, { c: gcc, cpp: g++, build_dir: gcc }]
         build_type: [Debug, Release]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -55,17 +56,17 @@ jobs:
           cmakeVersion: "~3.25.0"
           ninjaVersion: "^1.12.1"
 
-      - name: Get LLVM libc++
-        run: sudo apt update && sudo apt install libc++-dev
-
       - name: Configure
-        run: cmake -S . -B build -DLayoutTiled_BUILD_TESTS=ON
-
+        run: >
+          cmake
+          -B build/${{ matrix.compiler.build_dir }}
+          -DCMAKE_C_COMPILER=${{ matrix.compiler.c }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cpp }}
+          -DLAYOUT_TILED_BUILD_TESTS=ON
       - name: Build
-        run: cmake --build build --config ${{ matrix.build_type }} --verbose
-
+        run: cmake --build build/${{ matrix.compiler.build_dir }} --config ${{ matrix.build_type }} --verbose
       - name: Run tests
-        run: ctest --test-dir build --build-config ${{ matrix.build_type }} --verbose
+        run: ctest --test-dir build/${{ matrix.compiler.build_dir }} --build-config ${{ matrix.build_type }} --verbose
 
   build-examples:
     needs: changes
@@ -73,8 +74,9 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        compiler: [{ c: clang, cpp: clang++, build_dir: llvm }, { c: gcc, cpp: g++, build_dir: gcc }]
         build_type: [Debug, Release]
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -84,21 +86,25 @@ jobs:
           cmakeVersion: "~3.25.0"
           ninjaVersion: "^1.12.1"
 
-      - name: Get LLVM libc++
-        run: sudo apt update && sudo apt install libc++-dev
-
       - name: Configure
-        run: cmake -S . -B build -DLayoutTiled_BUILD_EXAMPLES=ON
-
+        run: >
+          cmake
+          -B build/${{ matrix.compiler.build_dir }}
+          -DCMAKE_C_COMPILER=${{ matrix.compiler.c }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cpp }}
+          -DLAYOUT_TILED_BUILD_EXAMPLES=ON
       - name: Build
-        run: cmake --build build --config ${{ matrix.build_type }} --verbose
+        run: cmake --build build/${{ matrix.compiler.build_dir }} --config ${{ matrix.build_type }} --verbose
 
   build-benchmarks:
     needs: changes
     if: ${{ needs.changes.outputs.core == 'true' || needs.changes.outputs.benchmarks == 'true' }}
     strategy:
       fail-fast: false
-    runs-on: ubuntu-24.04
+      matrix:
+        compiler: [{ c: clang, cpp: clang++, build_dir: llvm }, { c: gcc, cpp: g++, build_dir: gcc }]
+        benchmark: [{ name: gemm, args: "-n 256" }, { name: stencil_2d, args: "-n 512"}, { name: stencil_3d, args: "-n 64" }]
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -107,26 +113,38 @@ jobs:
         with:
           cmakeVersion: "~3.25.0"
           ninjaVersion: "^1.12.1"
+      - name: Get OpenBLAS and OpenMP
+        run: sudo apt update && sudo apt install libopenblas-dev libomp-dev
 
-      - name: Get LLVM libc++ and OpenMP
-        run: sudo apt update && sudo apt install libc++-dev libomp-dev
+      - name: Configure sequential
+        run: >
+          cmake
+          -B build/seq-${{ matrix.compiler.build_dir }}
+          -DLAYOUT_TILED_BUILD_BENCHMARKS=ON
+          -DLAYOUT_TILED_BENCH_ENABLE_BLAS=ON
+      - name: Build seq
+        run: cmake --build build/seq-${{ matrix.compiler.build_dir }} --config Release --verbose
+      - name: Run seq
+        run: ./build/seq-${{ matrix.compiler.build_dir }}/Release/benchmarks/layout_tiled.benchmark.${{ matrix.benchmark.name }} ${{ matrix.benchmark.args }}
 
-      - name: Configure serial
-        run: cmake -S . -B build-serial -DLayoutTiled_BUILD_BENCHMARKS=ON -DLayoutTiled_BENCHMARKS_ENABLE_CHECKS=ON
       - name: Configure parallel
-        run: cmake -S . -B build-parallel -DLayoutTiled_BUILD_BENCHMARKS=ON -DLayoutTiled_BENCHMARKS_ENABLE_CHECKS=ON -DLayoutTiled_BENCHMARKS_ENABLE_OPENMP=ON
-
-      - name: Build serial
-        run: cmake --build build-serial --config Release --verbose
+        run: >
+          cmake
+          -B build/par-${{ matrix.compiler.build_dir }}
+          -DLayoutTiled_BUILD_BENCHMARKS=ON
+          -DLAYOUT_TILED_BENCH_ENABLE_BLAS=ON
+          -DLAYOUT_TILED_BENCH_ENABLE_OMP=ON
       - name: Build parallel
-        run: cmake --build build-parallel --config Release --verbose
+        run: cmake --build build/par-${{ matrix.compiler.build_dir }} --config Release --verbose
+      - name: Run parallel
+        run: ./build/par-${{ matrix.compiler.build_dir }}/Release/benchmarks/layout_tiled.benchmark.${{ matrix.benchmark.name }} ${{ matrix.benchmark.args }}
 
   install:
     needs: changes
     if: ${{ needs.changes.outputs.core == 'true' }}
     strategy:
       fail-fast: false
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
@@ -136,12 +154,8 @@ jobs:
           cmakeVersion: "~3.25.0"
           ninjaVersion: "^1.12.1"
 
-      - name: Get LLVM libc++
-        run: sudo apt update && sudo apt install libc++-dev
-
       - name: Configure
-        run: cmake -S . -B build
-
+        run: cmake -B build
       - name: Build
         run: |
           cmake --install build --prefix /opt/layout_tiled
