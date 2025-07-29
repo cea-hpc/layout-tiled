@@ -120,24 +120,28 @@ jobs:
         run: >
           cmake
           -B build/seq-${{ matrix.compiler.build_dir }}
+          -DCMAKE_C_COMPILER=${{ matrix.compiler.c }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cpp }}
           -DLAYOUT_TILED_BUILD_BENCHMARKS=ON
           -DLAYOUT_TILED_BENCH_ENABLE_BLAS=ON
       - name: Build seq
         run: cmake --build build/seq-${{ matrix.compiler.build_dir }} --config Release --verbose
       - name: Run seq
-        run: ./build/seq-${{ matrix.compiler.build_dir }}/Release/benchmarks/layout_tiled.benchmark.${{ matrix.benchmark.name }} ${{ matrix.benchmark.args }}
+        run: ./build/seq-${{ matrix.compiler.build_dir }}/benchmarks/Release/layout_tiled.benchmarks.${{ matrix.benchmark.name }} ${{ matrix.benchmark.args }}
 
       - name: Configure parallel
         run: >
           cmake
           -B build/par-${{ matrix.compiler.build_dir }}
+          -DCMAKE_C_COMPILER=${{ matrix.compiler.c }}
+          -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cpp }}
           -DLayoutTiled_BUILD_BENCHMARKS=ON
           -DLAYOUT_TILED_BENCH_ENABLE_BLAS=ON
           -DLAYOUT_TILED_BENCH_ENABLE_OMP=ON
       - name: Build parallel
         run: cmake --build build/par-${{ matrix.compiler.build_dir }} --config Release --verbose
       - name: Run parallel
-        run: ./build/par-${{ matrix.compiler.build_dir }}/Release/benchmarks/layout_tiled.benchmark.${{ matrix.benchmark.name }} ${{ matrix.benchmark.args }}
+        run: ./build/par-${{ matrix.compiler.build_dir }}/benchmarks/Release/layout_tiled.benchmarks.${{ matrix.benchmark.name }} ${{ matrix.benchmark.args }}
 
   install:
     needs: changes
