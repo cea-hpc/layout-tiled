@@ -23,6 +23,18 @@ option(
   "Enable installing library as CMake package. Default: ${PROJECT_IS_TOP_LEVEL}. Values: { ON, OFF }."
   ${PROJECT_IS_TOP_LEVEL}
 )
+# --- BENCHMARK OPTIONS --- #
+option(
+  LayoutTiled_BENCHMARKS_ENABLE_CHECKS
+  "Enable checking the results of benchmarks. Default: ON. Values: { ON, OFF }."
+  ON
+)
+option(LayoutTiled_BENCHMARKS_ENABLE_OMP "Enable OpenMP support on benchmarks. Default: ON. Values: { ON, OFF }." ON)
+option(
+  LayoutTiled_BENCHMARKS_ENABLE_BLAS
+  "Enable a BLAS version of the GEMM benchmark. Default: ON. Values: { ON, OFF }."
+  ON
+)
 
 # --- PROJECT DEPENDENCIES --- #
 include(CTest)

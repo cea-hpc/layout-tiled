@@ -9,22 +9,6 @@ set(
   stencil_3d
 )
 
-option(
-  LayoutTiled_BENCHMARKS_ENABLE_CHECKS
-  "Enable checking the computed results of benchmarks. Default: ON. Values: { ON, OFF }."
-  ON
-)
-option(
-  LayoutTiled_BENCHMARKS_ENABLE_OPENMP
-  "Enable building benchmarks with OpenMP support. Default: ON. Values: { ON, OFF }."
-  ON
-)
-option(
-  LayoutTiled_BENCHMARKS_ENABLE_BLAS
-  "Enable building the GEMM benchmark with a BLAS version. Default: ON. Values: { ON, OFF }."
-  ON
-)
-
 if(LayoutTiled_BENCHMARKS_ENABLE_OPENMP)
   find_package(OpenMP REQUIRED)
 endif()
