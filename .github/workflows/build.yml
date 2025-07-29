@@ -54,13 +54,7 @@ jobs:
           ninjaVersion: "^1.12.1"
 
       - name: Configure, build and run tests
-        run: >
-          cmake
-          --workflow
-          --preset ${{ matrix.workflow_type }}
-          --verbose
-          -DLayoutTiled_BUILD_EXAMPLES=OFF
-          -DLayoutTiled_BUILD_BENCHMARKS=OFF
+        run: cmake --workflow --preset ${{ matrix.workflow_type }}
 
   build-examples:
     needs: changes
@@ -80,13 +74,7 @@ jobs:
           ninjaVersion: "^1.12.1"
 
       - name: Configure and build examples
-        run: >
-          cmake
-          --workflow
-          --preset ${{ matrix.workflow_type }}
-          --verbose
-          -DLayoutTiled_BUILD_TESTS=OFF
-          -DLayoutTiled_BUILD_BENCHMARKS=OFF
+        run: cmake --workflow --preset ${{ matrix.workflow_type }}
 
   build-benchmarks:
     needs: changes
@@ -107,27 +95,15 @@ jobs:
           ninjaVersion: "^1.12.1"
 
       - name: Configure and build sequential benchmarks
-        run: >
-          cmake
-          --workflow
-          --preset ${{ matrix.workflow_type }}
-          --verbose
-          -DLayoutTiled_BUILD_TESTS=OFF
-          -DLayoutTiled_BUILD_EXAMPLES=OFF
-          -DLayoutTiled_BENCHMARKS_ENABLE_OMP=OFF
+        run: cmake --workflow --preset ${{ matrix.workflow_type }}
       - name: Run sequential benchmarks
         run: build/${{ matrix.workflow_type }} ${{ matrix.benchmark }}
 
       - name: Clean sequential benchmarks
         run: rm --recursive --force build/${{ matrix.workflow_type }}
+
       - name: Configure and build parallel benchmarks
-        run: >
-          cmake
-          --workflow
-          --preset ${{ matrix.workflow_type }}
-          --verbose
-          -DLayoutTiled_BUILD_TESTS=OFF
-          -DLayoutTiled_BUILD_EXAMPLES=OFF
+        run: cmake --workflow --preset ${{ matrix.workflow_type }}
       - name: Run parallel benchmarks
         run: build/${{ matrix.workflow_type }} ${{ matrix.benchmark }}
 
