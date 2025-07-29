@@ -5,8 +5,6 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  CXX: clang++
-  CMAKE_GENERATOR: "Ninja Multi-Config"
   CMAKE_COLOR_DIAGNOSTICS: ON
 
 on:
@@ -36,15 +34,15 @@ jobs:
           examples:
             - 'examples/**'
           benchmarks:
-            - 'benchmarks/**'
+            - 'benchmarks/**/*.cpp'
 
-  build-tests:
+  build-and-test:
     needs: changes
     if: ${{ needs.changes.outputs.core == 'true' || needs.changes.outputs.tests == 'true' }}
     strategy:
       fail-fast: false
       matrix:
-        build_type: [Debug, Release]
+        workflow_type: [gcc-debug, gcc-release, llvm-debug, llvm-release]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -55,17 +53,14 @@ jobs:
           cmakeVersion: "~3.25.0"
           ninjaVersion: "^1.12.1"
 
-      - name: Get LLVM libc++
-        run: sudo apt update && sudo apt install libc++-dev
-
-      - name: Configure
-        run: cmake -S . -B build -DLayoutTiled_BUILD_TESTS=ON
-
-      - name: Build
-        run: cmake --build build --config ${{ matrix.build_type }} --verbose
-
-      - name: Run tests
-        run: ctest --test-dir build --build-config ${{ matrix.build_type }} --verbose
+      - name: Configure, build and run tests
+        run: >
+          cmake
+            --workflow
+            --preset ${{ matrix.workflow_type }}
+            --verbose
+            -DLayoutTiled_BUILD_EXAMPLES=OFF
+            -DLayoutTiled_BUILD_BENCHMARKS=OFF
 
   build-examples:
     needs: changes
@@ -73,7 +68,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build_type: [Debug, Release]
+        workflow_type: [gcc-debug, gcc-release, llvm-debug, llvm-release]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -84,20 +79,23 @@ jobs:
           cmakeVersion: "~3.25.0"
           ninjaVersion: "^1.12.1"
 
-      - name: Get LLVM libc++
-        run: sudo apt update && sudo apt install libc++-dev
-
-      - name: Configure
-        run: cmake -S . -B build -DLayoutTiled_BUILD_EXAMPLES=ON
-
-      - name: Build
-        run: cmake --build build --config ${{ matrix.build_type }} --verbose
+      - name: Configure and build examples
+        run: >
+          cmake
+            --workflow
+            --preset ${{ matrix.workflow_type }}
+            --verbose
+            -DLayoutTiled_BUILD_TESTS=OFF
+            -DLayoutTiled_BUILD_BENCHMARKS=OFF
 
   build-benchmarks:
     needs: changes
     if: ${{ needs.changes.outputs.core == 'true' || needs.changes.outputs.benchmarks == 'true' }}
     strategy:
       fail-fast: false
+      matrix:
+        workflow_type: [gcc-debug, gcc-release, llvm-debug, llvm-release]
+        benchmark: [gemm -n256, stencil_2d -n256, stencil_3d -n64]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -108,24 +106,35 @@ jobs:
           cmakeVersion: "~3.25.0"
           ninjaVersion: "^1.12.1"
 
-      - name: Get LLVM libc++ and OpenMP
-        run: sudo apt update && sudo apt install libc++-dev libomp-dev
+      - name: Configure and build sequential benchmarks
+        run: >
+          cmake
+            --workflow
+            --preset ${{ matrix.workflow_type }}
+            --verbose
+            -DLayoutTiled_BUILD_TESTS=OFF
+            -DLayoutTiled_BUILD_EXAMPLES=OFF
+            -DLayoutTiled_BENCHMARKS_ENABLE_OMP=OFF
+        run: build/${{ matrix.workflow_type }} ${{ matrix.benchmark }}
 
-      - name: Configure serial
-        run: cmake -S . -B build-serial -DLayoutTiled_BUILD_BENCHMARKS=ON -DLayoutTiled_BENCHMARKS_ENABLE_CHECKS=ON
-      - name: Configure parallel
-        run: cmake -S . -B build-parallel -DLayoutTiled_BUILD_BENCHMARKS=ON -DLayoutTiled_BENCHMARKS_ENABLE_CHECKS=ON -DLayoutTiled_BENCHMARKS_ENABLE_OPENMP=ON
-
-      - name: Build serial
-        run: cmake --build build-serial --config Release --verbose
-      - name: Build parallel
-        run: cmake --build build-parallel --config Release --verbose
+      - name: Configure and build parallel benchmarks
+        run: rm --recursive --force build/${{ matrix.workflow_type }}
+        run: >
+          cmake
+            --workflow
+            --preset ${{ matrix.workflow_type }}
+            --verbose
+            -DLayoutTiled_BUILD_TESTS=OFF
+            -DLayoutTiled_BUILD_EXAMPLES=OFF
+        run: build/${{ matrix.workflow_type }} ${{ matrix.benchmark }}
 
   install:
     needs: changes
     if: ${{ needs.changes.outputs.core == 'true' }}
     strategy:
       fail-fast: false
+      matrix:
+        workflow_type: [gcc-debug, gcc-release, llvm-debug, llvm-release]
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
@@ -136,13 +145,10 @@ jobs:
           cmakeVersion: "~3.25.0"
           ninjaVersion: "^1.12.1"
 
-      - name: Get LLVM libc++
-        run: sudo apt update && sudo apt install libc++-dev
+      - name: Configure and build
+        run: cmake --build --preset ${{ matrix.workflow_type }}
 
-      - name: Configure
-        run: cmake -S . -B build
-
-      - name: Build
+      - name: Install
         run: |
-          cmake --install build --prefix /opt/layout_tiled
+          cmake --install build/${{ matrix.workflow_type }} --prefix /opt/layout_tiled
           find /opt/layout_tiled -type f
