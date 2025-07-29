@@ -15,10 +15,10 @@
 #include <layout_tiled/layout_left_tiled_left.hpp>
 #include <layout_tiled/layout_right_tiled_right.hpp>
 #include <nanobench.h>
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #include <omp.h>
 #endif
-#if defined(LAYOUT_TILED_ENABLE_BLAS)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_BLAS)
 #include <cblas.h>
 #endif
 
@@ -50,13 +50,13 @@ auto naive(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   const size_t N = B.extent(1);
   const size_t O = A.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
   for (size_t i = 0; i < M; ++i) {
     for (size_t j = 0; j < N; ++j) {
       Type acc = 0.0;
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp simd
 #endif
       for (size_t k = 0; k < O; ++k) {
@@ -78,7 +78,7 @@ auto cache_blocked(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   const size_t N = B.extent(1);
   const size_t O = A.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
@@ -87,7 +87,7 @@ auto cache_blocked(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
         for (size_t i = x; i < std::min(x + TM, M); ++i) {
           for (size_t j = y; j < std::min(y + TN, N); ++j) {
             Type acc = 0.0;
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp simd
 #endif
             for (size_t k = z; k < std::min(z + TO, O); ++k) {
@@ -112,7 +112,7 @@ auto manual_blocked_tiled(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   const size_t N = B.extent(1);
   const size_t O = A.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
@@ -129,7 +129,7 @@ auto manual_blocked_tiled(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
           size_t C_inoff = i * TN;
           for (size_t j = 0; j < ty; ++j) {
             Type acc = 0.0;
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp simd
 #endif
             for (size_t k = 0; k < tz; ++k) {
@@ -154,7 +154,7 @@ auto manual_blocked_tiled(const MdSpanA A, const MdSpanB B, MdSpanC C, size_t TM
   const size_t N = B.extent(1);
   const size_t O = A.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
@@ -171,7 +171,7 @@ auto manual_blocked_tiled(const MdSpanA A, const MdSpanB B, MdSpanC C, size_t TM
           size_t C_inoff = i * TN;
           for (size_t j = 0; j < ty; ++j) {
             Type acc = 0.0;
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp simd
 #endif
             for (size_t k = 0; k < tz; ++k) {
@@ -200,7 +200,7 @@ auto manual_blocked_tiled_subview(const MdSpanA A, const MdSpanB B, MdSpanC C) -
   const size_t N = B.extent(1);
   const size_t O = A.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
@@ -212,7 +212,7 @@ auto manual_blocked_tiled_subview(const MdSpanA A, const MdSpanB B, MdSpanC C) -
         for (size_t i = 0; i < std::min(TM, M - x); ++i) {
           for (size_t j = 0; j < std::min(TN, N - y); ++j) {
             Type acc = 0.0;
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp simd
 #endif
             for (size_t k = 0; k < std::min(TO, O - z); ++k) {
@@ -241,7 +241,7 @@ auto manual_blocked_tiled_subview_BLTL(const MdSpanA A, const MdSpanB B, MdSpanC
   const size_t N = B.extent(1);
   const size_t O = A.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
@@ -253,7 +253,7 @@ auto manual_blocked_tiled_subview_BLTL(const MdSpanA A, const MdSpanB B, MdSpanC
         for (size_t i = 0; i < std::min(TM, M - x); ++i) {
           for (size_t j = 0; j < std::min(TN, N - y); ++j) {
             Type acc = 0.0;
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp simd
 #endif
             for (size_t k = 0; k < std::min(TO, O - z); ++k) {
@@ -267,7 +267,7 @@ auto manual_blocked_tiled_subview_BLTL(const MdSpanA A, const MdSpanB B, MdSpanC
   }
 }
 
-#if defined(LAYOUT_TILED_ENABLE_BLAS)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_BLAS)
 template <class MdSpanA, class MdSpanB, class MdSpanC>
   requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC> && IsLayoutRight<MdSpanA>
            && IsLayoutRight<MdSpanB> && IsLayoutRight<MdSpanC>
@@ -310,7 +310,7 @@ auto blas(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
 auto run_bench(const Config& cfg) -> void {
   ankerl::nanobench::Bench bs;
   bs.output(nullptr);
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
   bs.title(fmt::format("{0}x{0} {1}C", cfg.n_, omp_get_max_threads())).timeUnit(1s, "s").relative(true);
 #else
   bs.title(fmt::format("{0}x{0} 1C", cfg.n_)).timeUnit(1s, "s").relative(true);
@@ -365,7 +365,7 @@ auto run_bench(const Config& cfg) -> void {
   benchmark_utils::fill_2d_copy(mtlB_l2, mlB);
 
   // Checks
-#if defined(LAYOUT_TILED_ENABLE_CHECKS)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_CHECKS)
   const double n     = static_cast<double>(cfg.n_);
   const double big_o = 2.0 * n * n * n;
 
@@ -405,7 +405,7 @@ auto run_bench(const Config& cfg) -> void {
   // Benchmarks
   bs.run("R naive", [&]() { naive(mrA, mrB, mrC); });
   bs.run("R_BL naive", [&]() { naive(mrA, mlB, mrC); });
-#if defined(LAYOUT_TILED_ENABLE_BLAS)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_BLAS)
   bs.run("R blas", [&]() { blas(mrA, mrB, mrC); });
 #endif
 
