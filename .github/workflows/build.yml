@@ -135,7 +135,7 @@ jobs:
           -B build/par-${{ matrix.compiler.build_dir }}
           -DCMAKE_C_COMPILER=${{ matrix.compiler.c }}
           -DCMAKE_CXX_COMPILER=${{ matrix.compiler.cpp }}
-          -DLayoutTiled_BUILD_BENCHMARKS=ON
+          -DLAYOUT_TILED_BUILD_BENCHMARKS=ON
           -DLAYOUT_TILED_BENCH_ENABLE_BLAS=ON
           -DLAYOUT_TILED_BENCH_ENABLE_OMP=ON
       - name: Build parallel
