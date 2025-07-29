@@ -53,6 +53,9 @@ jobs:
           cmakeVersion: "~3.25.0"
           ninjaVersion: "^1.12.1"
 
+      - name: Install BLAS
+        run: apt install -y libopenblas-dev
+
       - name: Configure, build and run tests
         run: cmake --workflow --preset ${{ matrix.workflow_type }}
 
@@ -72,6 +75,9 @@ jobs:
         with:
           cmakeVersion: "~3.25.0"
           ninjaVersion: "^1.12.1"
+
+      - name: Install BLAS
+        run: apt install -y libopenblas-dev
 
       - name: Configure and build examples
         run: cmake --workflow --preset ${{ matrix.workflow_type }}
@@ -93,6 +99,9 @@ jobs:
         with:
           cmakeVersion: "~3.25.0"
           ninjaVersion: "^1.12.1"
+
+      - name: Install BLAS
+        run: apt install -y libopenblas-dev
 
       - name: Configure and build sequential benchmarks
         run: cmake --workflow --preset ${{ matrix.workflow_type }}
@@ -124,8 +133,13 @@ jobs:
           cmakeVersion: "~3.25.0"
           ninjaVersion: "^1.12.1"
 
+      - name: Install BLAS
+        run: apt install -y libopenblas-dev
+
       - name: Configure and build
-        run: cmake --build --preset ${{ matrix.workflow_type }}
+        run: |
+          cmake --preset ${{ matrix.workflow_type }}
+          cmake --build --preset ${{ matrix.workflow_type }}
 
       - name: Install
         run: |
