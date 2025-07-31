@@ -1,19 +1,24 @@
-// include/layout_tiled/layout_right_tiled_right.hpp -*-C++-*-
+// include/layout_tiled/layout_ltr.hpp -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef INCLUDED_LAYOUT_TILED_LAYOUT_RIGHT_TILED_RIGHT
-#define INCLUDED_LAYOUT_TILED_LAYOUT_RIGHT_TILED_RIGHT
+#ifndef INCLUDED_LAYOUT_TILED_LAYOUT_LTR
+#define INCLUDED_LAYOUT_TILED_LAYOUT_LTR
 
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <utility>
 
+#include <experimental/__p0009_bits/layout_left.hpp>
+#include <experimental/__p0009_bits/layout_right.hpp>
+
 #include "detail/common.hpp"
 #include "detail/macros.hpp"
 
+namespace layout_tiled {
+
 template <size_t... TileExtents>
-class layout_right_tiled_right {
+class layout_ltr {
 public:
   template <class Extents>
   struct mapping {
@@ -21,14 +26,17 @@ public:
     using index_type   = typename extents_type::index_type;
     using size_type    = typename extents_type::size_type;
     using rank_type    = typename extents_type::rank_type;
-    using layout_type  = layout_right_tiled_right;
+    using layout_type  = layout_ltr<TileExtents...>;
 
-    static_assert(extents_type::rank() > 0, "layout_right_tiled_right::mapping: number of extents must be positive");
+    using outer_layout_type = std::layout_left;
+    using inner_layout_type = std::layout_right;
+
+    static_assert(extents_type::rank() > 0, "layout_tiled::layout_ltr::mapping: number of extents must be positive");
     static_assert(
       extents_type::rank() == sizeof...(TileExtents),
-      "layout_right_tiled_right::mapping: number of tile extents must match extents rank"
+      "layout_tiled::layout_ltr::mapping: number of tile extents must match extents rank"
     );
-    static_assert(((TileExtents > 0) && ...), "layout_right_tiled_right::mapping: all tile extents must be positive");
+    static_assert(((TileExtents > 0) && ...), "layout_tiled::layout_ltr::mapping: all tile extents must be positive");
 
   private:
     static constexpr auto extents_are_strictly_positive(const extents_type& ext) -> bool {
@@ -58,7 +66,7 @@ public:
     }
     static_assert(
       extents_type::rank_dynamic() > 0 || required_span_size_is_representable(extents_type()),
-      "layout_right_tiled_right::mapping: product of static extents must be representable as index_type"
+      "layout_tiled::layout_ltr::mapping: product of static extents must be representable as index_type"
     );
 
     static constexpr auto tile_extents_are_multiples_of_extents(const extents_type& ext) -> bool {
@@ -74,27 +82,29 @@ public:
     }
 
   public:
-    // [mdspan.layout_right_tiled_right.cons]
+    // [mdspan.layout_tiled::layout_ltr.cons]
     LAYOUT_TILED_INLINE_FUNCTION
     constexpr mapping() noexcept = default;
 
     LAYOUT_TILED_INLINE_FUNCTION
-    constexpr mapping(mapping const&) noexcept = default;
+    constexpr mapping(const mapping&) noexcept = default;
 
     LAYOUT_TILED_INLINE_FUNCTION
-    mapping(extents_type const& exts) noexcept : extents_(exts) {
+    mapping(const extents_type& exts) noexcept : extents_(exts) {
       assert(extents_are_strictly_positive(exts));
       assert(required_span_size_is_representable(exts));
       assert(tile_extents_are_multiples_of_extents(exts));
     }
 
+    /* --- REQUIRED MEMBERS --- */
+    // [mdspan.layout_tiled::layout_ltr.obs]
     LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto operator=(mapping const&) noexcept -> mapping& = default;
+    constexpr auto operator=(const mapping&) noexcept -> mapping& = default;
 
     /* --- REQUIRED MEMBERS --- */
-    // [mdspan.layout_right_tiled_right.obs]
+    // [mdspan.layout_tiled::layout_ltr.obs]
     LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto extents() const -> extents_type const& {
+    constexpr auto extents() const -> const extents_type& {
       return extents_;
     }
 
@@ -108,10 +118,10 @@ public:
     }
 
     template <class... Idxs>
-      requires(extents_type::rank() == sizeof...(Idxs))
+      requires (extents_type::rank() == sizeof...(Idxs))
     LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto operator()(Idxs... idxs) const noexcept -> index_type {
       assert(
-        "layout_right_tiled_right::mapping: out of bounds indexing"
+        "layout_tiled::layout_ltr::mapping: out of bounds indexing"
         && detail::is_md_idx_in_span(std::make_index_sequence<extents_type::rank()>(), extents_, idxs...)
       );
 
@@ -183,25 +193,20 @@ public:
     /* --- HELPER MEMBERS --- */
     /// Finds the starting offset of the tile in which the indexed element is located.
     template <class... Idxs>
-    LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto tile_offset_outer(Idxs... idxs) const noexcept -> index_type {
-      constexpr rank_type rank = extents_type::rank();
-      auto coords              = [idxs...]<rank_type... Is>(std::index_sequence<Is...>) {
-        return std::array<index_type, rank>{(idxs / textent(Is))...};
-      }(std::make_index_sequence<rank>());
+    LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto tile_offset_outer(Idxs... idxs) const noexcept -> index_type {
+      auto idx_arr      = std::to_array({idxs...});
       index_type offset = 0;
       index_type stride = 1;
-      for (rank_type i = rank; i > 0; --i) {
-        offset += coords[i - 1] * stride;
-        stride *= ntiles_in_extent(i - 1);
+      for (rank_type i = 0; i < extents_type::rank(); ++i) {
+        offset += idx_arr[i] / textent(i) * stride;
+        stride *= ntiles_in_extent(i);
       }
       return offset * tile_size();
     }
 
     /// Finds the offset of the indexed element within a tile.
     template <class... Idxs>
-    LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto tile_offset_inner(Idxs... idxs) const noexcept -> index_type {
+    LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto tile_offset_inner(Idxs... idxs) const noexcept -> index_type {
       constexpr rank_type rank = extents_type::rank();
       auto coords              = [idxs...]<rank_type... Is>(std::index_sequence<Is...>) {
         return std::array<index_type, rank>{(idxs % textent(Is))...};
@@ -221,4 +226,6 @@ public:
   };
 };
 
-#endif // INCLUDED_LAYOUT_TILED_LAYOUT_RIGHT_TILED_RIGHT
+} // namespace layout_tiled
+
+#endif // INCLUDED_LAYOUT_TILED_LAYOUT_LTR

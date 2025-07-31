@@ -11,7 +11,7 @@
 
 #include "macros.hpp"
 
-namespace detail {
+namespace layout_tiled::detail {
 
 template <std::integral IdxType, class From>
   requires std::integral<From>
@@ -64,6 +64,6 @@ LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto rev_prod_of_extents(size_t i) noexc
   return product;
 }
 
-} // namespace detail
+} // namespace layout_tiled::detail
 
 #endif // INCLUDED_LAYOUT_TILED_DETAIL_COMMON

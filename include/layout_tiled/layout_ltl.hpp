@@ -1,19 +1,23 @@
-// include/layout_tiled/layout_left_tiled_left.hpp -*-C++-*-
+// include/layout_tiled/layout_ltl.hpp -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef INCLUDED_LAYOUT_TILED_LAYOUT_LEFT_TILED_LEFT
-#define INCLUDED_LAYOUT_TILED_LAYOUT_LEFT_TILED_LEFT
+#ifndef INCLUDED_LAYOUT_TILED_LAYOUT_LTL
+#define INCLUDED_LAYOUT_TILED_LAYOUT_LTL
 
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <utility>
 
+#include <experimental/__p0009_bits/layout_left.hpp>
+
 #include "detail/common.hpp"
 #include "detail/macros.hpp"
 
+namespace layout_tiled {
+
 template <size_t... TileExtents>
-class layout_left_tiled_left {
+class layout_ltl {
 public:
   template <class Extents>
   struct mapping {
@@ -21,14 +25,17 @@ public:
     using index_type   = typename extents_type::index_type;
     using size_type    = typename extents_type::size_type;
     using rank_type    = typename extents_type::rank_type;
-    using layout_type  = layout_left_tiled_left;
+    using layout_type  = layout_ltl<TileExtents...>;
 
-    static_assert(extents_type::rank() > 0, "layout_left_tiled_left::mapping: number of extents must be positive");
+    using outer_layout_type = std::layout_left;
+    using inner_layout_type = std::layout_left;
+
+    static_assert(extents_type::rank() > 0, "layout_tiled::layout_ltl::mapping: number of extents must be positive");
     static_assert(
       extents_type::rank() == sizeof...(TileExtents),
-      "layout_left_tiled_left::mapping: number of tile extents must match extents rank"
+      "layout_tiled::layout_ltl::mapping: number of tile extents must match extents rank"
     );
-    static_assert(((TileExtents > 0) && ...), "layout_left_tiled_left::mapping: all tile extents must be positive");
+    static_assert(((TileExtents > 0) && ...), "layout_tiled::layout_ltl::mapping: all tile extents must be positive");
 
   private:
     static constexpr auto extents_are_strictly_positive(const extents_type& ext) -> bool {
@@ -58,7 +65,7 @@ public:
     }
     static_assert(
       extents_type::rank_dynamic() > 0 || required_span_size_is_representable(extents_type()),
-      "layout_left_tiled_left::mapping: product of static extents must be representable as index_type"
+      "layout_tiled::layout_ltl::mapping: product of static extents must be representable as index_type"
     );
 
     static constexpr auto tile_extents_are_multiples_of_extents(const extents_type& ext) -> bool {
@@ -74,27 +81,27 @@ public:
     }
 
   public:
-    // [mdspan.layout_left_tiled_left.cons]
+    // [mdspan.layout_tiled::layout_ltl.cons]
     LAYOUT_TILED_INLINE_FUNCTION
     constexpr mapping() noexcept = default;
 
     LAYOUT_TILED_INLINE_FUNCTION
-    constexpr mapping(mapping const&) noexcept = default;
+    constexpr mapping(const mapping&) noexcept = default;
 
     LAYOUT_TILED_INLINE_FUNCTION
-    mapping(extents_type const& exts) noexcept : extents_(exts) {
+    mapping(const extents_type& exts) noexcept : extents_(exts) {
       assert(extents_are_strictly_positive(exts));
       assert(required_span_size_is_representable(exts));
       assert(tile_extents_are_multiples_of_extents(exts));
     }
 
     LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto operator=(mapping const&) noexcept -> mapping& = default;
+    constexpr auto operator=(const mapping&) noexcept -> mapping& = default;
 
     /* --- REQUIRED MEMBERS --- */
-    // [mdspan.layout_left_tiled_left.obs]
+    // [mdspan.layout_tiled::layout_ltl.obs]
     LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto extents() const -> extents_type const& {
+    constexpr auto extents() const -> const extents_type& {
       return extents_;
     }
 
@@ -111,7 +118,7 @@ public:
       requires (extents_type::rank() == sizeof...(Idxs))
     LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto operator()(Idxs... idxs) const noexcept -> index_type {
       assert(
-        "layout_left_tiled_left::mapping: out of bounds indexing"
+        "layout_tiled::layout_ltl::mapping: out of bounds indexing"
         && detail::is_md_idx_in_span(std::make_index_sequence<extents_type::rank()>(), extents_, idxs...)
       );
 
@@ -213,4 +220,6 @@ public:
   };
 };
 
-#endif // INCLUDED_LAYOUT_TILED_LAYOUT_LEFT_TILED_LEFT
+} // namespace layout_tiled
+
+#endif // INCLUDED_LAYOUT_TILED_LAYOUT_LTL
