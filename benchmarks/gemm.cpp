@@ -307,20 +307,6 @@ auto blas(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
 }
 #endif
 
-  ankerl::nanobench::Bench bs;
-  bs.output(nullptr);
-#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
-  bs.title(fmt::format("{0}x{0} {1}C", cfg.n_, omp_get_max_threads())).timeUnit(1s, "s").relative(true);
-#else
-  bs.title(fmt::format("{0}x{0} 1C", cfg.n_)).timeUnit(1s, "s").relative(true);
-#endif
-  std::ostream* out_stream = &std::cout;
-  std::ofstream file_stream;
-  if (!cfg.output_.empty()) {
-    file_stream.open(cfg.output_, std::ios::app | std::ios::binary);
-    out_stream = &file_stream;
-  }
-
 auto run_bench(const Config& cfg) -> int {
   // Standard layout matrices
   auto rA = MemorySlice<Type>(cfg.n_ * cfg.n_);
@@ -364,7 +350,6 @@ auto run_bench(const Config& cfg) -> int {
   benchmark_utils::fill_2d_copy(mtrB_l2, mrB);
   benchmark_utils::fill_2d_copy(mtlB_l2, mlB);
 
-  // Checks
 #if defined(LAYOUT_TILED_BENCH_ENABLE_CHECKS)
   // Checks
   const auto n       = static_cast<double>(cfg.n_);
@@ -406,6 +391,20 @@ auto run_bench(const Config& cfg) -> int {
   return res;
 #else
   // Benchmarks
+  ankerl::nanobench::Bench bs;
+  bs.output(nullptr);
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
+  bs.title(fmt::format("{0}x{0} {1}C", cfg.n_, omp_get_max_threads())).timeUnit(1s, "s").relative(true);
+#else
+  bs.title(fmt::format("{0}x{0} 1C", cfg.n_)).timeUnit(1s, "s").relative(true);
+#endif
+  std::ostream* out_stream = &std::cout;
+  std::ofstream file_stream;
+  if (!cfg.output_.empty()) {
+    file_stream.open(cfg.output_, std::ios::app | std::ios::binary);
+    out_stream = &file_stream;
+  }
+
   bs.run("R naive", [&]() { naive(mrA, mrB, mrC); });
   bs.run("R_BL naive", [&]() { naive(mrA, mlB, mrC); });
 #if defined(LAYOUT_TILED_BENCH_ENABLE_BLAS)

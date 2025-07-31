@@ -14,7 +14,7 @@
 #include <fmt/core.h>
 #include <layout_tiled/layout_right_tiled_right.hpp>
 #include <nanobench.h>
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #include <omp.h>
 #endif
 
@@ -47,7 +47,7 @@ auto naive(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   const size_t M = out.extent(0);
   const size_t N = out.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
   for (size_t i = D; i < M - D; ++i) {
@@ -71,7 +71,7 @@ auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   const size_t M = out.extent(0);
   const size_t N = out.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = D; x < M - D; x += TM) {
@@ -99,7 +99,7 @@ auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t D = 
   const size_t M = out.extent(0);
   const size_t N = out.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = D; x < M - D; x += TM) {
@@ -129,7 +129,7 @@ auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void 
 
   auto hin  = in.data_handle();
   auto hout = out.data_handle();
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = D; x < M - D; x += TM) {
@@ -169,7 +169,7 @@ auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size
 
   auto hin  = in.data_handle();
   auto hout = out.data_handle();
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = D; x < M - D; x += TM) {
@@ -210,7 +210,7 @@ auto manual_blocked_tiled_subview(MdSpanIn in, MdSpanOut out, size_t D = DELTA) 
   const size_t M = out.extent(0);
   const size_t N = out.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
@@ -230,20 +230,6 @@ auto manual_blocked_tiled_subview(MdSpanIn in, MdSpanOut out, size_t D = DELTA) 
     }
   }
 }
-
-  ankerl::nanobench::Bench bs;
-  bs.output(nullptr).timeUnit(1s, "s").relative(true);
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
-  bs.title(fmt::format("{0}x{0} {1}C", cfg.n_, omp_get_max_threads()));
-#else
-  bs.title(fmt::format("{0}x{0} 1C", cfg.n_));
-#endif
-  std::ostream* out_stream = &std::cout;
-  std::ofstream file_stream;
-  if (!cfg.output_.empty()) {
-    file_stream.open(cfg.output_, std::ios::app | std::ios::binary);
-    out_stream = &file_stream;
-  }
 
 auto run_bench(const Config& cfg) -> int {
   // Standard layout matrices
@@ -275,11 +261,12 @@ auto run_bench(const Config& cfg) -> int {
   benchmark_utils::fill_2d_uniform01(mlrtr_l1_in, rng_tiled_l1);
   benchmark_utils::fill_2d_uniform01(mlrtr_l2_in, rng_tiled_l2);
 
+#if defined(LAYOUT_TILED_BENCH_ENABLE_CHECKS)
   // Checks
-#if defined(LAYOUT_TILED_ENABLE_CHECKS)
   const auto n       = static_cast<double>(cfg.n_);
   const double big_o = 5.0 * n * n;
   int res            = 0;
+
   naive(mlr_in, mlr_out);
   double ref = benchmark_utils::l2_norm(mlr_out);
 
@@ -305,6 +292,20 @@ auto run_bench(const Config& cfg) -> int {
   return res;
 #else
   // Benchmarks
+  ankerl::nanobench::Bench bs;
+  bs.output(nullptr).timeUnit(1s, "s").relative(true);
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
+  bs.title(fmt::format("{0}x{0} {1}C", cfg.n_, omp_get_max_threads()));
+#else
+  bs.title(fmt::format("{0}x{0} 1C", cfg.n_));
+#endif
+  std::ostream* out_stream = &std::cout;
+  std::ofstream file_stream;
+  if (!cfg.output_.empty()) {
+    file_stream.open(cfg.output_, std::ios::app | std::ios::binary);
+    out_stream = &file_stream;
+  }
+
   bs.run("R naive", [&]() { naive(mlr_in, mlr_out, cfg.d_); });
 
   bs.run(fmt::format("R cb-{0}x{0}", TILE_L1), [&]() { cache_blocked<TILE_L1, TILE_L1>(mlr_in, mlr_out, cfg.d_); });
