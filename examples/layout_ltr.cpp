@@ -1,4 +1,4 @@
-// examples/layout_left_tiled_left.cpp -*-C++-*-
+// examples/layout_ltr.cpp -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0
 
 #include <array>
@@ -6,7 +6,7 @@
 #include <experimental/mdspan>
 
 #include <fmt/core.h>
-#include <layout_tiled/layout_left_tiled_left.hpp>
+#include <layout_tiled/layout_ltr.hpp>
 
 auto main() -> int {
   constexpr size_t ROWS  = 4;
@@ -19,17 +19,17 @@ auto main() -> int {
   fmt::print("Array dimensions: {}x{}\nTile dimensions:  {}x{}\n", ROWS, COLS, TROWS, TCOLS);
 
   // clang-format off
-  // Manually tiled data (col-major over tiles, col-major within tiles)
-  std::array<element_type, ROWS * COLS> ltl{
-     0,  6,  1,  7,  2,  8,
-    12, 18, 13, 19, 14, 20,
-     3,  9,  4, 10,  5, 11,
-    15, 21, 16, 22, 17, 23,
+  // Manually tiled data (col-major over tiles, row-major within tiles)
+  std::array<element_type, ROWS * COLS> ltr{
+     0,  1,  2,  6,  7,  8,
+    12, 13, 14, 18, 19, 20,
+     3,  4,  5,  9, 10, 11,
+    15, 16, 17, 21, 22, 23,
   };
   // clang-format on
 
-  auto m_lin = std::mdspan<element_type, extents_type>(ltl.data());
-  auto m_ltl = std::mdspan<element_type, extents_type, layout_left_tiled_left<TROWS, TCOLS>>(ltl.data());
+  auto m_lin = std::mdspan<element_type, extents_type>(ltr.data());
+  auto m_ltr = std::mdspan<element_type, extents_type, layout_tiled::layout_ltr<TROWS, TCOLS>>(ltr.data());
 
   fmt::print("\nActual storage (manually tiled):\n");
   for (size_t i = 0; i < ROWS; ++i) {
@@ -42,7 +42,7 @@ auto main() -> int {
   fmt::print("\nTiled-order iteration (appears linearly stored):\n");
   for (size_t i = 0; i < ROWS; ++i) {
     for (size_t j = 0; j < COLS; ++j) {
-      fmt::print("{:2d} ", m_ltl[i, j]);
+      fmt::print("{:2d} ", m_ltr[i, j]);
     }
     fmt::print("\n");
   }
