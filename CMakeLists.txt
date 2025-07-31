@@ -1,21 +1,20 @@
-cmake_minimum_required(VERSION 3.25) # support for C++26
+cmake_minimum_required(VERSION 3.25)
 
-project(layout-tiled VERSION 0.3.0 LANGUAGES CXX DESCRIPTION "Tiled layouts for C++23 std::mdspan")
+project(layout-tiled VERSION 0.4.0 LANGUAGES CXX DESCRIPTION "Tiled layouts for `std::mdspan`")
 
 # --- PROJECT OPTIONS --- #
-option(LayoutTiled_BUILD_TESTS "Enable building tests. Values: { ON, OFF}." OFF)
-option(LayoutTiled_BUILD_EXAMPLES "Enable building examples. Values: { ON, OFF }." OFF)
-option(LayoutTiled_BUILD_BENCHMARKS "Enable building benchmarks. Values: { ON, OFF }." OFF)
+option(LAYOUT_TILED_BUILD_TESTS "Enable building tests. Default: OFF. Values: { ON, OFF}." OFF)
+option(LAYOUT_TILED_BUILD_EXAMPLES "Enable building examples. Default: OFF. Values: { ON, OFF }." OFF)
+option(LAYOUT_TILED_BUILD_BENCHMARKS "Enable building benchmarks. Default: OFF. Values: { ON, OFF }." OFF)
+option(LAYOUT_TILED_ENABLE_DEVICE_OFFLOAD "Enable device offload. Default: OFF. Values: { ON, OFF }." OFF)
 
-option(LayoutTiled_ENABLE_DEVICE_OFFLOAD "Enable support for offloading to devices (GPUs). Values: { ON, OFF }." OFF)
+# Benchmark options
+option(LAYOUT_TILED_BENCH_ENABLE_CHECKS "Enable checking benchmarks results. Default: ON. Values: { ON, OFF }." OFF)
+option(LAYOUT_TILED_BENCH_ENABLE_OMP "Enable building benchmarks with OpenMP. Default: OFF. Values: { ON, OFF }." OFF)
+option(LAYOUT_TILED_BENCH_ENABLE_BLAS "Enable building GEMM benchmark with BLAS. Default: ON. Values: { ON, OFF }." OFF)
 
-# --- PROJECT DEPENDENCIES --- #
-include(FetchContent)
-FetchContent_Declare(mdspan GIT_REPOSITORY https://github.com/kokkos/mdspan.git GIT_TAG origin/stable)
-FetchContent_MakeAvailable(mdspan)
-target_compile_definitions(mdspan INTERFACE -DMDSPAN_USE_BRACKET_OPERATOR)
-
-if(LayoutTiled_ENABLE_DEVICE_OFFLOAD)
+# Resolve device offload
+if(LAYOUT_TILED_ENABLE_DEVICE_OFFLOAD)
   message(STATUS "Enabling support for device offload:")
   include(CheckLanguage)
   check_language(CUDA)
@@ -35,10 +34,16 @@ if(LayoutTiled_ENABLE_DEVICE_OFFLOAD)
   endif()
 endif()
 
+# --- PROJECT DEPENDENCIES --- #
+include(FetchContent)
+FetchContent_Declare(mdspan GIT_REPOSITORY https://github.com/kokkos/mdspan.git GIT_TAG origin/stable)
+FetchContent_MakeAvailable(mdspan)
+target_compile_definitions(mdspan INTERFACE -DMDSPAN_USE_BRACKET_OPERATOR)
+
 # --- PROJECT TARGETS --- #
 add_subdirectory(include/layout_tiled)
 
-if(LayoutTiled_BUILD_TESTS)
+if(LAYOUT_TILED_BUILD_TESTS)
   enable_testing()
   FetchContent_Declare(googletest GIT_REPOSITORY https://github.com/google/googletest.git GIT_TAG v1.16.0)
   # Prevent GTest from getting installed along with the library
@@ -47,13 +52,13 @@ if(LayoutTiled_BUILD_TESTS)
   add_subdirectory(tests/layout_tiled)
 endif()
 
-if(LayoutTiled_BUILD_EXAMPLES)
+if(LAYOUT_TILED_BUILD_EXAMPLES)
   FetchContent_Declare(fmt GIT_REPOSITORY https://github.com/fmtlib/fmt.git GIT_TAG 11.1.4)
   FetchContent_MakeAvailable(fmt)
   add_subdirectory(examples)
 endif()
 
-if(LayoutTiled_BUILD_BENCHMARKS)
+if(LAYOUT_TILED_BUILD_BENCHMARKS)
   # Fork adding support for tracking L1I/L1D/LLC events
   FetchContent_Declare(
     nanobench
@@ -68,27 +73,3 @@ if(LayoutTiled_BUILD_BENCHMARKS)
   )
   add_subdirectory(benchmarks)
 endif()
-
-# --- PACKAGING --- #
-include(CMakePackageConfigHelpers)
-
-configure_package_config_file(
-  ${PROJECT_SOURCE_DIR}/cmake/config.cmake.in
-  ${PROJECT_BINARY_DIR}/cmake/layout_tiled/layout-tiled-config.cmake
-  INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled
-  NO_SET_AND_CHECK_MACRO
-  NO_CHECK_REQUIRED_COMPONENTS_MACRO
-)
-
-# Install CMake package config files
-install(
-  FILES
-    ${PROJECT_BINARY_DIR}/cmake/layout_tiled/layout-tiled-config.cmake
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled
-)
-install(
-  EXPORT LayoutTiledTargets
-  FILE layout-tiled-targets.cmake
-  NAMESPACE layout_tiled::
-  DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/layout_tiled
-)

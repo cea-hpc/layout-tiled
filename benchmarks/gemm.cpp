@@ -15,10 +15,10 @@
 #include <layout_tiled/layout_left_tiled_left.hpp>
 #include <layout_tiled/layout_right_tiled_right.hpp>
 #include <nanobench.h>
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #include <omp.h>
 #endif
-#if defined(LAYOUT_TILED_ENABLE_BLAS)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_BLAS)
 #include <cblas.h>
 #endif
 
@@ -50,13 +50,13 @@ auto naive(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   const size_t N = B.extent(1);
   const size_t O = A.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
   for (size_t i = 0; i < M; ++i) {
     for (size_t j = 0; j < N; ++j) {
       Type acc = 0.0;
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp simd
 #endif
       for (size_t k = 0; k < O; ++k) {
@@ -78,7 +78,7 @@ auto cache_blocked(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   const size_t N = B.extent(1);
   const size_t O = A.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
@@ -87,7 +87,7 @@ auto cache_blocked(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
         for (size_t i = x; i < std::min(x + TM, M); ++i) {
           for (size_t j = y; j < std::min(y + TN, N); ++j) {
             Type acc = 0.0;
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp simd
 #endif
             for (size_t k = z; k < std::min(z + TO, O); ++k) {
@@ -112,7 +112,7 @@ auto manual_blocked_tiled(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   const size_t N = B.extent(1);
   const size_t O = A.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
@@ -129,7 +129,7 @@ auto manual_blocked_tiled(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
           size_t C_inoff = i * TN;
           for (size_t j = 0; j < ty; ++j) {
             Type acc = 0.0;
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp simd
 #endif
             for (size_t k = 0; k < tz; ++k) {
@@ -154,7 +154,7 @@ auto manual_blocked_tiled(const MdSpanA A, const MdSpanB B, MdSpanC C, size_t TM
   const size_t N = B.extent(1);
   const size_t O = A.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
@@ -171,7 +171,7 @@ auto manual_blocked_tiled(const MdSpanA A, const MdSpanB B, MdSpanC C, size_t TM
           size_t C_inoff = i * TN;
           for (size_t j = 0; j < ty; ++j) {
             Type acc = 0.0;
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp simd
 #endif
             for (size_t k = 0; k < tz; ++k) {
@@ -200,7 +200,7 @@ auto manual_blocked_tiled_subview(const MdSpanA A, const MdSpanB B, MdSpanC C) -
   const size_t N = B.extent(1);
   const size_t O = A.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
@@ -212,7 +212,7 @@ auto manual_blocked_tiled_subview(const MdSpanA A, const MdSpanB B, MdSpanC C) -
         for (size_t i = 0; i < std::min(TM, M - x); ++i) {
           for (size_t j = 0; j < std::min(TN, N - y); ++j) {
             Type acc = 0.0;
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp simd
 #endif
             for (size_t k = 0; k < std::min(TO, O - z); ++k) {
@@ -241,7 +241,7 @@ auto manual_blocked_tiled_subview_BLTL(const MdSpanA A, const MdSpanB B, MdSpanC
   const size_t N = B.extent(1);
   const size_t O = A.extent(1);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
@@ -253,7 +253,7 @@ auto manual_blocked_tiled_subview_BLTL(const MdSpanA A, const MdSpanB B, MdSpanC
         for (size_t i = 0; i < std::min(TM, M - x); ++i) {
           for (size_t j = 0; j < std::min(TN, N - y); ++j) {
             Type acc = 0.0;
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp simd
 #endif
             for (size_t k = 0; k < std::min(TO, O - z); ++k) {
@@ -267,7 +267,7 @@ auto manual_blocked_tiled_subview_BLTL(const MdSpanA A, const MdSpanB B, MdSpanC
   }
 }
 
-#if defined(LAYOUT_TILED_ENABLE_BLAS)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_BLAS)
 template <class MdSpanA, class MdSpanB, class MdSpanC>
   requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC> && IsLayoutRight<MdSpanA>
            && IsLayoutRight<MdSpanB> && IsLayoutRight<MdSpanC>
@@ -307,21 +307,7 @@ auto blas(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
 }
 #endif
 
-auto run_bench(const Config& cfg) -> void {
-  ankerl::nanobench::Bench bs;
-  bs.output(nullptr);
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
-  bs.title(fmt::format("{0}x{0} {1}C", cfg.n_, omp_get_max_threads())).timeUnit(1s, "s").relative(true);
-#else
-  bs.title(fmt::format("{0}x{0} 1C", cfg.n_)).timeUnit(1s, "s").relative(true);
-#endif
-  std::ostream* out_stream = &std::cout;
-  std::ofstream file_stream;
-  if (!cfg.output_.empty()) {
-    file_stream.open(cfg.output_, std::ios::app | std::ios::binary);
-    out_stream = &file_stream;
-  }
-
+auto run_bench(const Config& cfg) -> int {
   // Standard layout matrices
   auto rA = MemorySlice<Type>(cfg.n_ * cfg.n_);
   auto rB = MemorySlice<Type>(cfg.n_ * cfg.n_);
@@ -364,48 +350,64 @@ auto run_bench(const Config& cfg) -> void {
   benchmark_utils::fill_2d_copy(mtrB_l2, mrB);
   benchmark_utils::fill_2d_copy(mtlB_l2, mlB);
 
+#if defined(LAYOUT_TILED_BENCH_ENABLE_CHECKS)
   // Checks
-#if defined(LAYOUT_TILED_ENABLE_CHECKS)
-  const double n     = static_cast<double>(cfg.n_);
+  const auto n       = static_cast<double>(cfg.n_);
   const double big_o = 2.0 * n * n * n;
+  int res            = 0;
 
   naive(mrA, mrB, mrC);
   double ref = benchmark_utils::l2_norm(mrC);
   benchmark_utils::fill_zeroes(mrC);
 
   cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L1", big_o);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L1", big_o);
   benchmark_utils::fill_zeroes(mrC);
   cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mrB, mrC);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L2", big_o);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "R_cb-L2", big_o);
   benchmark_utils::fill_zeroes(mrC);
 
   naive(mtrA_l1, mtrB_l1, mtrC_l1);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_naive", big_o);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_naive", big_o);
   benchmark_utils::fill_zeroes(mtrC_l1);
   naive(mtrA_l2, mtrB_l2, mtrC_l2);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_naive", big_o);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_naive", big_o);
   benchmark_utils::fill_zeroes(mtrC_l2);
 
   manual_blocked_tiled<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_mbt", big_o);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_mbt", big_o);
   benchmark_utils::fill_zeroes(mtrC_l1);
   manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_mbt", big_o);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_mbt", big_o);
   benchmark_utils::fill_zeroes(mtrC_l2);
 
   manual_blocked_tiled_subview<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_mbtsv", big_o);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-L1_mbtsv", big_o);
   benchmark_utils::fill_zeroes(mtrC_l1);
   manual_blocked_tiled_subview<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_mbtsv", big_o);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-L2_mbtsv", big_o);
   benchmark_utils::fill_zeroes(mtrC_l2);
-#endif
 
+  return res;
+#else
   // Benchmarks
+  ankerl::nanobench::Bench bs;
+  bs.output(nullptr);
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
+  bs.title(fmt::format("{0}x{0} {1}C", cfg.n_, omp_get_max_threads())).timeUnit(1s, "s").relative(true);
+#else
+  bs.title(fmt::format("{0}x{0} 1C", cfg.n_)).timeUnit(1s, "s").relative(true);
+#endif
+  std::ostream* out_stream = &std::cout;
+  std::ofstream file_stream;
+  if (!cfg.output_.empty()) {
+    file_stream.open(cfg.output_, std::ios::app | std::ios::binary);
+    out_stream = &file_stream;
+  }
+
   bs.run("R naive", [&]() { naive(mrA, mrB, mrC); });
   bs.run("R_BL naive", [&]() { naive(mrA, mlB, mrC); });
-#if defined(LAYOUT_TILED_ENABLE_BLAS)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_BLAS)
   bs.run("R blas", [&]() { blas(mrA, mrB, mrC); });
 #endif
 
@@ -445,6 +447,9 @@ auto run_bench(const Config& cfg) -> void {
   // Output
   bs.render(ankerl::nanobench::templates::csv(), *out_stream);
   file_stream.close();
+
+  return 0;
+#endif
 }
 
 } // namespace
@@ -459,16 +464,16 @@ auto main(int argc, char* argv[]) -> int {
                                 "  -h, --help                    Show this help\n";
 
   static struct option long_options[] = {
-    {"size", required_argument, nullptr, 'n'},
-    {"tile", required_argument, nullptr, 't'},
-    {"output", required_argument, nullptr, 'o'},
-    {"help", no_argument, nullptr, 'h'},
-    {nullptr, 0, nullptr, 0}
+    {.name = "size", .has_arg = required_argument, .flag = nullptr, .val = 'n'},
+    {.name = "tile", .has_arg = required_argument, .flag = nullptr, .val = 't'},
+    {.name = "output", .has_arg = required_argument, .flag = nullptr, .val = 'o'},
+    {.name = "help", .has_arg = no_argument, .flag = nullptr, .val = 'h'},
+    {.name = nullptr, .has_arg = 0, .flag = nullptr, .val = 0}
   };
 
   Config cfg;
-  int opt;
-  while ((opt = getopt_long(argc, argv, "n:t:o:h", long_options, nullptr)) != -1) {
+  int opt{};
+  while ((opt = getopt_long(argc, argv, "n:t:o:h", static_cast<const struct option*>(long_options), nullptr)) != -1) {
     switch (opt) {
     case 'n':
       cfg.n_ = std::stoul(optarg);
@@ -496,7 +501,5 @@ auto main(int argc, char* argv[]) -> int {
     }
   }
 
-  run_bench(cfg);
-
-  return 0;
+  return run_bench(cfg);
 }

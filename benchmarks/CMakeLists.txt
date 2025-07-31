@@ -5,17 +5,10 @@ set(
   stencil_3d
 )
 
-option(LayoutTiled_BENCHMARKS_ENABLE_OPENMP "Enable building benchmarks with OpenMP support. Values: { ON, OFF }." OFF)
-option(
-  LayoutTiled_BENCHMARKS_ENABLE_CHECKS
-  "Enable checking the computed results of benchmarks. Values: { ON, OFF }."
-  OFF
-)
-
-if(LayoutTiled_BENCHMARKS_ENABLE_OPENMP)
+if(LAYOUT_TILED_BENCH_ENABLE_OMP)
   find_package(OpenMP REQUIRED)
 endif()
-if(LayoutTiled_BENCHMARKS_ENABLE_BLAS)
+if(LAYOUT_TILED_BENCH_ENABLE_BLAS)
   find_package(BLAS REQUIRED)
   find_path(
     BLAS_INCLUDE_DIRS
@@ -56,16 +49,16 @@ foreach(bench ${ALL_BENCHMARKS})
       fmt::fmt
       nanobench
   )
-  if(LayoutTiled_BENCHMARKS_ENABLE_OPENMP)
-    target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE -DLAYOUT_TILED_ENABLE_OPENMP)
+  if(LAYOUT_TILED_BENCH_ENABLE_OMP)
+    target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE -DLAYOUT_TILED_BENCH_ENABLE_OMP)
     target_link_libraries(layout_tiled.benchmarks.${bench} PRIVATE OpenMP::OpenMP_CXX)
   endif()
-  if(LayoutTiled_BENCHMARKS_ENABLE_CHECKS)
-    target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE -DLAYOUT_TILED_ENABLE_CHECKS)
+  if(LAYOUT_TILED_BENCH_ENABLE_CHECKS)
+    target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE -DLAYOUT_TILED_BENCH_ENABLE_CHECKS)
   endif()
-  if(${bench} STREQUAL "gemm" AND LayoutTiled_BENCHMARKS_ENABLE_BLAS)
-    message("Enabling BLAS for DGEMM benchmark")
-    target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE -DLAYOUT_TILED_ENABLE_BLAS)
+  if(${bench} STREQUAL "gemm" AND LAYOUT_TILED_BENCH_ENABLE_BLAS)
+    message("Enabling BLAS for GEMM benchmark")
+    target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE -DLAYOUT_TILED_BENCH_ENABLE_BLAS)
     target_include_directories(layout_tiled.benchmarks.${bench} PRIVATE ${BLAS_INCLUDE_DIRS})
     target_link_libraries(layout_tiled.benchmarks.${bench} PRIVATE BLAS::BLAS)
   endif()

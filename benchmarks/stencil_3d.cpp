@@ -14,7 +14,7 @@
 #include <fmt/core.h>
 #include <layout_tiled/layout_right_tiled_right.hpp>
 #include <nanobench.h>
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #include <omp.h>
 #endif
 
@@ -49,7 +49,7 @@ auto naive(const MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   const size_t N = out.extent(1);
   const size_t O = out.extent(2);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for collapse(3) schedule(static)
 #endif
   for (size_t i = D; i < M - D; ++i) {
@@ -77,7 +77,7 @@ auto cache_blocked(const MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   const size_t N = out.extent(1);
   const size_t O = out.extent(2);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = D; x < M - D; x += TM) {
@@ -111,7 +111,7 @@ auto cache_blocked(const MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_
   const size_t N = out.extent(1);
   const size_t O = out.extent(2);
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = D; x < M - D; x += TM) {
@@ -151,7 +151,7 @@ auto manual_blocked_tiled(const MdSpanIn in, MdSpanOut out, size_t D = DELTA) ->
 
   auto hin  = in.data_handle();
   auto hout = out.data_handle();
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = D; x < M - D; x += TM) {
@@ -204,7 +204,7 @@ auto manual_blocked_tiled(const MdSpanIn in, MdSpanOut out, size_t TM, size_t TN
 
   auto hin  = in.data_handle();
   auto hout = out.data_handle();
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = D; x < M - D; x += TM) {
@@ -253,7 +253,7 @@ auto manual_blocked_tiled_subview(const MdSpanIn in, MdSpanOut out, size_t D = D
   const size_t N = out.extent(1) - 2 * D;
   const size_t O = out.extent(2) - 2 * D;
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t x = D; x < M; x += TM) {
@@ -278,21 +278,7 @@ auto manual_blocked_tiled_subview(const MdSpanIn in, MdSpanOut out, size_t D = D
   }
 }
 
-auto run_bench(const Config& cfg) -> void {
-  ankerl::nanobench::Bench bs;
-  bs.output(nullptr).timeUnit(1s, "s").relative(true);
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
-  bs.title(fmt::format("{0}x{0}x{0} {1}C", cfg.n_, omp_get_max_threads()));
-#else
-  bs.title(fmt::format("{0}x{0}x{0} 1C", cfg.n_));
-#endif
-  std::ostream* out_stream = &std::cout;
-  std::ofstream file_stream;
-  if (!cfg.output_.empty()) {
-    file_stream.open(cfg.output_, std::ios::app | std::ios::binary);
-    out_stream = &file_stream;
-  }
-
+auto run_bench(const Config& cfg) -> int {
   // Standard layout matrices
   auto lr_in   = MemorySlice<Type>(cfg.n_ * cfg.n_ * cfg.n_);
   auto lr_out  = MemorySlice<Type>(cfg.n_ * cfg.n_ * cfg.n_);
@@ -338,30 +324,51 @@ auto run_bench(const Config& cfg) -> void {
   benchmark_utils::fill_3d_uniform01(mlrtr_l1_in, rng_tiled_l1);
   benchmark_utils::fill_3d_uniform01(mlrtr_l2_in, rng_tiled_l2);
 
+#if defined(LAYOUT_TILED_BENCH_ENABLE_CHECKS)
   // Checks
-#if defined(LAYOUT_TILED_ENABLE_CHECKS)
+  const auto n       = static_cast<double>(cfg.n_);
+  const double big_o = 7.0 * n * n * n;
+  int res            = 0;
+
   naive(mlr_in, mlr_out);
   double ref = benchmark_utils::l2_norm(mlr_out);
 
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_naive");
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_naive");
-
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L1");
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L2");
-
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_mbt");
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_mbt");
-  naive(mlrtr_l1_in, mlrtr_l1_out);
-  naive(mlrtr_l2_in, mlrtr_l2_out);
   cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mlr_in, mlr_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L1", big_o);
   cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mlr_in, mlr_out);
-  manual_blocked_tiled<TILE_L1, TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
-  manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
-  manual_blocked_tiled_subview<TILE_L1, TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
-  manual_blocked_tiled_subview<TILE_L2, TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
-#endif
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L2", big_o);
 
+  naive(mlrtr_l1_in, mlrtr_l1_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_naive", big_o);
+  naive(mlrtr_l2_in, mlrtr_l2_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_naive", big_o);
+
+  manual_blocked_tiled<TILE_L1, TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_mbt", big_o);
+  manual_blocked_tiled<TILE_L2, TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_mbt", big_o);
+  manual_blocked_tiled_subview<TILE_L1, TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_mbtsv", big_o);
+  manual_blocked_tiled_subview<TILE_L2, TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_mbtsv", big_o);
+
+  return res;
+#else
   // Benchmarks
+  ankerl::nanobench::Bench bs;
+  bs.output(nullptr).timeUnit(1s, "s").relative(true);
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
+  bs.title(fmt::format("{0}x{0}x{0} {1}C", cfg.n_, omp_get_max_threads()));
+#else
+  bs.title(fmt::format("{0}x{0}x{0} 1C", cfg.n_));
+#endif
+  std::ostream* out_stream = &std::cout;
+  std::ofstream file_stream;
+  if (!cfg.output_.empty()) {
+    file_stream.open(cfg.output_, std::ios::app | std::ios::binary);
+    out_stream = &file_stream;
+  }
+
   bs.run("R naive", [&]() { naive(mlr_in, mlr_out, cfg.d_); });
 
   bs.run(fmt::format("R cb-{0}x{0}x{0}", TILE_L1), [&]() {
@@ -397,31 +404,34 @@ auto run_bench(const Config& cfg) -> void {
   // Output
   bs.render(ankerl::nanobench::templates::csv(), *out_stream);
   file_stream.close();
+
+  return 0;
+#endif
 }
 
 } // namespace
 
 auto main(int argc, char* argv[]) -> int {
-  static std::string HELP_MSG         = "Execute 3D stencil benchmark\n\n"
-                                        "Usage: layout_tiled.benchmarks.stencil_3d [OPTIONS]\n\n"
-                                        "Options:\n"
-                                        "  -n, --size <SIZE>             Tensor size [default: 64]\n"
-                                        "  -t, --tile <SIZE>             Tile size [default: 8]\n"
-                                        "  -d, --delta <VAL>             Stencil delta (order) [default: 1]\n"
-                                        "  -o, --output <FILENAME>       Output file name\n"
-                                        "  -h, --help                    Show this help\n";
+  static std::string HELP_MSG = "Execute 3D stencil benchmark\n\n"
+                                "Usage: layout_tiled.benchmarks.stencil_3d [OPTIONS]\n\n"
+                                "Options:\n"
+                                "  -n, --size <SIZE>             Tensor size [default: 64]\n"
+                                "  -t, --tile <SIZE>             Tile size [default: 8]\n"
+                                "  -d, --delta <VAL>             Stencil delta (order) [default: 1]\n"
+                                "  -o, --output <FILENAME>       Output file name\n"
+                                "  -h, --help                    Show this help\n";
+
   static struct option long_options[] = {
-    {"size", required_argument, nullptr, 'n'},
-    {"tile", required_argument, nullptr, 't'},
-    {"delta", required_argument, nullptr, 'd'},
-    {"output", required_argument, nullptr, 'o'},
-    {"help", no_argument, nullptr, 'h'},
-    {nullptr, 0, nullptr, 0}
+    {.name = "size", .has_arg = required_argument, .flag = nullptr, .val = 'n'},
+    {.name = "tile", .has_arg = required_argument, .flag = nullptr, .val = 't'},
+    {.name = "output", .has_arg = required_argument, .flag = nullptr, .val = 'o'},
+    {.name = "help", .has_arg = no_argument, .flag = nullptr, .val = 'h'},
+    {.name = nullptr, .has_arg = 0, .flag = nullptr, .val = 0}
   };
 
   Config cfg;
-  int opt;
-  while ((opt = getopt_long(argc, argv, "n:t:d:o:h", long_options, nullptr)) != -1) {
+  int opt{};
+  while ((opt = getopt_long(argc, argv, "n:t:o:h", static_cast<const struct option*>(long_options), nullptr)) != -1) {
     switch (opt) {
     case 'n':
       cfg.n_ = std::stoul(optarg);
@@ -456,7 +466,5 @@ auto main(int argc, char* argv[]) -> int {
     }
   }
 
-  run_bench(cfg);
-
-  return 0;
+  return run_bench(cfg);
 }

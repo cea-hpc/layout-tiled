@@ -11,24 +11,44 @@ on:
     branches: [ "main" ]
 
 env:
+  CC: clang
+  CXX: clang++
+  CMAKE_GENERATOR: "Ninja Multi-Config"
+  CMAKE_COLOR_DIAGNOSTICS: ON
   CMAKE_EXPORT_COMPILE_COMMANDS: ON
 
 jobs:
   lint:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-latest
     permissions:
       contents: read
-      checks: write
-      issues: write
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
-      - uses: cpp-linter/cpp-linter-action@v2
+      - name: Get CMake & Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "~3.25.0"
+          ninjaVersion: "^1.12.1"
+
+      - name: Configure
+        run: >
+          cmake
+          -B build
+          -DLAYOUT_TILED_BUILD_TESTS=ON
+          -DLAYOUT_TILED_BUILD_EXAMPLES=ON
+          -DLAYOUT_TILED_BUILD_BENCHMARKS=ON
+
+      - name: Lint & format
+        uses: cpp-linter/cpp-linter-action@v2
+        id: linter
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           version: 20
-          style: 'file'
+          database: build
+          ignore: build
+          style: file
           tidy-checks: ''
           thread-comments: ${{ github.event_name == 'pull_request' && 'update' }}
           tidy-review: true

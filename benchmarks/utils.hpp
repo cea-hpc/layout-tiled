@@ -4,7 +4,6 @@
 #ifndef INCLUDED_BENCHMARKS_UTILS
 #define INCLUDED_BENCHMARKS_UTILS
 
-#include <limits>
 #include <sys/mman.h> // mmamp/munmap
 #include <unistd.h>   // sysconf
 
@@ -60,7 +59,7 @@ struct MemorySlice {
   MemorySlice(MemorySlice&& rhs) noexcept : ptr_(rhs.ptr_), len_(rhs.len_) {
     rhs.ptr_ = nullptr;
   }
-  auto operator=(MemorySlice&& rhs) -> MemorySlice& {
+  auto operator=(MemorySlice&& rhs) noexcept -> MemorySlice& {
     [[maybe_unused]] int _ret = munmap(static_cast<void*>(ptr_), len_);
     assert(0 == _ret);
     ptr_     = rhs.ptr_;
@@ -85,10 +84,12 @@ namespace benchmark_utils {
 
 template <class T>
   requires std::is_floating_point_v<T>
-auto check(T reference, T result, const std::string_view label, T big_o = 1.0) -> void {
+auto check(T reference, T result, const std::string_view label, T big_o = 1.0) -> int {
   if (std::abs(result - reference) > (big_o * std::numeric_limits<T>::epsilon())) {
     fmt::print(stderr, "error({}):\n  expected {:.18f}\n       got {:.18f}\n", label, reference, result);
+    return -1;
   }
+  return 0;
 }
 
 /// Computes the L2-norm of an `mdspan`.
