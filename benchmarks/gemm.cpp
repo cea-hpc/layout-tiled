@@ -464,16 +464,16 @@ auto main(int argc, char* argv[]) -> int {
                                 "  -h, --help                    Show this help\n";
 
   static struct option long_options[] = {
-    {"size", required_argument, nullptr, 'n'},
-    {"tile", required_argument, nullptr, 't'},
-    {"output", required_argument, nullptr, 'o'},
-    {"help", no_argument, nullptr, 'h'},
-    {nullptr, 0, nullptr, 0}
+    {.name = "size", .has_arg = required_argument, .flag = nullptr, .val = 'n'},
+    {.name = "tile", .has_arg = required_argument, .flag = nullptr, .val = 't'},
+    {.name = "output", .has_arg = required_argument, .flag = nullptr, .val = 'o'},
+    {.name = "help", .has_arg = no_argument, .flag = nullptr, .val = 'h'},
+    {.name = nullptr, .has_arg = 0, .flag = nullptr, .val = 0}
   };
 
   Config cfg;
-  int opt;
-  while ((opt = getopt_long(argc, argv, "n:t:o:h", long_options, nullptr)) != -1) {
+  int opt{};
+  while ((opt = getopt_long(argc, argv, "n:t:o:h", static_cast<const struct option*>(long_options), nullptr)) != -1) {
     switch (opt) {
     case 'n':
       cfg.n_ = std::stoul(optarg);

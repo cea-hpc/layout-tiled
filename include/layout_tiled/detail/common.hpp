@@ -27,7 +27,7 @@ LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto is_idx_in_extent(IdxType extent, Fr
 
 template <std::size_t... Idxs, class Extents, class... From>
 LAYOUT_TILED_INLINE_FUNCTION constexpr auto
-is_md_idx_in_span(std::index_sequence<Idxs...>, const Extents& ext, From... values) -> bool {
+is_md_idx_in_span([[maybe_unused]] std::index_sequence<Idxs...> _, const Extents& ext, From... values) -> bool {
   return (is_idx_in_extent(ext.extent(Idxs), values) && ...);
 }
 
@@ -39,8 +39,8 @@ LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto fwd_prod_of_extents(size_t i) noexc
   if (0 == i) {
     return 1;
   }
-  constexpr auto extents[] = std::to_array({Exts...});
-  std::size_t product      = 1;
+  constexpr std::array<size_t, sizeof...(Exts)> extents{Exts...};
+  std::size_t product = 1;
   for (size_t k = 0; k < i; ++k) {
     product *= extents[k];
   }
@@ -56,8 +56,8 @@ LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto rev_prod_of_extents(size_t i) noexc
   if (sizeof...(Exts) < i + 1) {
     return 1;
   }
-  constexpr auto extents[] = std::to_array({Exts...});
-  std::size_t product      = 1;
+  constexpr std::array<size_t, sizeof...(Exts)> extents{Exts...};
+  std::size_t product = 1;
   for (size_t k = i + 1; k < sizeof...(Exts); ++k) {
     product *= extents[k];
   }

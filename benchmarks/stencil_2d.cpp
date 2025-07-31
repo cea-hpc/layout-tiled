@@ -345,26 +345,27 @@ auto run_bench(const Config& cfg) -> int {
 } // namespace
 
 auto main(int argc, char* argv[]) -> int {
-  static std::string HELP_MSG         = "Execute 2D stencil benchmark\n\n"
-                                        "Usage: layout_tiled.benchmarks.stencil_2d [OPTIONS]\n\n"
-                                        "Options:\n"
-                                        "  -n, --size <SIZE>             Matrix size [default: 512]\n"
-                                        "  -t, --tile <SIZE>             Tile size [default: 64]\n"
-                                        "  -d, --delta <VAL>             Stencil delta (order) [default: 1]\n"
-                                        "  -o, --output <FILENAME>       Output file name\n"
-                                        "  -h, --help                    Show this help\n";
+  static std::string HELP_MSG = "Execute 2D stencil benchmark\n\n"
+                                "Usage: layout_tiled.benchmarks.stencil_2d [OPTIONS]\n\n"
+                                "Options:\n"
+                                "  -n, --size <SIZE>             Matrix size [default: 512]\n"
+                                "  -t, --tile <SIZE>             Tile size [default: 64]\n"
+                                "  -d, --delta <VAL>             Stencil delta (order) [default: 1]\n"
+                                "  -o, --output <FILENAME>       Output file name\n"
+                                "  -h, --help                    Show this help\n";
+
   static struct option long_options[] = {
-    {"size", required_argument, nullptr, 'n'},
-    {"tile", required_argument, nullptr, 't'},
-    {"delta", required_argument, nullptr, 'd'},
-    {"output", required_argument, nullptr, 'o'},
-    {"help", no_argument, nullptr, 'h'},
-    {nullptr, 0, nullptr, 0}
+    {.name = "size", .has_arg = required_argument, .flag = nullptr, .val = 'n'},
+    {.name = "tile", .has_arg = required_argument, .flag = nullptr, .val = 't'},
+    {.name = "output", .has_arg = required_argument, .flag = nullptr, .val = 'o'},
+    {.name = "help", .has_arg = no_argument, .flag = nullptr, .val = 'h'},
+    {.name = nullptr, .has_arg = 0, .flag = nullptr, .val = 0}
   };
 
   Config cfg;
-  int opt;
-  while ((opt = getopt_long(argc, argv, "n:t:d:o:h", long_options, nullptr)) != -1) {
+  int opt{};
+  while ((opt = getopt_long(argc, argv, "n:t:d:o:h", static_cast<const struct option*>(long_options), nullptr))
+         != -1) {
     switch (opt) {
     case 'n':
       cfg.n_ = std::stoul(optarg);
