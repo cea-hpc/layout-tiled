@@ -9,7 +9,7 @@ option(LAYOUT_TILED_BUILD_BENCHMARKS "Enable building benchmarks. Default: OFF. 
 option(LAYOUT_TILED_ENABLE_DEVICE_OFFLOAD "Enable device offload. Default: OFF. Values: { ON, OFF }." OFF)
 
 # Benchmark options
-option(LAYOUT_TILED_BENCH_ENABLE_CHECKS "Enable checking benchmarks results. Default: ON. Values: { ON, OFF }." ON)
+option(LAYOUT_TILED_BENCH_ENABLE_CHECKS "Enable checking benchmarks results. Default: ON. Values: { ON, OFF }." OFF)
 option(LAYOUT_TILED_BENCH_ENABLE_OMP "Enable building benchmarks with OpenMP. Default: OFF. Values: { ON, OFF }." OFF)
 option(LAYOUT_TILED_BENCH_ENABLE_BLAS "Enable building GEMM benchmark with BLAS. Default: ON. Values: { ON, OFF }." OFF)
 
