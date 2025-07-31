@@ -231,7 +231,6 @@ auto manual_blocked_tiled_subview(MdSpanIn in, MdSpanOut out, size_t D = DELTA) 
   }
 }
 
-auto run_bench(const Config& cfg) -> void {
   ankerl::nanobench::Bench bs;
   bs.output(nullptr).timeUnit(1s, "s").relative(true);
 #if defined(LAYOUT_TILED_ENABLE_OPENMP)
@@ -246,6 +245,7 @@ auto run_bench(const Config& cfg) -> void {
     out_stream = &file_stream;
   }
 
+auto run_bench(const Config& cfg) -> int {
   // Standard layout matrices
   auto lr_in   = MemorySlice<Type>(cfg.n_ * cfg.n_);
   auto lr_out  = MemorySlice<Type>(cfg.n_ * cfg.n_);
@@ -277,27 +277,33 @@ auto run_bench(const Config& cfg) -> void {
 
   // Checks
 #if defined(LAYOUT_TILED_ENABLE_CHECKS)
+  const auto n       = static_cast<double>(cfg.n_);
+  const double big_o = 5.0 * n * n;
+  int res            = 0;
   naive(mlr_in, mlr_out);
   double ref = benchmark_utils::l2_norm(mlr_out);
 
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_naive");
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_naive");
-
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L1");
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L2");
-
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_mbt");
-  benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_mbt");
-  naive(mlrtr_l1_in, mlrtr_l1_out);
-  naive(mlrtr_l2_in, mlrtr_l2_out);
   cache_blocked<TILE_L1, TILE_L1>(mlr_in, mlr_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L1", big_o);
   cache_blocked<TILE_L2, TILE_L2>(mlr_in, mlr_out);
-  manual_blocked_tiled<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
-  manual_blocked_tiled<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
-  manual_blocked_tiled_subview<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
-  manual_blocked_tiled_subview<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
-#endif
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L2", big_o);
 
+  naive(mlrtr_l1_in, mlrtr_l1_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_naive", big_o);
+  naive(mlrtr_l2_in, mlrtr_l2_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_naive", big_o);
+
+  manual_blocked_tiled<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_mbt", big_o);
+  manual_blocked_tiled<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_mbt", big_o);
+  manual_blocked_tiled_subview<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_mbtsv", big_o);
+  manual_blocked_tiled_subview<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_mbtsv", big_o);
+
+  return res;
+#else
   // Benchmarks
   bs.run("R naive", [&]() { naive(mlr_in, mlr_out, cfg.d_); });
 
@@ -330,6 +336,9 @@ auto run_bench(const Config& cfg) -> void {
   // Output
   bs.render(ankerl::nanobench::templates::csv(), *out_stream);
   file_stream.close();
+
+  return 0;
+#endif
 }
 
 } // namespace
@@ -389,7 +398,5 @@ auto main(int argc, char* argv[]) -> int {
     }
   }
 
-  run_bench(cfg);
-
-  return 0;
+  return run_bench(cfg);
 }
