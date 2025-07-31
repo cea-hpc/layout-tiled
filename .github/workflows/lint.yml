@@ -21,12 +21,15 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     permissions:
-      contents: read
-      checks: write
-      issues: write
       pull-requests: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Get CMake & Ninja
+        uses: lukka/get-cmake@latest
+        with:
+          cmakeVersion: "~3.25.0"
+          ninjaVersion: "^1.12.1"
 
       # Configure project so that clangd & clang-tidy have a compilation database before linting
       - run: >
@@ -37,10 +40,12 @@ jobs:
           -DLAYOUT_TILED_BUILD_BENCHMARKS=ON
 
       - uses: cpp-linter/cpp-linter-action@v2
+        id: linter
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           version: 20
+          database: build
           style: 'file'
           tidy-checks: ''
           thread-comments: ${{ github.event_name == 'pull_request' && 'update' }}
