@@ -1,4 +1,4 @@
-// examples/layout_right_tiled_right.cpp -*-C++-*-
+// examples/layout_rtr.cpp -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0
 
 #include <array>
@@ -6,7 +6,7 @@
 #include <experimental/mdspan>
 
 #include <fmt/core.h>
-#include <layout_tiled/layout_right_tiled_right.hpp>
+#include <layout_tiled/layout_rtr.hpp>
 
 auto main() -> int {
   constexpr size_t ROWS  = 4;
@@ -29,7 +29,7 @@ auto main() -> int {
   // clang-format on
 
   auto m_lin = std::mdspan<element_type, extents_type>(rtr.data());
-  auto m_rtr = std::mdspan<element_type, extents_type, layout_right_tiled_right<TROWS, TCOLS>>(rtr.data());
+  auto m_rtr = std::mdspan<element_type, extents_type, layout_tiled::layout_rtr<TROWS, TCOLS>>(rtr.data());
 
   fmt::print("\nActual storage (manually tiled):\n");
   for (size_t i = 0; i < ROWS; ++i) {

@@ -1,13 +1,13 @@
-// tests/layout_tiled/layout_right_tiled_left.cpp -*-C++-*-
+// tests/layout_tiled/layout_rtr.test.cpp -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0
 
 #include <array>
 #include <experimental/mdspan>
 
 #include <gtest/gtest.h>
-#include <layout_tiled/layout_right_tiled_left.hpp>
+#include <layout_tiled/layout_rtr.hpp>
 
-TEST(layout_right_tiled_left, maps_to_2d_linear_storage) {
+TEST(layout_rtr, maps_to_2d_linear_storage) {
   constexpr size_t ROWS  = 4;
   constexpr size_t COLS  = 6;
   constexpr size_t TROWS = 2;
@@ -15,7 +15,7 @@ TEST(layout_right_tiled_left, maps_to_2d_linear_storage) {
 
   using element_type = int;
   using extents_type = std::dextents<size_t, 2>;
-  using layout_rtl   = layout_right_tiled_left<TROWS, TCOLS>;
+  using layout_rtr   = layout_tiled::layout_rtr<TROWS, TCOLS>;
 
   // clang-format off
   // Linearly ordered data (row-major)
@@ -27,22 +27,22 @@ TEST(layout_right_tiled_left, maps_to_2d_linear_storage) {
   };
 
   // Manually tiled data (row-major over tiles, row-major within tiles)
-  std::array<element_type, ROWS * COLS> rtl{
-     0,  6,  1,  7,  2,  8,
-     3,  9,  4, 10,  5, 11,
-    12, 18, 13, 19, 14, 20,
-    15, 21, 16, 22, 17, 23,
+  std::array<element_type, ROWS * COLS> rtr{
+     0,  1,  2,  6,  7,  8,
+     3,  4,  5,  9, 10, 11,
+    12, 13, 14, 18, 19, 20,
+    15, 16, 17, 21, 22, 23,
   };
   // clang-format on
 
   auto m_row = std::mdspan<element_type, extents_type>(row.data(), ROWS, COLS);
-  auto m_rtl = std::mdspan<element_type, extents_type, layout_rtl>(rtl.data(), ROWS, COLS);
+  auto m_rtr = std::mdspan<element_type, extents_type, layout_rtr>(rtr.data(), ROWS, COLS);
 
   for (size_t i = 0; i < ROWS; ++i) {
     for (size_t j = 0; j < COLS; ++j) {
       auto row_val = m_row[i, j];
-      auto rtl_val = m_rtl[i, j];
-      EXPECT_EQ(row_val, rtl_val);
+      auto rtr_val = m_rtr[i, j];
+      EXPECT_EQ(row_val, rtr_val);
     }
   }
 }
