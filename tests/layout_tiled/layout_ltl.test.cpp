@@ -1,13 +1,13 @@
-// tests/layout_tiled/layout_left_tiled_left.cpp -*-C++-*-
+// tests/layout_tiled/layout_ltl.test.cpp -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0
 
 #include <array>
 #include <experimental/mdspan>
 
 #include <gtest/gtest.h>
-#include <layout_tiled/layout_left_tiled_left.hpp>
+#include <layout_tiled/layout_ltl.hpp>
 
-TEST(layout_left_tiled_left, maps_to_2d_linear_storage) {
+TEST(layout_ltl, maps_to_2d_linear_storage) {
   constexpr size_t ROWS  = 4;
   constexpr size_t COLS  = 6;
   constexpr size_t TROWS = 2;
@@ -15,7 +15,7 @@ TEST(layout_left_tiled_left, maps_to_2d_linear_storage) {
 
   using element_type = int;
   using extents_type = std::dextents<size_t, 2>;
-  using layout_ltl   = layout_left_tiled_left<TROWS, TCOLS>;
+  using layout_ltl   = layout_tiled::layout_ltl<TROWS, TCOLS>;
 
   // clang-format off
   // Linearly ordered data (row-major)
