@@ -107,6 +107,26 @@ template <class MdSpan>
   return std::sqrt(sum);
 }
 
+template <class MdSpanRef, class MdSpanGot>
+  requires std::is_floating_point_v<typename MdSpanRef::value_type> and std::is_floating_point_v<typename MdSpanGot::value_type>
+auto compare_2d_vals(const MdSpanRef ref, const MdSpanGot got) -> void {
+  assert(ref.extent(0) == got.extent(0));
+  assert(ref.extent(1) == got.extent(1));
+
+  const size_t M = ref.extent(0);
+  const size_t N = ref.extent(1);
+
+  for (size_t i = 0; i < M; ++i) {
+    for (size_t j = 0; j < N; ++j) {
+      auto r = ref[i, j];
+      auto g = got[i, j];
+      if (std::abs(g - r) > std::numeric_limits<double>::epsilon()) {
+        fmt::print(stderr, "({:03}, {:03}): expected {:.18f}, got {:.18f}\n", i, j, r, g);
+      }
+    }
+  }
+}
+
 /// Fills an `mdspan` with zeroes.
 template <class MdSpan>
   requires std::is_floating_point_v<typename MdSpan::value_type>
