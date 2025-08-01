@@ -154,10 +154,9 @@ auto manual_blocked_tiled(const MdSpanIn in, MdSpanOut out) -> void {
           // North neighbor: i-D, j
           index_type north = 0;
           if (li - D >= 0 || x == 0) {
-            // Same tile
+            // Same tile or first row of tiles
             north = center - TN;
           } else {
-            // ◊ ◌ ¤ ↑ ↗ → ↘ ↓ ↙ ← ↖ ↔ ↕ ■ ▲ ▶ ▼ ◀ △ ▷ ▽ ◁ ╦ ╗ ╔ ═ ╩ ╝ ╚ ║ ╬ ╣ ╠
             // Different tile
             //  ┌─────────┬─────────┬─────────┬─────────┐
             //  │         │△═╗2     │         │         │  If the target element (@) is in the tile above us (*), we do:
@@ -209,7 +208,7 @@ auto manual_blocked_tiled(const MdSpanIn in, MdSpanOut out) -> void {
           // West neighbor: i, j-D
           index_type west = 0;
           if (lj - D >= 0 || y == 0) {
-            // Same tile
+            // Same tile or first column of tiles
             west = center - D;
           } else {
             // Different tile
