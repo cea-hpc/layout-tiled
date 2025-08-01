@@ -126,8 +126,8 @@ auto manual_blocked_tiled(const MdSpanIn in, MdSpanOut out) -> void {
 
   using index_type = typename MdSpanIn::index_type;
 
-  const size_t M                        = out.extent(0);
-  const size_t N                        = out.extent(1);
+  const size_t M                        = in.extent(0);
+  const size_t N                        = in.extent(1);
   constexpr index_type tile_size        = in.mapping().tile_size();
   const index_type nb_elems_in_tile_row = tile_size * in.mapping().ntiles_in_extent(0);
 
@@ -138,57 +138,126 @@ auto manual_blocked_tiled(const MdSpanIn in, MdSpanOut out) -> void {
 #endif
   for (index_type x = D; x < M - D; x += TM) {
     for (index_type y = D; y < N - D; y += TN) {
+      // Compute offset of first element in tile (outside domain if in first tile row/column)
+      const index_type center_toff = in.mapping().tile_offset_outer(x, y);
+
       for (index_type i = x; i < std::min(x + TM, M - D); ++i) {
+        const index_type li         = i % TM;
+        const index_type center_row = li * TN;
+        const index_type north_row  = (li - D + TM) * TN;
+        const index_type south_row  = (li + D - TM) * TN;
+
         for (index_type j = y; j < std::min(y + TN, N - D); ++j) {
-          // Compute local i and j coordinates (used to determine whether we are at a tile boundary or not)
-          const index_type li = i % TM;
-          const index_type lj = j % TN;
+          const index_type lj     = j % TN;
+          const index_type center = center_toff + center_row + lj;
 
-          const index_type center_toff = in.mapping().tile_offset_outer(i, j);
-          const index_type center      = center_toff + in.mapping().tile_offset_inner(i, j);
-
-          // North neighbor: i-1, j
+          // North neighbor: i-D, j
           index_type north = 0;
-          if (li >= D) {
+          if (li - D >= 0 || x == 0) {
             // Same tile
             north = center - TN;
           } else {
+            // ◊ ◌ ¤ ↑ ↗ → ↘ ↓ ↙ ← ↖ ↔ ↕ ■ ▲ ▶ ▼ ◀ △ ▷ ▽ ◁ ╦ ╗ ╔ ═ ╩ ╝ ╚ ║ ╬ ╣ ╠
             // Different tile
-            const index_type north_toff = center_toff - nb_elems_in_tile_row;
-            north                       = north_toff + in.mapping().tile_offset_inner(i, j);
+            //  ┌─────────┬─────────┬─────────┬─────────┐
+            //  │         │△═╗2     │         │         │  If the target element (@) is in the tile above us (*), we do:
+            //  │         │║ ║  3   │         │         │
+            //  │         │║1▽══▶@  │         │         │  1. Subtract $N_elems_per_tile \times N_tiles_in_row$ from the
+            //  ├─────────┼║─────↑──┼─────────┼─────────┤     base tile offset (■);
+            //  │         │■   ← * →│         │         │  2. Add the pre-computed north_row offset;
+            //  │         │      ↓  │         │         │  3. Add the local j offset.
+            //  │         │         │         │         │
+            //  ├─────────┼─────────┼─────────┼─────────┤
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  ├─────────┼─────────┼─────────┼─────────┤
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  └─────────┴─────────┴─────────┴─────────┘
+            north = center_toff - nb_elems_in_tile_row + north_row + lj;
           }
 
-          // South neighbor: i+1, j
+          // South neighbor: i+D, j
           index_type south = 0;
-          if (li < TM - D && i + D < M) {
+          if (li + D < TM && i + D < M) {
             // Same tile
             south = center + TN;
           } else {
             // Different tile
-            const index_type south_toff = center_toff + nb_elems_in_tile_row;
-            south                       = south_toff + in.mapping().tile_offset_inner(i, j);
+            //  ┌─────────┬─────────┬─────────┬─────────┐
+            //  │         │         │         │         │  If the target element (@) is in the tile below us (*), we do:
+            //  │         │         │         │         │
+            //  │         │         │         │         │  1. Add $N_elems_per_tile \times N_tiles_in_row$ from the
+            //  ├─────────┼─────────┼─────────┼─────────┤     base tile offset (■);
+            //  │         │■        │         │         │  2. Add the pre-computed south_row offset (may not be 0 if
+            //  │         │║     ↑  │         │         │     D > 1);
+            //  │         │║1  ← * →│         │         │  3. Add the local j offset.
+            //  ├─────────┼║─────↓──┼─────────┼─────────┤
+            //  │         │▽════▶@  │         │         │
+            //  │         │  2&3    │         │         │
+            //  │         │         │         │         │
+            //  ├─────────┼─────────┼─────────┼─────────┤
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  └─────────┴─────────┴─────────┴─────────┘
+            south = center_toff + nb_elems_in_tile_row + south_row + lj;
           }
 
           // West neighbor: i, j-D
           index_type west = 0;
-          if (lj >= D) {
+          if (lj - D >= 0 || y == 0) {
             // Same tile
             west = center - D;
           } else {
             // Different tile
-            const index_type west_toff = center_toff - tile_size;
-            west                       = west_toff + in.mapping().tile_offset_inner(i, j);
+            //  ┌─────────┬─────────┬─────────┬─────────┐
+            //  │         │         │         │         │  If the target element (@) is in the tile left of us (*), we
+            //  │         │         │         │         │  do:
+            //  │         │         │         │         │
+            //  ├────1────┼─────────┼─────────┼─────────┤  1. Subtract $N_elems_per_tile$ from the base tile offset (■);
+            //  │◁═════════■↑       │         │         │  2. Add the pre-computed center_row offset;
+            //  2▽══════▶@← * →     │         │         │  3. Add the local j - D + TN offset.
+            //  │         │ ↓       │         │         │
+            //  ├─────────┼─────────┼─────────┼─────────┤
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  ├─────────┼─────────┼─────────┼─────────┤
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  └─────────┴─────────┴─────────┴─────────┘
+            west = center_toff - tile_size + center_row + (lj - D + TN);
           }
 
           // East neighbor: i, j+D
           index_type east;
-          if (lj < TN - D && j + D < N) {
+          if (lj - D < TN && j + D < N) {
             // Same tile
             east = center + D;
           } else {
             // Different tile
-            const index_type east_toff = center_toff + tile_size;
-            east                       = east_toff + in.mapping().tile_offset_inner(i, j);
+            //  ┌─────────┬─────────┬─────────┬─────────┐
+            //  │         │         │         │         │  If the target element (@) is in the tile right of us (*), we
+            //  │         │         │         │         │  do:
+            //  │         │         │         │         │
+            //  ├─────────┼────1────┼2────────┼─────────┤  1. Add $N_elems_per_tile$ from the base tile offset (■);
+            //  │         │■══════↑══▼ 3      │         │  2. Add the pre-computed center_row offset;
+            //  │         │     ← * →@        │         │  3. Add the local j + D - TN offset.
+            //  │         │       ↓ │         │         │
+            //  ├─────────┼─────────┼─────────┼─────────┤
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  ├─────────┼─────────┼─────────┼─────────┤
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  └─────────┴─────────┴─────────┴─────────┘
+            east = center_toff + tile_size + center_row + (lj + D - TN);
           }
 
           // clang-format off
@@ -357,11 +426,9 @@ auto run_bench(const Config& cfg) -> int {
 
   // Initializations
   auto rng_naive    = ankerl::nanobench::Rng(42);
-  auto rng_tiled_l1 = rng_naive.copy();
-  auto rng_tiled_l2 = rng_naive.copy();
   benchmark_utils::fill_2d_uniform01(mlr_in, rng_naive);
-  benchmark_utils::fill_2d_uniform01(mlrtr_l1_in, rng_tiled_l1);
-  benchmark_utils::fill_2d_uniform01(mlrtr_l2_in, rng_tiled_l2);
+  benchmark_utils::fill_2d_copy(mlrtr_l1_in, mlr_in);
+  benchmark_utils::fill_2d_copy(mlrtr_l2_in, mlr_in);
 
 #if defined(LAYOUT_TILED_BENCH_ENABLE_CHECKS)
   // Checks
@@ -369,8 +436,11 @@ auto run_bench(const Config& cfg) -> int {
   const double big_o = 5.0 * n * n;
   int res            = 0;
 
-  naive(mlr_in, mlr_out);
-  double ref = benchmark_utils::l2_norm(mlr_out);
+  auto ref_out  = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto mref_out = std::mdspan<Type, Exts>(ref_out.get(), cfg.n_, cfg.n_);
+  naive(mlr_in, mref_out);
+  double ref = benchmark_utils::l2_norm(mref_out);
+  benchmark_utils::fill_zeroes(mlr_out);
 
   cache_blocked<TILE_L1, TILE_L1>(mlr_in, mlr_out);
   res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L1", big_o);
@@ -384,8 +454,10 @@ auto run_bench(const Config& cfg) -> int {
 
   manual_blocked_tiled<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
   res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_mbt", big_o);
+  // benchmark_utils::compare_2d_vals(mref_out, mlrtr_l1_out);
   manual_blocked_tiled<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
   res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_mbt", big_o);
+
   manual_blocked_tiled_subview<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
   res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_mbtsv", big_o);
   manual_blocked_tiled_subview<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
