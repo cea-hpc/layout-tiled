@@ -102,7 +102,7 @@ template <class MdSpan>
 #pragma omp parallel for reduction(+ : sum)
 #endif
   for (size_t e = 0; e < m.size(); ++e) {
-    sum += ptr[e];
+    sum += (ptr[e] * ptr[e]);
   }
   return std::sqrt(sum);
 }
