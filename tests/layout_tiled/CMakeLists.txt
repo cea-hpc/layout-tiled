@@ -2,10 +2,10 @@ include(GoogleTest)
 
 set(
   ALL_TESTS
-  layout_left_tiled_left
-  layout_left_tiled_right
-  layout_right_tiled_left
-  layout_right_tiled_right
+  layout_ltl
+  layout_ltr
+  layout_rtl
+  layout_rtr
 )
 
 foreach(test ${ALL_TESTS})
@@ -35,6 +35,7 @@ foreach(test ${ALL_TESTS})
     PRIVATE
       layout_tiled::layout_tiled
       mdspan::mdspan
+      GTest::gtest
       GTest::gtest_main
   )
 

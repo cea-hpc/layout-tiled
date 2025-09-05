@@ -1,19 +1,23 @@
-// include/layout_tiled/layout_left_tiled_left.hpp -*-C++-*-
+// include/layout_tiled/layout_rtr.hpp -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0
 
-#ifndef INCLUDED_LAYOUT_TILED_LAYOUT_LEFT_TILED_LEFT
-#define INCLUDED_LAYOUT_TILED_LAYOUT_LEFT_TILED_LEFT
+#ifndef INCLUDED_LAYOUT_TILED_LAYOUT_RTR
+#define INCLUDED_LAYOUT_TILED_LAYOUT_RTR
 
 #include <array>
 #include <cassert>
 #include <cstddef>
 #include <utility>
 
+#include <experimental/__p0009_bits/layout_right.hpp>
+
 #include "detail/common.hpp"
 #include "detail/macros.hpp"
 
+namespace layout_tiled {
+
 template <size_t... TileExtents>
-class layout_left_tiled_left {
+class layout_rtr {
 public:
   template <class Extents>
   struct mapping {
@@ -21,14 +25,17 @@ public:
     using index_type   = typename extents_type::index_type;
     using size_type    = typename extents_type::size_type;
     using rank_type    = typename extents_type::rank_type;
-    using layout_type  = layout_left_tiled_left;
+    using layout_type  = layout_rtr<TileExtents...>;
 
-    static_assert(extents_type::rank() > 0, "layout_left_tiled_left::mapping: number of extents must be positive");
+    using outer_layout_type = std::layout_right;
+    using inner_layout_type = std::layout_right;
+
+    static_assert(extents_type::rank() > 0, "layout_tiled::layout_rtr::mapping: number of extents must be positive");
     static_assert(
       extents_type::rank() == sizeof...(TileExtents),
-      "layout_left_tiled_left::mapping: number of tile extents must match extents rank"
+      "layout_tiled::layout_rtr::mapping: number of tile extents must match extents rank"
     );
-    static_assert(((TileExtents > 0) && ...), "layout_left_tiled_left::mapping: all tile extents must be positive");
+    static_assert(((TileExtents > 0) && ...), "layout_tiled::layout_rtr::mapping: all tile extents must be positive");
 
   private:
     static constexpr auto extents_are_strictly_positive(const extents_type& ext) -> bool {
@@ -58,7 +65,7 @@ public:
     }
     static_assert(
       extents_type::rank_dynamic() > 0 || required_span_size_is_representable(extents_type()),
-      "layout_left_tiled_left::mapping: product of static extents must be representable as index_type"
+      "layout_tiled::layout_rtr::mapping: product of static extents must be representable as index_type"
     );
 
     static constexpr auto tile_extents_are_multiples_of_extents(const extents_type& ext) -> bool {
@@ -74,27 +81,34 @@ public:
     }
 
   public:
-    // [mdspan.layout_left_tiled_left.cons]
+    // [mdspan.layout_tiled::layout_rtr.cons]
     LAYOUT_TILED_INLINE_FUNCTION
     constexpr mapping() noexcept = default;
 
     LAYOUT_TILED_INLINE_FUNCTION
-    constexpr mapping(mapping const&) noexcept = default;
+    constexpr mapping(const mapping&) noexcept = default;
+    LAYOUT_TILED_INLINE_FUNCTION
+    constexpr auto operator=(const mapping&) noexcept -> mapping& = default;
 
     LAYOUT_TILED_INLINE_FUNCTION
-    mapping(extents_type const& exts) noexcept : extents_(exts) {
+    constexpr mapping(mapping&&) noexcept = default;
+    LAYOUT_TILED_INLINE_FUNCTION
+    constexpr auto operator=(mapping&&) noexcept -> mapping& = default;
+
+    LAYOUT_TILED_INLINE_FUNCTION
+    constexpr ~mapping() noexcept = default;
+
+    LAYOUT_TILED_INLINE_FUNCTION
+    explicit mapping(const extents_type& exts) noexcept : extents_(exts) {
       assert(extents_are_strictly_positive(exts));
       assert(required_span_size_is_representable(exts));
       assert(tile_extents_are_multiples_of_extents(exts));
     }
 
-    LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto operator=(mapping const&) noexcept -> mapping& = default;
-
     /* --- REQUIRED MEMBERS --- */
-    // [mdspan.layout_left_tiled_left.obs]
+    // [mdspan.layout_tiled::layout_rtr.obs]
     LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto extents() const -> extents_type const& {
+    constexpr auto extents() const -> const extents_type& {
       return extents_;
     }
 
@@ -111,7 +125,7 @@ public:
       requires (extents_type::rank() == sizeof...(Idxs))
     LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto operator()(Idxs... idxs) const noexcept -> index_type {
       assert(
-        "layout_left_tiled_left::mapping: out of bounds indexing"
+        "layout_tiled::layout_rtr::mapping: out of bounds indexing"
         && detail::is_md_idx_in_span(std::make_index_sequence<extents_type::rank()>(), extents_, idxs...)
       );
 
@@ -142,19 +156,19 @@ public:
     }
     /// Always exhaustive.
     LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto is_exhaustive() const noexcept -> bool {
+    static constexpr auto is_exhaustive() noexcept -> bool {
       return true;
     }
     /// Always strided.
     LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto is_strided() const noexcept -> bool {
+    static constexpr auto is_strided() noexcept -> bool {
       return true;
     }
 
-    /// Stride is the forward product of tile extents.
+    /// Stride is the reverse product of tile extents.
     LAYOUT_TILED_INLINE_FUNCTION
     constexpr auto stride(rank_type r) const noexcept -> index_type {
-      detail::fwd_prod_of_extents<TileExtents...>(r);
+      return detail::rev_prod_of_extents<TileExtents...>(r);
     }
     /* --- END REQUIRED MEMBERS --- */
 
@@ -183,26 +197,32 @@ public:
     /* --- HELPER MEMBERS --- */
     /// Finds the starting offset of the tile in which the indexed element is located.
     template <class... Idxs>
-    LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto tile_offset_outer(Idxs... idxs) const noexcept -> index_type {
-      auto idx_arr      = std::to_array({idxs...});
+    LAYOUT_TILED_INLINE_FUNCTION constexpr auto tile_offset_outer(Idxs... idxs) const noexcept -> index_type {
+      constexpr rank_type rank = extents_type::rank();
+      auto coords              = [idxs...]<rank_type... Is>(std::index_sequence<Is...>) {
+        return std::array<index_type, rank>{(idxs / textent(Is))...};
+      }(std::make_index_sequence<rank>());
       index_type offset = 0;
       index_type stride = 1;
-      for (rank_type i = 0; i < extents_type::rank(); ++i) {
-        offset += idx_arr[i] / textent(i) * stride;
-        stride *= ntiles_in_extent(i);
+      for (rank_type i = rank; i > 0; --i) {
+        offset += coords[i - 1] * stride;
+        stride *= ntiles_in_extent(i - 1);
       }
       return offset * tile_size();
     }
 
     /// Finds the offset of the indexed element within a tile.
     template <class... Idxs>
-    LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto tile_offset_inner(Idxs... idxs) const noexcept -> index_type {
-      auto idx_arr      = std::to_array({idxs...});
+    LAYOUT_TILED_INLINE_FUNCTION constexpr auto tile_offset_inner(Idxs... idxs) const noexcept -> index_type {
+      constexpr rank_type rank = extents_type::rank();
+      auto coords              = [idxs...]<rank_type... Is>(std::index_sequence<Is...>) {
+        return std::array<index_type, rank>{(idxs % textent(Is))...};
+      }(std::make_index_sequence<rank>());
       index_type offset = 0;
       index_type stride = 1;
-      for (rank_type i = 0; i < extents_type::rank(); ++i) {
-        offset += idx_arr[i] % textent(i) * stride;
-        stride *= textent(i);
+      for (rank_type i = rank; i > 0; --i) {
+        offset += coords[i - 1] * stride;
+        stride *= textent(i - 1);
       }
       return offset;
     }
@@ -213,4 +233,6 @@ public:
   };
 };
 
-#endif // INCLUDED_LAYOUT_TILED_LAYOUT_LEFT_TILED_LEFT
+} // namespace layout_tiled
+
+#endif // INCLUDED_LAYOUT_TILED_LAYOUT_RTR

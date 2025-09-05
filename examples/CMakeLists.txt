@@ -1,9 +1,9 @@
 set(
   ALL_EXAMPLES
-  layout_right_tiled_right
-  layout_right_tiled_left
-  layout_left_tiled_right
-  layout_left_tiled_left
+  layout_rtr
+  layout_rtl
+  layout_ltr
+  layout_ltl
 )
 
 foreach(example ${ALL_EXAMPLES})

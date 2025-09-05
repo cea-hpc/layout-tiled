@@ -28,11 +28,7 @@ target_sources(
     FILE_SET layout_tiled_public_headers
     TYPE HEADERS
     BASE_DIRS ${CMAKE_SOURCE_DIR}/include
-    FILES
-      layout_right_tiled_right.hpp
-      layout_right_tiled_left.hpp
-      layout_left_tiled_right.hpp
-      layout_left_tiled_left.hpp
+    FILES layout_rtr.hpp layout_rtl.hpp layout_ltr.hpp layout_ltl.hpp
     FILE_SET layout_tiled_detail_headers
     TYPE HEADERS
     BASE_DIRS ${CMAKE_SOURCE_DIR}/include

@@ -12,8 +12,8 @@
 #include <string>
 
 #include <fmt/core.h>
-#include <layout_tiled/layout_left_tiled_left.hpp>
-#include <layout_tiled/layout_right_tiled_right.hpp>
+#include <layout_tiled/layout_ltl.hpp>
+#include <layout_tiled/layout_rtr.hpp>
 #include <nanobench.h>
 #if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #include <omp.h>
@@ -329,14 +329,14 @@ auto run_bench(const Config& cfg) -> int {
   auto mrB     = std::mdspan<Type, Exts>(rB.get(), cfg.n_, cfg.n_);
   auto mrC     = std::mdspan<Type, Exts>(rC.get(), cfg.n_, cfg.n_);
   auto mlB     = std::mdspan<Type, Exts, std::layout_left>(lB.get(), cfg.n_, cfg.n_);
-  auto mtrA_l1 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L1, TILE_L1>>(trA_l1.get(), cfg.n_, cfg.n_);
-  auto mtrB_l1 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L1, TILE_L1>>(trB_l1.get(), cfg.n_, cfg.n_);
-  auto mtrC_l1 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L1, TILE_L1>>(trC_l1.get(), cfg.n_, cfg.n_);
-  auto mtlB_l1 = std::mdspan<Type, Exts, layout_left_tiled_left<TILE_L1, TILE_L1>>(tlB_l1.get(), cfg.n_, cfg.n_);
-  auto mtrA_l2 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L2, TILE_L2>>(trA_l2.get(), cfg.n_, cfg.n_);
-  auto mtrB_l2 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L2, TILE_L2>>(trB_l2.get(), cfg.n_, cfg.n_);
-  auto mtrC_l2 = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L2, TILE_L2>>(trC_l2.get(), cfg.n_, cfg.n_);
-  auto mtlB_l2 = std::mdspan<Type, Exts, layout_left_tiled_left<TILE_L2, TILE_L2>>(tlB_l2.get(), cfg.n_, cfg.n_);
+  auto mtrA_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L1, TILE_L1>>(trA_l1.get(), cfg.n_, cfg.n_);
+  auto mtrB_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L1, TILE_L1>>(trB_l1.get(), cfg.n_, cfg.n_);
+  auto mtrC_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L1, TILE_L1>>(trC_l1.get(), cfg.n_, cfg.n_);
+  auto mtlB_l1 = std::mdspan<Type, Exts, layout_tiled::layout_ltl<TILE_L1, TILE_L1>>(tlB_l1.get(), cfg.n_, cfg.n_);
+  auto mtrA_l2 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L2, TILE_L2>>(trA_l2.get(), cfg.n_, cfg.n_);
+  auto mtrB_l2 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L2, TILE_L2>>(trB_l2.get(), cfg.n_, cfg.n_);
+  auto mtrC_l2 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L2, TILE_L2>>(trC_l2.get(), cfg.n_, cfg.n_);
+  auto mtlB_l2 = std::mdspan<Type, Exts, layout_tiled::layout_ltl<TILE_L2, TILE_L2>>(tlB_l2.get(), cfg.n_, cfg.n_);
 
   // Matrix initializations
   ankerl::nanobench::Rng rng_naive(42);

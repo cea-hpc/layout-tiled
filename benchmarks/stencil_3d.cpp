@@ -12,7 +12,7 @@
 #include <string>
 
 #include <fmt/core.h>
-#include <layout_tiled/layout_right_tiled_right.hpp>
+#include <layout_tiled/layout_rtr.hpp>
 #include <nanobench.h>
 #if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #include <omp.h>
@@ -288,13 +288,13 @@ auto run_bench(const Config& cfg) -> int {
   // Tiled layout matrices
   auto lrtr_l1_in  = MemorySlice<Type>(cfg.n_ * cfg.n_ * cfg.n_);
   auto lrtr_l1_out = MemorySlice<Type>(cfg.n_ * cfg.n_ * cfg.n_);
-  auto mlrtr_l1_in = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L1, TILE_L1, TILE_L1>>(
+  auto mlrtr_l1_in = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L1, TILE_L1, TILE_L1>>(
     lrtr_l1_in.get(),
     cfg.n_,
     cfg.n_,
     cfg.n_
   );
-  auto mlrtr_l1_out = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L1, TILE_L1, TILE_L1>>(
+  auto mlrtr_l1_out = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L1, TILE_L1, TILE_L1>>(
     lrtr_l1_out.get(),
     cfg.n_,
     cfg.n_,
@@ -303,13 +303,13 @@ auto run_bench(const Config& cfg) -> int {
 
   auto lrtr_l2_in  = MemorySlice<Type>(cfg.n_ * cfg.n_ * cfg.n_);
   auto lrtr_l2_out = MemorySlice<Type>(cfg.n_ * cfg.n_ * cfg.n_);
-  auto mlrtr_l2_in = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L2, TILE_L2, TILE_L2>>(
+  auto mlrtr_l2_in = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L2, TILE_L2, TILE_L2>>(
     lrtr_l2_in.get(),
     cfg.n_,
     cfg.n_,
     cfg.n_
   );
-  auto mlrtr_l2_out = std::mdspan<Type, Exts, layout_right_tiled_right<TILE_L2, TILE_L2, TILE_L2>>(
+  auto mlrtr_l2_out = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L2, TILE_L2, TILE_L2>>(
     lrtr_l2_out.get(),
     cfg.n_,
     cfg.n_,
