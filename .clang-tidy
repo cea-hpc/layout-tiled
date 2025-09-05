@@ -10,6 +10,7 @@ Checks:
   -cppcoreguidelines-avoid-magic-numbers,
   -cppcoreguidelines-pro-bounds-pointer-arithmetic,
   google-*,
+  -google-readability-avoid-underscore-in-googletest-name,
   hicpp-*,
   llvm-*,
   -llvm-header-guard,

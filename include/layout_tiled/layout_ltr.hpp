@@ -88,18 +88,23 @@ public:
 
     LAYOUT_TILED_INLINE_FUNCTION
     constexpr mapping(const mapping&) noexcept = default;
+    LAYOUT_TILED_INLINE_FUNCTION
+    constexpr auto operator=(const mapping&) noexcept -> mapping& = default;
 
     LAYOUT_TILED_INLINE_FUNCTION
-    mapping(const extents_type& exts) noexcept : extents_(exts) {
+    constexpr mapping(mapping&&) noexcept = default;
+    LAYOUT_TILED_INLINE_FUNCTION
+    constexpr auto operator=(mapping&&) noexcept -> mapping& = default;
+
+    LAYOUT_TILED_INLINE_FUNCTION
+    constexpr ~mapping() noexcept = default;
+
+    LAYOUT_TILED_INLINE_FUNCTION
+    explicit mapping(const extents_type& exts) noexcept : extents_(exts) {
       assert(extents_are_strictly_positive(exts));
       assert(required_span_size_is_representable(exts));
       assert(tile_extents_are_multiples_of_extents(exts));
     }
-
-    /* --- REQUIRED MEMBERS --- */
-    // [mdspan.layout_tiled::layout_ltr.obs]
-    LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto operator=(const mapping&) noexcept -> mapping& = default;
 
     /* --- REQUIRED MEMBERS --- */
     // [mdspan.layout_tiled::layout_ltr.obs]
@@ -152,12 +157,12 @@ public:
     }
     /// Always exhaustive.
     LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto is_exhaustive() const noexcept -> bool {
+    static constexpr auto is_exhaustive() noexcept -> bool {
       return true;
     }
     /// Always strided.
     LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto is_strided() const noexcept -> bool {
+    static constexpr auto is_strided() noexcept -> bool {
       return true;
     }
 
