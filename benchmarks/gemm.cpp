@@ -229,7 +229,7 @@ auto manual_blocked_tiled_subview(const MdSpanA A, const MdSpanB B, MdSpanC C) -
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
   requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
-auto manual_blocked_tiled_subview_unroll_vec_k(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
+auto manual_blocked_tiled_subview_vec_unroll_k(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
@@ -259,38 +259,37 @@ auto manual_blocked_tiled_subview_unroll_vec_k(const MdSpanA A, const MdSpanB B,
             // If TO == 32, this effectively fully unrolls the `k` loop.
             //
             // On Zen3, `vfmaddXXXpd` is 4 lat / 0.5 tp (CPI) => at least 2 FMAs needed to achieve max throughput.
-            // Unrolling more than that allows to reduce the cost of the horizontal reduction at the end.
+            // Unrolling more allows to amortize the cost of the final horizontal reduction.
             //
             // TODO(dssgabriel): Attempt to vectorize the `j` loop to remove the need for the horizontal reduction.
             if constexpr (TO >= 32 and TO % 32 == 0) {
               __m256d vacc = _mm256_setzero_pd();
               for (size_t k = 0; k < std::min(TO, O - z); k += 32) {
-                __m256d va0 = _mm256_load_pd(&tA[i, k]);
-                __m256d vb0 = _mm256_load_pd(&tB[k, j]);
+                __m256d va0 = _mm256_loadu_pd(&tA[i, k]);
+                __m256d vb0 = _mm256_loadu_pd(&tB[k, j]);
                 vacc        = _mm256_fmadd_pd(va0, vb0, vacc);
-                __m256d va1 = _mm256_load_pd(&tA[i, k + 4]);
-                __m256d vb1 = _mm256_load_pd(&tB[k + 4, j]);
+                __m256d va1 = _mm256_loadu_pd(&tA[i, k + 4]);
+                __m256d vb1 = _mm256_loadu_pd(&tB[k + 4, j]);
                 vacc        = _mm256_fmadd_pd(va1, vb1, vacc);
-                __m256d va2 = _mm256_load_pd(&tA[i, k + 8]);
-                __m256d vb2 = _mm256_load_pd(&tB[k + 8, j]);
+                __m256d va2 = _mm256_loadu_pd(&tA[i, k + 8]);
+                __m256d vb2 = _mm256_loadu_pd(&tB[k + 8, j]);
                 vacc        = _mm256_fmadd_pd(va2, vb2, vacc);
-                __m256d va3 = _mm256_load_pd(&tA[i, k + 12]);
-                __m256d vb3 = _mm256_load_pd(&tB[k + 12, j]);
+                __m256d va3 = _mm256_loadu_pd(&tA[i, k + 12]);
+                __m256d vb3 = _mm256_loadu_pd(&tB[k + 12, j]);
                 vacc        = _mm256_fmadd_pd(va3, vb3, vacc);
-                __m256d va4 = _mm256_load_pd(&tA[i, k + 16]);
-                __m256d vb4 = _mm256_load_pd(&tB[k + 16, j]);
+                __m256d va4 = _mm256_loadu_pd(&tA[i, k + 16]);
+                __m256d vb4 = _mm256_loadu_pd(&tB[k + 16, j]);
                 vacc        = _mm256_fmadd_pd(va4, vb4, vacc);
-                __m256d va5 = _mm256_load_pd(&tA[i, k + 20]);
-                __m256d vb5 = _mm256_load_pd(&tB[k + 20, j]);
+                __m256d va5 = _mm256_loadu_pd(&tA[i, k + 20]);
+                __m256d vb5 = _mm256_loadu_pd(&tB[k + 20, j]);
                 vacc        = _mm256_fmadd_pd(va5, vb5, vacc);
-                __m256d va6 = _mm256_load_pd(&tA[i, k + 24]);
-                __m256d vb6 = _mm256_load_pd(&tB[k + 24, j]);
+                __m256d va6 = _mm256_loadu_pd(&tA[i, k + 24]);
+                __m256d vb6 = _mm256_loadu_pd(&tB[k + 24, j]);
                 vacc        = _mm256_fmadd_pd(va6, vb6, vacc);
-                __m256d va7 = _mm256_load_pd(&tA[i, k + 28]);
-                __m256d vb7 = _mm256_load_pd(&tB[k + 28, j]);
+                __m256d va7 = _mm256_loadu_pd(&tA[i, k + 28]);
+                __m256d vb7 = _mm256_loadu_pd(&tB[k + 28, j]);
                 vacc        = _mm256_fmadd_pd(va7, vb7, vacc);
               }
-
               __m128d hsum = _mm_add_pd(_mm256_castpd256_pd128(vacc), _mm256_extractf128_pd(vacc, 1));
               hsum         = _mm_hadd_pd(hsum, hsum);
               acc          = _mm_cvtsd_f64(hsum);
@@ -315,6 +314,86 @@ auto manual_blocked_tiled_subview_unroll_vec_k(const MdSpanA A, const MdSpanB B,
     }
   }
 }
+
+#if defined(__AVX__) && defined(__FMA__)
+template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
+  requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
+auto manual_blocked_tiled_subview_vec_unroll2(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
+  assert(A.extent(1) == B.extent(0));
+  assert(A.extent(0) == C.extent(0));
+  assert(B.extent(1) == C.extent(1));
+
+  using ATile = std::mdspan<Type, std::extents<size_t, TM, TO>, typename MdSpanA::mapping_type::inner_layout_type>;
+  using BTile = std::mdspan<Type, std::extents<size_t, TO, TN>, typename MdSpanB::mapping_type::inner_layout_type>;
+  using CTile = std::mdspan<Type, std::extents<size_t, TM, TN>, typename MdSpanC::mapping_type::inner_layout_type>;
+
+  constexpr size_t MR = 4;
+  constexpr size_t NR = 8;
+
+  const size_t M = A.extent(0);
+  const size_t N = B.extent(1);
+  const size_t O = A.extent(1);
+
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
+#pragma omp parallel for schedule(static)
+#endif
+  for (size_t x = 0; x < M; x += TM) {
+    for (size_t y = 0; y < N; y += TN) {
+      auto tC = CTile(C.data_handle() + C.mapping().tile_offset_outer(x, y));
+      for (size_t z = 0; z < O; z += TO) {
+        const auto tA = ATile(A.data_handle() + A.mapping().tile_offset_outer(x, z));
+        const auto tB = BTile(B.data_handle() + B.mapping().tile_offset_outer(z, y));
+        // 4x8 register blocking
+        for (size_t i = 0; i < TM; i += MR) {
+          for (size_t j = 0; j < TN; j += NR) {
+            // 8 accumulators over 4 rows/2 columns
+            __m256d vc00 = _mm256_loadu_pd(&tC[i, j]);
+            __m256d vc01 = _mm256_loadu_pd(&tC[i, j + 4]);
+            __m256d vc10 = _mm256_loadu_pd(&tC[i + 1, j]);
+            __m256d vc11 = _mm256_loadu_pd(&tC[i + 1, j + 4]);
+            __m256d vc20 = _mm256_loadu_pd(&tC[i + 2, j]);
+            __m256d vc21 = _mm256_loadu_pd(&tC[i + 2, j + 4]);
+            __m256d vc30 = _mm256_loadu_pd(&tC[i + 3, j]);
+            __m256d vc31 = _mm256_loadu_pd(&tC[i + 3, j + 4]);
+
+            for (size_t k = 0; k < TO; ++k) {
+              // Broadcast 4 elements of A
+              __m256d sa0 = _mm256_broadcast_sd(&tA[i, k]);
+              __m256d sa1 = _mm256_broadcast_sd(&tA[i + 1, k]);
+              __m256d sa2 = _mm256_broadcast_sd(&tA[i + 2, k]);
+              __m256d sa3 = _mm256_broadcast_sd(&tA[i + 3, k]);
+
+              // Multiply broadcast A with 2 columns of B
+              __m256d vb0 = _mm256_loadu_pd(&tB[k, j]);
+              vc00 = _mm256_fmadd_pd(sa0, vb0, vc00);
+              vc10 = _mm256_fmadd_pd(sa1, vb0, vc10);
+              vc20 = _mm256_fmadd_pd(sa2, vb0, vc20);
+              vc30 = _mm256_fmadd_pd(sa3, vb0, vc30);
+              __m256d vb1 = _mm256_loadu_pd(&tB[k, j + 4]);
+              vc01 = _mm256_fmadd_pd(sa0, vb1, vc01);
+              vc11 = _mm256_fmadd_pd(sa1, vb1, vc11);
+              vc21 = _mm256_fmadd_pd(sa2, vb1, vc21);
+              vc31 = _mm256_fmadd_pd(sa3, vb1, vc31);
+            }
+
+            // Store accumulators
+            _mm256_storeu_pd(&tC[i, j], vc00);
+            _mm256_storeu_pd(&tC[i, j + 4], vc01);
+            _mm256_storeu_pd(&tC[i + 1, j], vc10);
+            _mm256_storeu_pd(&tC[i + 1, j + 4], vc11);
+            _mm256_storeu_pd(&tC[i + 2, j], vc20);
+            _mm256_storeu_pd(&tC[i + 2, j + 4], vc21);
+            _mm256_storeu_pd(&tC[i + 3, j], vc30);
+            _mm256_storeu_pd(&tC[i + 3, j + 4], vc31);
+          }
+        }
+      }
+    }
+  }
+}
+#else
+#error unsupported impl on target arch
+#endif
 
 #if defined(LAYOUT_TILED_BENCH_ENABLE_BLAS)
 template <class MdSpanA, class MdSpanB, class MdSpanC>
@@ -444,11 +523,18 @@ auto run_bench(const Config& cfg) -> int {
   res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-BLTL-L2_mbtsv", big_o);
   benchmark_utils::fill_zeroes(mtrC_l2);
 
-  manual_blocked_tiled_subview_unroll_vec_k<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtlB_l1, mtrC_l1);
-  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-BLTL-L1_mbtsv_uvk", big_o);
+  manual_blocked_tiled_subview_vec_unroll_k<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtlB_l1, mtrC_l1);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-BLTL-L1_mbtvu", big_o);
   benchmark_utils::fill_zeroes(mtrC_l1);
-  manual_blocked_tiled_subview_unroll_vec_k<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtlB_l2, mtrC_l2);
-  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-BLTL-L2_mbtsv_uvk", big_o);
+  manual_blocked_tiled_subview_vec_unroll_k<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtlB_l2, mtrC_l2);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-BLTL-L2_mbtvu", big_o);
+  benchmark_utils::fill_zeroes(mtrC_l2);
+
+  manual_blocked_tiled_subview_vec_unroll2<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "RTR-BLTL-L1_mbt_vu2", big_o);
+  benchmark_utils::fill_zeroes(mtrC_l1);
+  manual_blocked_tiled_subview_vec_unroll2<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "RTR-BLTL-L2_mbt_vu2", big_o);
   benchmark_utils::fill_zeroes(mtrC_l2);
 
   return res;
@@ -468,15 +554,12 @@ auto run_bench(const Config& cfg) -> int {
     out_stream = &file_stream;
   }
 
-  /*
   bs.run("R naive", [&]() { naive(mrA, mrB, mrC); });
   bs.run("R_BL naive", [&]() { naive(mrA, mlB, mrC); });
-  */
 #if defined(LAYOUT_TILED_BENCH_ENABLE_BLAS)
   bs.run("R blas", [&]() { blas(mrA, mrB, mrC); });
 #endif
 
-  /*
   bs.run(fmt::format("R cb-{0}x{0}", TILE_L1), [&]() { cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC); });
   bs.run(fmt::format("R cb-{0}x{0}", TILE_L2), [&]() { cache_blocked<TILE_L2, TILE_L2, TILE_L2>(mrA, mrB, mrC); });
   bs.run(fmt::format("R_BL cb-{0}x{0}", TILE_L1), [&]() { cache_blocked<TILE_L1, TILE_L1, TILE_L1>(mrA, mlB, mrC); });
@@ -503,18 +586,23 @@ auto run_bench(const Config& cfg) -> int {
   bs.run(fmt::format("RTR-{0}x{0} mbtsv", TILE_L2), [&]() {
     manual_blocked_tiled_subview<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
   });
-  */
   bs.run(fmt::format("RTR_BLTL-{0}x{0} mbtsv", TILE_L1), [&]() {
     manual_blocked_tiled_subview<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtlB_l1, mtrC_l1);
   });
   bs.run(fmt::format("RTR_BLTL-{0}x{0} mbtsv", TILE_L2), [&]() {
     manual_blocked_tiled_subview<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtlB_l2, mtrC_l2);
   });
-  bs.run(fmt::format("RTR_BLTL-{0}x{0} mbtsv_uvk", TILE_L1), [&]() {
-    manual_blocked_tiled_subview_unroll_vec_k<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtlB_l1, mtrC_l1);
+  bs.run(fmt::format("RTR_BLTL-{0}x{0} mbt_vu", TILE_L1), [&]() {
+    manual_blocked_tiled_subview_vec_unroll_k<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtlB_l1, mtrC_l1);
   });
-  bs.run(fmt::format("RTR_BLTL-{0}x{0} mbtsv_uvk", TILE_L2), [&]() {
-    manual_blocked_tiled_subview_unroll_vec_k<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtlB_l2, mtrC_l2);
+  bs.run(fmt::format("RTR_BLTL-{0}x{0} mbt_vu", TILE_L2), [&]() {
+    manual_blocked_tiled_subview_vec_unroll_k<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtlB_l2, mtrC_l2);
+  });
+  bs.run(fmt::format("RTR_BLTL-{0}x{0} mbt_vu2", TILE_L1), [&]() {
+    manual_blocked_tiled_subview_vec_unroll2<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1);
+  });
+  bs.run(fmt::format("RTR_BLTL-{0}x{0} mbt_vu2", TILE_L2), [&]() {
+    manual_blocked_tiled_subview_vec_unroll2<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
   });
 
   // Output
