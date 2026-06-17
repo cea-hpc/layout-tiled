@@ -39,7 +39,7 @@ namespace {
 
 template <class MdSpanIn, class MdSpanOut>
   requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
-auto naive(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
+auto naive(const MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(D != 0);
@@ -61,9 +61,9 @@ auto naive(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   }
 }
 
-template <size_t TM, size_t TN, class MdSpanIn, class MdSpanOut>
+template <size_t TM = TILE_L1, size_t TN = TILE_L1, size_t D = DELTA, class MdSpanIn, class MdSpanOut>
   requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
-auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
+auto cache_blocked(const MdSpanIn in, MdSpanOut out) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(D != 0);
@@ -91,7 +91,7 @@ auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
 
 template <class MdSpanIn, class MdSpanOut>
   requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
-auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t D = DELTA) -> void {
+auto cache_blocked(const MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(D != 0);
@@ -117,39 +117,152 @@ auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t D = 
   }
 }
 
-template <size_t TM, size_t TN, class MdSpanIn, class MdSpanOut>
+template <size_t TM = TILE_L1, size_t TN = TILE_L1, size_t D = DELTA, class MdSpanIn, class MdSpanOut>
   requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
-auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
+auto manual_blocked_tiled(const MdSpanIn in, MdSpanOut out) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(D != 0);
 
-  const size_t M = out.extent(0);
-  const size_t N = out.extent(1);
+  using index_type = typename MdSpanIn::index_type;
 
-  auto hin  = in.data_handle();
-  auto hout = out.data_handle();
+  const size_t M                        = in.extent(0);
+  const size_t N                        = in.extent(1);
+  constexpr index_type tile_size        = in.mapping().tile_size();
+  const index_type nb_elems_in_tile_row = tile_size * in.mapping().ntiles_in_extent(0);
+
+  const auto hin = in.data_handle();
+  auto hout      = out.data_handle();
 #if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
-  for (size_t x = D; x < M - D; x += TM) {
-    for (size_t y = D; y < N - D; y += TN) {
-      const size_t outoff = in.mapping().tile_offset_outer(x, y);
-      for (size_t i = 0; i < std::min(TM, M - D - x); ++i) {
-        const size_t ti    = TM * i;
-        const size_t ti_mD = TM * (i - D);
-        const size_t ti_pD = TM * (i + D);
-        for (size_t j = 0; j < std::min(TN, N - D - y); ++j) {
-          const size_t inoff      = ti + j;
-          const size_t baseoff    = outoff + inoff;
-          const size_t inoff_mD   = ti_mD + j;
-          const size_t inoff_pD   = ti_pD + j;
-          const size_t baseoff_mD = outoff + inoff_mD;
-          const size_t baseoff_pD = outoff + inoff_pD;
+  for (index_type x = D; x < M - D; x += TM) {
+    for (index_type y = D; y < N - D; y += TN) {
+      // Compute offset of first element in tile (outside domain if in first tile row/column)
+      const index_type center_toff = in.mapping().tile_offset_outer(x, y);
+
+      for (index_type i = x; i < std::min(x + TM, M - D); ++i) {
+        const index_type li         = i % TM;
+        const index_type center_row = li * TN;
+        const index_type north_row  = (li - D + TM) * TN;
+        const index_type south_row  = (li + D - TM) * TN;
+
+        for (index_type j = y; j < std::min(y + TN, N - D); ++j) {
+          const index_type lj     = j % TN;
+          const index_type center = center_toff + center_row + lj;
+
+          // North neighbor: i-D, j
+          index_type north = 0;
+          if (li - D >= 0 || x == 0) {
+            // Same tile or first row of tiles
+            north = center - TN;
+          } else {
+            // Different tile
+            //  ┌─────────┬─────────┬─────────┬─────────┐
+            //  │         │△═╗2     │         │         │  If the target element (@) is in the tile above us (*), we do:
+            //  │         │║ ║  3   │         │         │
+            //  │         │║1▽══▶@  │         │         │  1. Subtract $N_elems_per_tile \times N_tiles_in_row$ from the
+            //  ├─────────┼║─────↑──┼─────────┼─────────┤     base tile offset (■);
+            //  │         │■   ← * →│         │         │  2. Add the pre-computed north_row offset;
+            //  │         │      ↓  │         │         │  3. Add the local j offset.
+            //  │         │         │         │         │
+            //  ├─────────┼─────────┼─────────┼─────────┤
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  ├─────────┼─────────┼─────────┼─────────┤
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  └─────────┴─────────┴─────────┴─────────┘
+            north = center_toff - nb_elems_in_tile_row + north_row + lj;
+          }
+
+          // South neighbor: i+D, j
+          index_type south = 0;
+          if (li + D < TM && i + D < M) {
+            // Same tile
+            south = center + TN;
+          } else {
+            // Different tile
+            //  ┌─────────┬─────────┬─────────┬─────────┐
+            //  │         │         │         │         │  If the target element (@) is in the tile below us (*), we do:
+            //  │         │         │         │         │
+            //  │         │         │         │         │  1. Add $N_elems_per_tile \times N_tiles_in_row$ from the
+            //  ├─────────┼─────────┼─────────┼─────────┤     base tile offset (■);
+            //  │         │■        │         │         │  2. Add the pre-computed south_row offset (may not be 0 if
+            //  │         │║     ↑  │         │         │     D > 1);
+            //  │         │║1  ← * →│         │         │  3. Add the local j offset.
+            //  ├─────────┼║─────↓──┼─────────┼─────────┤
+            //  │         │▽════▶@  │         │         │
+            //  │         │  2&3    │         │         │
+            //  │         │         │         │         │
+            //  ├─────────┼─────────┼─────────┼─────────┤
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  └─────────┴─────────┴─────────┴─────────┘
+            south = center_toff + nb_elems_in_tile_row + south_row + lj;
+          }
+
+          // West neighbor: i, j-D
+          index_type west = 0;
+          if (lj - D >= 0 || y == 0) {
+            // Same tile or first column of tiles
+            west = center - D;
+          } else {
+            // Different tile
+            //  ┌─────────┬─────────┬─────────┬─────────┐
+            //  │         │         │         │         │  If the target element (@) is in the tile left of us (*), we
+            //  │         │         │         │         │  do:
+            //  │         │         │         │         │
+            //  ├────1────┼─────────┼─────────┼─────────┤  1. Subtract $N_elems_per_tile$ from the base tile offset (■);
+            //  │◁═════════■↑       │         │         │  2. Add the pre-computed center_row offset;
+            //  2▽══════▶@← * →     │         │         │  3. Add the local j - D + TN offset.
+            //  │         │ ↓       │         │         │
+            //  ├─────────┼─────────┼─────────┼─────────┤
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  ├─────────┼─────────┼─────────┼─────────┤
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  └─────────┴─────────┴─────────┴─────────┘
+            west = center_toff - tile_size + center_row + (lj - D + TN);
+          }
+
+          // East neighbor: i, j+D
+          index_type east;
+          if (lj - D < TN && j + D < N) {
+            // Same tile
+            east = center + D;
+          } else {
+            // Different tile
+            //  ┌─────────┬─────────┬─────────┬─────────┐
+            //  │         │         │         │         │  If the target element (@) is in the tile right of us (*), we
+            //  │         │         │         │         │  do:
+            //  │         │         │         │         │
+            //  ├─────────┼────1────┼2────────┼─────────┤  1. Add $N_elems_per_tile$ from the base tile offset (■);
+            //  │         │■══════↑══▼ 3      │         │  2. Add the pre-computed center_row offset;
+            //  │         │     ← * →@        │         │  3. Add the local j + D - TN offset.
+            //  │         │       ↓ │         │         │
+            //  ├─────────┼─────────┼─────────┼─────────┤
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  ├─────────┼─────────┼─────────┼─────────┤
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  │         │         │         │         │
+            //  └─────────┴─────────┴─────────┴─────────┘
+            east = center_toff + tile_size + center_row + (lj + D - TN);
+          }
+
           // clang-format off
-          hout[baseoff] =                  hin[baseoff_mD] +
-                          hin[baseoff-D] + hin[baseoff]   + hin[baseoff+D] +
-                                           hin[baseoff_pD];
+          hout[center] =             ( hin[north]
+                         + hin[west] + hin[center] + hin[east]
+                                     + hin[south]  ) / 5.0;
           // clang-format on
         }
       }
@@ -157,6 +270,7 @@ auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void 
   }
 }
 
+// TODO(gdossantos): update the runtime-only version
 template <class MdSpanIn, class MdSpanOut>
   requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
 auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t D = DELTA) -> void {
@@ -197,34 +311,90 @@ auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size
   }
 }
 
-template <size_t TM, size_t TN, class MdSpanIn, class MdSpanOut>
+template <size_t TM = TILE_L1, size_t TN = TILE_L1, size_t D = DELTA, class MdSpanIn, class MdSpanOut>
   requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
-auto manual_blocked_tiled_subview(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
-  assert(in.extent(0) == out.extent(0));
-  assert(in.extent(1) == out.extent(1));
-  assert(D != 0);
+auto manual_blocked_tiled_subview(const MdSpanIn in, MdSpanOut out) -> void {
+  using index_type   = typename MdSpanIn::index_type;
+  using mapping_type = typename MdSpanIn::mapping_type;
+  using value_type   = typename MdSpanIn::value_type;
 
-  using InTile  = std::mdspan<Type, std::extents<size_t, TM, TN>, std::layout_right>;
-  using OutTile = std::mdspan<Type, std::extents<size_t, TM, TN>, std::layout_right>;
+  constexpr index_type tile_size = mapping_type::tile_size();
 
-  const size_t M = out.extent(0);
-  const size_t N = out.extent(1);
+  const index_type M = in.extent(0);
+  const index_type N = in.extent(1);
 
-#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
-#pragma omp parallel for schedule(static)
-#endif
-  for (size_t x = 0; x < M; x += TM) {
-    for (size_t y = 0; y < N; y += TN) {
-      const size_t outoff = in.mapping().tile_offset_outer(x, y);
-      const auto t_in     = InTile(in.data_handle() + outoff);
-      auto t_out          = OutTile(out.data_handle() + outoff);
-      for (size_t i = 0; i < std::min(TM, M - x); ++i) {
-        for (size_t j = 0; j < std::min(TN, N - y); ++j) {
-          // clang-format off
-          t_out[i, j] =                ( t_in[i-D, j]
-                        + t_in[i, j-D] + t_in[  i, j] + t_in[i, j+D]
-                                       + t_in[i+D, j] ) / 5.0;
-          // clang-format on
+  const index_type ntiles_M = in.mapping().ntiles_in_extent(0);
+  const index_type ntiles_N = in.mapping().ntiles_in_extent(1);
+
+  // Halo tile dimensions
+  constexpr index_type halo_TM = TM + 2 * D;
+  constexpr index_type halo_TN = TN + 2 * D;
+
+  using HaloExts = std::extents<size_t, halo_TM, halo_TN>;
+
+  // Pre-allocate halo buffer
+  alignas(64) std::array<value_type, halo_TM * halo_TN> halo_buf{};
+
+  for (index_type x = 0; x < ntiles_M; x += TM) {
+    for (index_type y = 0; y < ntiles_N; y += TN) {
+      for (index_type i = x; i < std::min(x + TM, ntiles_M); ++i) {
+        const index_type ti     = i * TM;
+        const index_type ti_end = std::min(ti + TM, M);
+        for (index_type j = y; j < std::min(y + TN, ntiles_N); ++j) {
+          const index_type tj     = j * TN;
+          const index_type tj_end = std::min(tj + TN, N);
+
+          // Skip tiles without valid stencil region
+          if (ti + D >= M - D || tj + D >= N - D || ti_end <= D || tj_end <= D) {
+            continue;
+          }
+
+          // Fill halo buffer
+          for (index_type hi = 0; hi < halo_TM; ++hi) {
+            const index_type global_i    = ti + hi - D;
+            const index_type src_tile_i  = global_i / TM;
+            const index_type src_local_i = global_i % TM;
+            const index_type halo_i      = hi * halo_TN;
+            for (index_type hj = 0; hj < halo_TN; ++hj) {
+              const index_type global_j      = tj + hj - D;
+              const index_type src_tile_j    = global_j / TN;
+              const index_type src_local_j   = global_j % TN;
+              const index_type src_tile_base = (src_tile_i * ntiles_N + src_tile_j) * tile_size;
+              const index_type src_offset    = src_tile_base + src_local_i * TN + src_local_j;
+              const index_type halo_offset   = halo_i + hj;
+
+              halo_buf[halo_offset] = in.data_handle()[src_offset];
+            }
+          }
+
+          // Create local mdspan with layout_right over halo buffer
+          std::mdspan<value_type, HaloExts, std::layout_right> hs(halo_buf.data());
+          for (index_type hi = D; hi < std::min(TM + D, ti_end - ti + D); ++hi) {
+            const index_type global_i    = ti + hi - D;
+            const index_type dst_tile_i  = global_i / TM;
+            const index_type dst_local_i = global_i % TM;
+            for (index_type hj = D; hj < std::min(TN + D, tj_end - tj + D); ++hj) {
+              // Global coordinates
+              const index_type global_j = tj + hj - D;
+
+              // Skip global boundaries
+              if (global_i < D || global_i >= M - D || global_j < D || global_j >= N - D) {
+                continue;
+              }
+
+              // Write to output - compute destination offset manually
+              const index_type dst_tile_j    = global_j / TN;
+              const index_type dst_local_j   = global_j % TN;
+              const index_type dst_tile_base = (dst_tile_i * ntiles_N + dst_tile_j) * tile_size;
+              const index_type dst_offset    = dst_tile_base + dst_local_i * TN + dst_local_j;
+
+              // clang-format off
+              out.data_handle()[dst_offset] =                ( hs[hi-D, hj]
+                                              + hs[hi, hj-D] + hs[  hi, hj] + hs[hi, hj+D]
+                                                             + hs[hi+D, hj] ) / 5.0;
+              // clang-format on
+            }
+          }
         }
       }
     }
@@ -255,11 +425,9 @@ auto run_bench(const Config& cfg) -> int {
 
   // Initializations
   auto rng_naive    = ankerl::nanobench::Rng(42);
-  auto rng_tiled_l1 = rng_naive.copy();
-  auto rng_tiled_l2 = rng_naive.copy();
   benchmark_utils::fill_2d_uniform01(mlr_in, rng_naive);
-  benchmark_utils::fill_2d_uniform01(mlrtr_l1_in, rng_tiled_l1);
-  benchmark_utils::fill_2d_uniform01(mlrtr_l2_in, rng_tiled_l2);
+  benchmark_utils::fill_2d_copy(mlrtr_l1_in, mlr_in);
+  benchmark_utils::fill_2d_copy(mlrtr_l2_in, mlr_in);
 
 #if defined(LAYOUT_TILED_BENCH_ENABLE_CHECKS)
   // Checks
@@ -267,8 +435,11 @@ auto run_bench(const Config& cfg) -> int {
   const double big_o = 5.0 * n * n;
   int res            = 0;
 
-  naive(mlr_in, mlr_out);
-  double ref = benchmark_utils::l2_norm(mlr_out);
+  auto ref_out  = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto mref_out = std::mdspan<Type, Exts>(ref_out.get(), cfg.n_, cfg.n_);
+  naive(mlr_in, mref_out);
+  double ref = benchmark_utils::l2_norm(mref_out);
+  benchmark_utils::fill_zeroes(mlr_out);
 
   cache_blocked<TILE_L1, TILE_L1>(mlr_in, mlr_out);
   res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L1", big_o);
@@ -282,8 +453,10 @@ auto run_bench(const Config& cfg) -> int {
 
   manual_blocked_tiled<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
   res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_mbt", big_o);
+  // benchmark_utils::compare_2d_vals(mref_out, mlrtr_l1_out);
   manual_blocked_tiled<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
   res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_mbt", big_o);
+
   manual_blocked_tiled_subview<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
   res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_mbtsv", big_o);
   manual_blocked_tiled_subview<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
