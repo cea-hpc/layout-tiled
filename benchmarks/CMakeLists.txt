@@ -3,6 +3,7 @@ set(
   gemm
   stencil_2d
   stencil_3d
+  tensor_contraction
 )
 
 if(LAYOUT_TILED_BENCH_ENABLE_OMP)
