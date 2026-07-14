@@ -10,8 +10,11 @@
 #include <limits>
 #include <utility>
 
-#include <experimental/__p0009_bits/layout_left.hpp>
-#include <experimental/__p0009_bits/layout_right.hpp>
+#if defined(LAYOUT_TILED_KOKKOS_MDSPAN)
+#include <experimental/mdspan>
+#else
+#include <mdspan>
+#endif
 
 #include "detail/common.hpp"
 #include "detail/macros.hpp"

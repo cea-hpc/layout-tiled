@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.25)
+cmake_minimum_required(VERSION 3.28)
 
 project(layout-tiled VERSION 0.4.0 LANGUAGES CXX DESCRIPTION "Tiled layouts for `std::mdspan`")
 
@@ -6,6 +6,7 @@ project(layout-tiled VERSION 0.4.0 LANGUAGES CXX DESCRIPTION "Tiled layouts for 
 option(LAYOUT_TILED_BUILD_TESTS "Enable building tests. Default: OFF. Values: { ON, OFF}." OFF)
 option(LAYOUT_TILED_BUILD_EXAMPLES "Enable building examples. Default: OFF. Values: { ON, OFF }." OFF)
 option(LAYOUT_TILED_BUILD_BENCHMARKS "Enable building benchmarks. Default: OFF. Values: { ON, OFF }." OFF)
+option(LAYOUT_TILED_ENABLE_KOKKOS_MDSPAN "Build with Kokkos reference mdspan implementation. Default: ON. Values: { ON, OFF }." ON)
 option(LAYOUT_TILED_ENABLE_DEVICE_OFFLOAD "Enable device offload. Default: OFF. Values: { ON, OFF }." OFF)
 
 # Benchmark options
@@ -36,9 +37,20 @@ endif()
 
 # --- PROJECT DEPENDENCIES --- #
 include(FetchContent)
-FetchContent_Declare(mdspan GIT_REPOSITORY https://github.com/kokkos/mdspan.git GIT_TAG origin/stable)
-FetchContent_MakeAvailable(mdspan)
-target_compile_definitions(mdspan INTERFACE -DMDSPAN_USE_BRACKET_OPERATOR)
+if(LAYOUT_TILED_ENABLE_KOKKOS_MDSPAN)
+  FetchContent_Declare(mdspan GIT_REPOSITORY https://github.com/kokkos/mdspan.git GIT_TAG origin/stable)
+  FetchContent_MakeAvailable(mdspan)
+else()
+  include(CheckIncludeFileCXX)
+  check_include_file_cxx(mdspan LAYOUT_TILED_HAVE_STD_MDSPAN)
+  if(NOT LAYOUT_TILED_HAVE_STD_MDSPAN)
+    message(FATAL_ERROR
+      "Standard library does not provide <mdspan>. "
+      "Set -DLAYOUT_TILED_ENABLE_KOKKOS_MDSPAN=ON "
+      "or use a C++23 compiler with mdspan support."
+    )
+  endif()
+endif()
 
 # --- PROJECT TARGETS --- #
 add_subdirectory(include/layout_tiled)

@@ -1,8 +1,6 @@
 // tests/layout_tiled/compile_fail/static_invariant.cpp -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0
 
-#include <experimental/mdspan>
-
 #include <layout_tiled/layout_ltl.hpp>
 #include <layout_tiled/layout_ltr.hpp>
 #include <layout_tiled/layout_rtl.hpp>

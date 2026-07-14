@@ -53,7 +53,7 @@ jobs:
       - name: Get CMake & Ninja
         uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: "~3.25.0"
+          cmakeVersion: "~3.28.0"
           ninjaVersion: "^1.12.1"
 
       - name: Configure
@@ -82,7 +82,7 @@ jobs:
       - name: Get CMake & Ninja
         uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: "~3.25.0"
+          cmakeVersion: "~3.28.0"
           ninjaVersion: "^1.12.1"
 
       - name: Configure
@@ -109,7 +109,7 @@ jobs:
       - name: Get CMake & Ninja
         uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: "~3.25.0"
+          cmakeVersion: "~3.28.0"
           ninjaVersion: "^1.12.1"
       - name: Get OpenBLAS and OpenMP
         run: sudo apt update && sudo apt install libopenblas-dev libomp-dev
@@ -153,7 +153,7 @@ jobs:
       - name: Get CMake & Ninja
         uses: lukka/get-cmake@latest
         with:
-          cmakeVersion: "~3.25.0"
+          cmakeVersion: "~3.28.0"
           ninjaVersion: "^1.12.1"
 
       - name: Configure

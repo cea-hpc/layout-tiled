@@ -3,7 +3,11 @@
 
 #include <array>
 #include <concepts>
+#if defined(LAYOUT_TILED_KOKKOS_MDSPAN)
 #include <experimental/mdspan>
+#else
+#include <mdspan>
+#endif
 #include <type_traits>
 #include <utility>
 

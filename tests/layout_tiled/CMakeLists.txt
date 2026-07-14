@@ -1,7 +1,11 @@
 include(GoogleTest)
 
-set(static_invariant_include_dirs "${PROJECT_SOURCE_DIR}/include;${mdspan_SOURCE_DIR}/include")
+set(static_invariant_include_dirs "${PROJECT_SOURCE_DIR}/include")
 set(static_invariant_compile_definitions)
+if(LAYOUT_TILED_ENABLE_KOKKOS_MDSPAN)
+  list(APPEND static_invariant_include_dirs "${mdspan_SOURCE_DIR}/include")
+  list(APPEND static_invariant_compile_definitions -DLAYOUT_TILED_KOKKOS_MDSPAN)
+endif()
 if(LAYOUT_TILED_ENABLE_DEVICE_OFFLOAD)
   list(APPEND static_invariant_compile_definitions -DLAYOUT_TILED_ENABLE_DEVICE_OFFLOAD)
 endif()
@@ -79,10 +83,12 @@ foreach(test ${ALL_TESTS})
     layout_tiled.tests.${test}
     PRIVATE
       layout_tiled::layout_tiled
-      mdspan::mdspan
       GTest::gtest
       GTest::gtest_main
   )
+  if(LAYOUT_TILED_ENABLE_KOKKOS_MDSPAN)
+    target_link_libraries(layout_tiled.tests.${test} PRIVATE mdspan::mdspan)
+  endif()
 
   gtest_discover_tests(layout_tiled.tests.${test})
 endforeach()

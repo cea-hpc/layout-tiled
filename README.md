@@ -33,10 +33,11 @@ The proposed layouts are based on [kokkos/mdspan tiled layout example](https://g
 
 Ensure you have the following software installed on your system:
 - C++23 conforming compiler;
-- `cmake` v3.25+;
+- `cmake` v3.28+;
 - `make` or `ninja`.
 
-This project uses [Kokkos' `mdspan` reference implementation](https://github.com/kokkos/mdspan) (automatically fetched by CMake).
+By default, this project automatically fetches [Kokkos' `mdspan` reference implementation](https://github.com/kokkos/mdspan).
+Configure with `-DLAYOUT_TILED_ENABLE_KOKKOS_MDSPAN=OFF` to use the C++ standard library's `<mdspan>` implementation instead.
 
 ### Build
 

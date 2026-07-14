@@ -34,15 +34,15 @@ target_sources(
     BASE_DIRS ${CMAKE_SOURCE_DIR}/include
     FILES detail/common.hpp
 )
-target_link_libraries(
+target_compile_definitions(
   layout_tiled
   INTERFACE
-    layout_tiled.compile_flags
-    mdspan::mdspan
+    $<$<BOOL:${LAYOUT_TILED_ENABLE_KOKKOS_MDSPAN}>:LAYOUT_TILED_KOKKOS_MDSPAN>
+    $<$<BOOL:${LAYOUT_TILED_ENABLE_DEVICE_OFFLOAD}>:LAYOUT_TILED_ENABLE_DEVICE_OFFLOAD>
 )
-
-if(LayoutTiled_ENABLE_DEVICE_OFFLOAD)
-  target_compile_definitions(layout_tiled INTERFACE -DLAYOUT_TILED_ENABLE_DEVICE_OFFLOAD)
+target_link_libraries(layout_tiled INTERFACE layout_tiled.compile_flags)
+if(LAYOUT_TILED_ENABLE_KOKKOS_MDSPAN)
+  target_link_libraries(layout_tiled INTERFACE mdspan::mdspan)
 endif()
 
 # --- PACKAGING --- #

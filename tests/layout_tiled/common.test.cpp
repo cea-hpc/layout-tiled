@@ -3,7 +3,11 @@
 
 #include <array>
 #include <cstddef>
+#if defined(LAYOUT_TILED_KOKKOS_MDSPAN)
 #include <experimental/mdspan>
+#else
+#include <mdspan>
+#endif
 
 #include <gtest/gtest.h>
 #include <layout_tiled/detail/common.hpp>
