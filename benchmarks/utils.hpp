@@ -17,7 +17,7 @@
 
 #include <fmt/core.h>
 #include <nanobench.h>
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #include <omp.h>
 #endif
 
@@ -98,7 +98,7 @@ template <class MdSpan>
 [[nodiscard]] auto l2_norm(MdSpan m) -> double {
   const auto ptr = m.data_handle();
   double sum     = 0.0;
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for reduction(+ : sum)
 #endif
   for (size_t e = 0; e < m.size(); ++e) {
@@ -112,7 +112,7 @@ template <class MdSpan>
   requires std::is_floating_point_v<typename MdSpan::value_type>
 auto fill_zeroes(MdSpan m) -> void {
   auto ptr = m.data_handle();
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for schedule(static)
 #endif
   for (size_t e = 0; e < m.size(); ++e) {
@@ -128,7 +128,7 @@ auto fill_2d_copy(MdSpanDst dst, const MdSpanSrc src) -> void {
   assert(src.extent(0) == dst.extent(0));
   assert(src.extent(1) == dst.extent(1));
 
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
   for (size_t i = 0; i < dst.extent(0); ++i) {
@@ -142,7 +142,7 @@ auto fill_2d_copy(MdSpanDst dst, const MdSpanSrc src) -> void {
 template <class MdSpan>
   requires std::is_floating_point_v<typename MdSpan::value_type> && (2 == MdSpan::rank())
 auto fill_2d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void {
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for collapse(2) schedule(static)
 #endif
   for (size_t i = 0; i < m.extent(0); ++i) {
@@ -156,7 +156,7 @@ auto fill_2d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void {
 template <class MdSpan>
   requires std::is_floating_point_v<typename MdSpan::value_type> && (3 == MdSpan::rank())
 auto fill_3d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void {
-#if defined(LAYOUT_TILED_ENABLE_OPENMP)
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp parallel for collapse(3) schedule(static)
 #endif
   for (size_t i = 0; i < m.extent(0); ++i) {
