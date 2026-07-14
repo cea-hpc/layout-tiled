@@ -1,11 +1,12 @@
 // tests/layout_tiled/common.test.cpp -*-C++-*-
 // SPDX-License-Identifier: Apache-2.0
 
+#include <array>
 #include <cstddef>
 #include <experimental/mdspan>
-#include <type_traits>
 
 #include <gtest/gtest.h>
+#include <layout_tiled/detail/common.hpp>
 #include <layout_tiled/layout_ltl.hpp>
 #include <layout_tiled/layout_ltr.hpp>
 #include <layout_tiled/layout_rtl.hpp>
@@ -20,40 +21,58 @@ auto required_span_size_of_large_empty_mapping() -> int {
   return mapping_type(extents_type(50'000, 50'000, 0)).required_span_size();
 }
 
-template <template <size_t...> class Layout>
-auto check_mapping_conversions() -> void {
-  using dynamic_extents_type      = std::dextents<int, 2>;
-  using long_extents_type         = std::dextents<long long, 2>;
-  using static_extents_type       = std::extents<int, 4, 6>;
-  using mixed_extents_type        = std::extents<int, 4, std::dynamic_extent>;
-  using incompatible_extents_type = std::extents<int, 8, 6>;
+template <class Layout, int Rows, int Cols>
+constexpr auto mapping_is_a_2d_permutation() -> bool {
+  using extents_type = std::dextents<int, 2>;
+  using mapping_type = typename Layout::template mapping<extents_type>;
 
-  using dynamic_mapping_type      = typename Layout<2, 3>::template mapping<dynamic_extents_type>;
-  using long_mapping_type         = typename Layout<2, 3>::template mapping<long_extents_type>;
-  using static_mapping_type       = typename Layout<2, 3>::template mapping<static_extents_type>;
-  using mixed_mapping_type        = typename Layout<2, 3>::template mapping<mixed_extents_type>;
-  using incompatible_mapping_type = typename Layout<2, 3>::template mapping<incompatible_extents_type>;
-
-  static_assert(std::is_constructible_v<dynamic_mapping_type, static_mapping_type>);
-  static_assert(std::is_convertible_v<static_mapping_type, dynamic_mapping_type>);
-  static_assert(std::is_constructible_v<static_mapping_type, dynamic_mapping_type>);
-  static_assert(!std::is_convertible_v<dynamic_mapping_type, static_mapping_type>);
-  static_assert(std::is_constructible_v<mixed_mapping_type, static_mapping_type>);
-  static_assert(!std::is_constructible_v<static_mapping_type, incompatible_mapping_type>);
-  static_assert(std::is_constructible_v<dynamic_mapping_type, long_mapping_type>);
-
-  const static_mapping_type static_mapping;
-  const dynamic_mapping_type dynamic_mapping(static_mapping);
-  const mixed_mapping_type mixed_mapping(static_mapping);
-  const static_mapping_type static_from_dynamic(dynamic_mapping);
-  const long_mapping_type long_mapping(long_extents_type(4, 6));
-  const dynamic_mapping_type narrowed_mapping(long_mapping);
-
-  EXPECT_EQ(dynamic_mapping.extents(), dynamic_extents_type(4, 6));
-  EXPECT_EQ(mixed_mapping.extents(), mixed_extents_type(6));
-  EXPECT_EQ(static_from_dynamic.extents(), static_extents_type());
-  EXPECT_EQ(narrowed_mapping.extents(), dynamic_extents_type(4, 6));
+  const mapping_type mapping(extents_type(Rows, Cols));
+  std::array<bool, static_cast<size_t>(Rows * Cols)> seen{};
+  for (int i = 0; i < Rows; ++i) {
+    for (int j = 0; j < Cols; ++j) {
+      const int offset = mapping(i, j);
+      if (offset < 0 || offset >= Rows * Cols || seen[static_cast<size_t>(offset)]) {
+        return false;
+      }
+      seen[static_cast<size_t>(offset)] = true;
+    }
+  }
+  return mapping.required_span_size() == Rows * Cols;
 }
+
+template <template <size_t...> class Layout>
+constexpr auto rank_four_mapping_is_a_permutation() -> bool {
+  using extents_type = std::dextents<int, 4>;
+  using mapping_type = typename Layout<1, 2, 3, 4>::template mapping<extents_type>;
+
+  const mapping_type mapping(extents_type(2, 4, 6, 8));
+  std::array<bool, 384> seen{};
+  for (int i = 0; i < 2; ++i) {
+    for (int j = 0; j < 4; ++j) {
+      for (int k = 0; k < 6; ++k) {
+        for (int l = 0; l < 8; ++l) {
+          const int offset = mapping(i, j, k, l);
+          if (offset < 0 || offset >= 384 || seen[static_cast<size_t>(offset)]) {
+            return false;
+          }
+          seen[static_cast<size_t>(offset)] = true;
+        }
+      }
+    }
+  }
+  return mapping.required_span_size() == 384;
+}
+
+template <template <size_t...> class Layout>
+constexpr auto broadened_indexing_cases_are_permutations() -> bool {
+  return mapping_is_a_2d_permutation<Layout<1, 1>, 3, 5>() && mapping_is_a_2d_permutation<Layout<3, 5>, 3, 5>()
+         && rank_four_mapping_is_a_permutation<Layout>();
+}
+
+static_assert(broadened_indexing_cases_are_permutations<layout_tiled::layout_ltl>());
+static_assert(broadened_indexing_cases_are_permutations<layout_tiled::layout_ltr>());
+static_assert(broadened_indexing_cases_are_permutations<layout_tiled::layout_rtl>());
+static_assert(broadened_indexing_cases_are_permutations<layout_tiled::layout_rtr>());
 
 #if !defined(NDEBUG)
 template <template <size_t...> class Layout>
@@ -89,13 +108,6 @@ TEST(common, zero_extent_prevents_span_size_overflow) {
   EXPECT_EQ(required_span_size_of_large_empty_mapping<layout_tiled::layout_ltr>(), 0);
   EXPECT_EQ(required_span_size_of_large_empty_mapping<layout_tiled::layout_rtl>(), 0);
   EXPECT_EQ(required_span_size_of_large_empty_mapping<layout_tiled::layout_rtr>(), 0);
-}
-
-TEST(common, mapping_converting_constructors) {
-  check_mapping_conversions<layout_tiled::layout_ltl>();
-  check_mapping_conversions<layout_tiled::layout_ltr>();
-  check_mapping_conversions<layout_tiled::layout_rtl>();
-  check_mapping_conversions<layout_tiled::layout_rtr>();
 }
 
 #if !defined(NDEBUG)

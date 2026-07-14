@@ -126,7 +126,7 @@ public:
     /* --- REQUIRED MEMBERS --- */
     // [mdspan.layout_tiled::layout_rtr.obs]
     LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto extents() const -> const extents_type& {
+    constexpr auto extents() const noexcept -> const extents_type& {
       return extents_;
     }
 
@@ -145,14 +145,21 @@ public:
     }
 
     template <class... Idxs>
-      requires (extents_type::rank() == sizeof...(Idxs))
+      requires (extents_type::rank() == sizeof...(Idxs)) && (std::is_convertible_v<Idxs, index_type> && ...)
     LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto operator()(Idxs... idxs) const noexcept -> index_type {
       assert(
         "layout_tiled::layout_rtr::mapping: out of bounds indexing"
         && detail::is_md_idx_in_span(std::make_index_sequence<extents_type::rank()>(), extents_, idxs...)
       );
 
-      return tile_offset_outer(idxs...) + tile_offset_inner(idxs...);
+      return tile_offset_outer(static_cast<index_type>(idxs)...) + tile_offset_inner(static_cast<index_type>(idxs)...);
+    }
+
+    template <class OtherExtents>
+      requires (extents_type::rank() == OtherExtents::rank())
+    LAYOUT_TILED_INLINE_FUNCTION friend constexpr auto
+    operator==(const mapping& lhs, const mapping<OtherExtents>& rhs) noexcept -> bool {
+      return lhs.extents() == rhs.extents();
     }
 
     /// Mapping is always unique.
@@ -160,13 +167,11 @@ public:
     static constexpr auto is_always_unique() noexcept -> bool {
       return true;
     }
-    /// Only exhaustive if `extents_.extent(i) % ntiles_in_extent(i) == 0`, so always.
     LAYOUT_TILED_INLINE_FUNCTION
     static constexpr auto is_always_exhaustive() noexcept -> bool {
-      return false;
+      return true;
     }
-    /// Tile extents must be multiples of extents, hence there is always a regular stride between elements in a given
-    /// dimension.
+    /// Not always strided: stride is regular within tiles but changes at tile boundaries.
     LAYOUT_TILED_INLINE_FUNCTION
     static constexpr auto is_always_strided() noexcept -> bool {
       return false;
@@ -182,37 +187,37 @@ public:
     static constexpr auto is_exhaustive() noexcept -> bool {
       return true;
     }
-    /// Always strided.
+    /// Not strided: stride changes at tile boundaries.
     LAYOUT_TILED_INLINE_FUNCTION
     static constexpr auto is_strided() noexcept -> bool {
-      return true;
+      return false;
     }
 
     /// Stride is the reverse product of tile extents.
     LAYOUT_TILED_INLINE_FUNCTION
     constexpr auto stride(rank_type r) const noexcept -> index_type {
-      return detail::rev_prod_of_extents<TileExtents...>(r);
+      return detail::rev_prod_of_extents<index_type, TileExtents...>(r);
     }
     /* --- END REQUIRED MEMBERS --- */
 
     /* --- PUBLIC HELPER MEMBERS --- */
     LAYOUT_TILED_INLINE_FUNCTION
     static constexpr auto textents() noexcept -> std::array<index_type, sizeof...(TileExtents)> {
-      return std::to_array({TileExtents...});
+      return {static_cast<index_type>(TileExtents)...};
     }
 
     LAYOUT_TILED_INLINE_FUNCTION
-    static constexpr auto textent(index_type i) noexcept -> index_type {
+    static constexpr auto textent(rank_type i) noexcept -> index_type {
       return textents()[i];
     }
 
     LAYOUT_TILED_INLINE_FUNCTION
     static constexpr auto tile_size() noexcept -> index_type {
-      return (1 * ... * TileExtents);
+      return (index_type{1} * ... * static_cast<index_type>(TileExtents));
     }
 
     LAYOUT_TILED_INLINE_FUNCTION
-    constexpr auto ntiles_in_extent(index_type ext) const noexcept -> index_type {
+    constexpr auto ntiles_in_extent(rank_type ext) const noexcept -> index_type {
       return extents_.extent(ext) / textent(ext) + index_type((extents_.extent(ext) % textent(ext)) != 0);
     }
     /* --- END PUBLIC HELPER MEMBERS --- */

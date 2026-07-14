@@ -25,23 +25,23 @@ LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto is_idx_in_extent(IdxType extent, Fr
   return static_cast<Tp>(value) < static_cast<Tp>(extent);
 }
 
-template <std::size_t... Idxs, class Extents, class... From>
+template <size_t... Idxs, class Extents, class... From>
 LAYOUT_TILED_INLINE_FUNCTION constexpr auto
 is_md_idx_in_span([[maybe_unused]] std::index_sequence<Idxs...> _, const Extents& ext, From... values) -> bool {
-  return (is_idx_in_extent(ext.extent(Idxs), values) && ...);
+  return (is_idx_in_extent(ext.extent(Idxs), static_cast<typename Extents::index_type>(values)) && ...);
 }
 
 /// If `i > 0`, computes the product of extents up to `i` for all `k` in the range [0, i), otherwise 1.
 ///
 /// Pre-condition: `i < sizeof...(Exts)`
-template <size_t... Exts>
-LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto fwd_prod_of_extents(size_t i) noexcept -> size_t {
+template <class E, E... Exts>
+LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto fwd_prod_of_extents(E i) noexcept -> E {
   if (0 == i) {
     return 1;
   }
-  constexpr std::array<size_t, sizeof...(Exts)> extents{Exts...};
-  std::size_t product = 1;
-  for (size_t k = 0; k < i; ++k) {
+  constexpr std::array<E, sizeof...(Exts)> extents{Exts...};
+  E product = 1;
+  for (E k = 0; k < i; ++k) {
     product *= extents[k];
   }
   return product;
@@ -51,14 +51,14 @@ LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto fwd_prod_of_extents(size_t i) noexc
 /// [i+1, sizeof...(Exts)), otherwise 1.
 ///
 /// Pre-condition: `i < sizeof...(Exts)`
-template <size_t... Exts>
-LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto rev_prod_of_extents(size_t i) noexcept -> size_t {
+template <class E, E... Exts>
+LAYOUT_TILED_IMPL_HOST_DEVICE constexpr auto rev_prod_of_extents(E i) noexcept -> E {
   if (sizeof...(Exts) < i + 1) {
     return 1;
   }
-  constexpr std::array<size_t, sizeof...(Exts)> extents{Exts...};
-  std::size_t product = 1;
-  for (size_t k = i + 1; k < sizeof...(Exts); ++k) {
+  constexpr std::array<E, sizeof...(Exts)> extents{Exts...};
+  E product = 1;
+  for (E k = i + 1; k < sizeof...(Exts); ++k) {
     product *= extents[k];
   }
   return product;
