@@ -7,6 +7,7 @@
 #include <array>
 #include <cassert>
 #include <cstddef>
+#include <limits>
 #include <utility>
 
 #include <experimental/__p0009_bits/layout_left.hpp>
@@ -37,26 +38,30 @@ public:
       "layout_tiled::layout_ltr::mapping: number of tile extents must match extents rank"
     );
     static_assert(((TileExtents > 0) && ...), "layout_tiled::layout_ltr::mapping: all tile extents must be positive");
+    static_assert(
+      [] {
+        size_t product           = 1;
+        constexpr auto max_index = static_cast<size_t>((std::numeric_limits<index_type>::max)());
+        for (const size_t extent : std::array<size_t, sizeof...(TileExtents)>{TileExtents...}) {
+          if (extent > max_index / product) {
+            return false;
+          }
+          product *= extent;
+        }
+        return true;
+      }(),
+      "layout_tiled::layout_ltr::mapping: tile size must be representable as index_type"
+    );
 
   private:
-    static constexpr auto extents_are_strictly_positive(const extents_type& ext) -> bool {
-      if constexpr (extents_type::rank() == 0) {
-        return true;
-      }
-      for (rank_type i = 0; i < ext.rank(); ++i) {
-        if (0 >= ext.extent(i)) {
-          return false;
+    static constexpr auto required_span_size_is_representable(const extents_type& ext) -> bool {
+      for (rank_type r = 0; r < extents_type::rank(); ++r) {
+        if (ext.extent(r) == 0) {
+          return true;
         }
       }
-      return true;
-    }
-
-    static constexpr auto required_span_size_is_representable(const extents_type& ext) -> bool {
-      if constexpr (extents_type::rank() == 0) {
-        return true;
-      }
-      index_type prod = ext.extent(0);
-      for (rank_type r = 1; r < extents_type::rank(); ++r) {
+      index_type prod = 1;
+      for (rank_type r = 0; r < extents_type::rank(); ++r) {
         bool overflowed = __builtin_mul_overflow(prod, ext.extent(r), &prod);
         if (overflowed) {
           return false;
@@ -73,13 +78,18 @@ public:
       if constexpr (extents_type::rank() == 0) {
         return true;
       }
+      constexpr std::array<size_t, sizeof...(TileExtents)> tile_extents{TileExtents...};
       for (rank_type r = 0; r < extents_type::rank(); ++r) {
-        if (0 != (ext.extent(r) % textent(r))) {
+        if (0 != (static_cast<size_t>(ext.extent(r)) % tile_extents[r])) {
           return false;
         }
       }
       return true;
     }
+    static_assert(
+      extents_type::rank_dynamic() > 0 || tile_extents_are_multiples_of_extents(extents_type()),
+      "layout_tiled::layout_ltr::mapping: all static extents must be multiples of their tile extents"
+    );
 
   public:
     // [mdspan.layout_tiled::layout_ltr.cons]
@@ -100,10 +110,18 @@ public:
     constexpr ~mapping() noexcept = default;
 
     LAYOUT_TILED_INLINE_FUNCTION
-    explicit mapping(const extents_type& exts) noexcept : extents_(exts) {
-      assert(extents_are_strictly_positive(exts));
+    constexpr explicit mapping(const extents_type& exts) noexcept : extents_(exts) {
       assert(required_span_size_is_representable(exts));
       assert(tile_extents_are_multiples_of_extents(exts));
+    }
+
+    template <class OtherExtents>
+      requires std::is_constructible_v<extents_type, OtherExtents>
+    explicit(!std::is_convertible_v<OtherExtents, extents_type>) LAYOUT_TILED_INLINE_FUNCTION
+      constexpr mapping(const layout_ltr<TileExtents...>::template mapping<OtherExtents>& other) noexcept :
+        extents_(other.extents()) {
+      assert(required_span_size_is_representable(extents_));
+      assert(tile_extents_are_multiples_of_extents(extents_));
     }
 
     /* --- REQUIRED MEMBERS --- */
@@ -115,6 +133,11 @@ public:
 
     LAYOUT_TILED_INLINE_FUNCTION
     constexpr auto required_span_size() const noexcept -> index_type {
+      for (rank_type i = 0; i < extents_type::rank(); ++i) {
+        if (extents_.extent(i) == 0) {
+          return 0;
+        }
+      }
       index_type res = 1;
       for (rank_type i = 0; i < extents_type::rank(); ++i) {
         res *= extents_.extent(i);
