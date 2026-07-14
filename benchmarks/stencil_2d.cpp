@@ -10,6 +10,7 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <type_traits>
 
 #include <fmt/core.h>
 #include <layout_tiled/layout_rtr.hpp>
@@ -36,6 +37,17 @@ struct Config {
 };
 
 namespace {
+
+template <class MdSpan>
+concept HasInnerLayout = requires { typename MdSpan::mapping_type::inner_layout_type; };
+
+template <class MdSpan>
+concept HasRightInnerLayout
+  = HasInnerLayout<MdSpan> && std::is_same_v<typename MdSpan::mapping_type::inner_layout_type, std::layout_right>;
+
+template <class MdSpan, class Extents>
+using InnerTileMdSpan
+  = std::mdspan<typename MdSpan::value_type, Extents, typename MdSpan::mapping_type::inner_layout_type>;
 
 template <class MdSpanIn, class MdSpanOut>
   requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
@@ -118,113 +130,82 @@ auto cache_blocked(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t D = 
 }
 
 template <size_t TM, size_t TN, class MdSpanIn, class MdSpanOut>
-  requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
-auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
+  requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut> && HasRightInnerLayout<MdSpanIn>
+           && HasRightInnerLayout<MdSpanOut>
+auto data_tiled(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
   assert(in.extent(0) == out.extent(0));
   assert(in.extent(1) == out.extent(1));
   assert(D != 0);
 
-  const size_t M = out.extent(0);
-  const size_t N = out.extent(1);
-
-  auto hin  = in.data_handle();
-  auto hout = out.data_handle();
-#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
-#pragma omp parallel for schedule(static)
-#endif
-  for (size_t x = D; x < M - D; x += TM) {
-    for (size_t y = D; y < N - D; y += TN) {
-      const size_t outoff = in.mapping().tile_offset_outer(x, y);
-      for (size_t i = 0; i < std::min(TM, M - D - x); ++i) {
-        const size_t ti    = TM * i;
-        const size_t ti_mD = TM * (i - D);
-        const size_t ti_pD = TM * (i + D);
-        for (size_t j = 0; j < std::min(TN, N - D - y); ++j) {
-          const size_t inoff      = ti + j;
-          const size_t baseoff    = outoff + inoff;
-          const size_t inoff_mD   = ti_mD + j;
-          const size_t inoff_pD   = ti_pD + j;
-          const size_t baseoff_mD = outoff + inoff_mD;
-          const size_t baseoff_pD = outoff + inoff_pD;
-          // clang-format off
-          hout[baseoff] =                  hin[baseoff_mD] +
-                          hin[baseoff-D] + hin[baseoff]   + hin[baseoff+D] +
-                                           hin[baseoff_pD];
-          // clang-format on
-        }
-      }
-    }
-  }
-}
-
-template <class MdSpanIn, class MdSpanOut>
-  requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
-auto manual_blocked_tiled(MdSpanIn in, MdSpanOut out, size_t TM, size_t TN, size_t D = DELTA) -> void {
-  assert(in.extent(0) == out.extent(0));
-  assert(in.extent(1) == out.extent(1));
-  assert(D != 0);
-
-  const size_t M = out.extent(0);
-  const size_t N = out.extent(1);
-
-  auto hin  = in.data_handle();
-  auto hout = out.data_handle();
-#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
-#pragma omp parallel for schedule(static)
-#endif
-  for (size_t x = D; x < M - D; x += TM) {
-    for (size_t y = D; y < N - D; y += TN) {
-      const size_t outoff = in.mapping().tile_offset_outer(x, y);
-      for (size_t i = 0; i < std::min(TM, M - D - x); ++i) {
-        const size_t ti    = TM * i;
-        const size_t ti_mD = TM * (i - D);
-        const size_t ti_pD = TM * (i + D);
-        for (size_t j = 0; j < std::min(TN, N - D - y); ++j) {
-          const size_t inoff      = ti + j;
-          const size_t baseoff    = outoff + inoff;
-          const size_t inoff_mD   = ti_mD + j;
-          const size_t inoff_pD   = ti_pD + j;
-          const size_t baseoff_mD = outoff + inoff_mD;
-          const size_t baseoff_pD = outoff + inoff_pD;
-          // clang-format off
-          hout[baseoff] =                  hin[baseoff_mD] +
-                          hin[baseoff-D] + hin[baseoff]   + hin[baseoff+D] +
-                                           hin[baseoff_pD];
-          // clang-format on
-        }
-      }
-    }
-  }
-}
-
-template <size_t TM, size_t TN, class MdSpanIn, class MdSpanOut>
-  requires IsMdSpan2D<MdSpanIn> && IsMdSpan2D<MdSpanOut>
-auto manual_blocked_tiled_subview(MdSpanIn in, MdSpanOut out, size_t D = DELTA) -> void {
-  assert(in.extent(0) == out.extent(0));
-  assert(in.extent(1) == out.extent(1));
-  assert(D != 0);
-
-  using InTile  = std::mdspan<Type, std::extents<size_t, TM, TN>, std::layout_right>;
-  using OutTile = std::mdspan<Type, std::extents<size_t, TM, TN>, std::layout_right>;
+  using InTile  = InnerTileMdSpan<MdSpanIn, std::extents<size_t, TM, TN>>;
+  using OutTile = InnerTileMdSpan<MdSpanOut, std::extents<size_t, TM, TN>>;
 
   const size_t M = out.extent(0);
   const size_t N = out.extent(1);
 
 #if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
-#pragma omp parallel for schedule(static)
+#pragma omp parallel for collapse(2) schedule(static)
 #endif
   for (size_t x = 0; x < M; x += TM) {
     for (size_t y = 0; y < N; y += TN) {
-      const size_t outoff = in.mapping().tile_offset_outer(x, y);
-      const auto t_in     = InTile(in.data_handle() + outoff);
-      auto t_out          = OutTile(out.data_handle() + outoff);
-      for (size_t i = 0; i < std::min(TM, M - x); ++i) {
-        for (size_t j = 0; j < std::min(TN, N - y); ++j) {
-          // clang-format off
-          t_out[i, j] =                ( t_in[i-D, j]
-                        + t_in[i, j-D] + t_in[  i, j] + t_in[i, j+D]
-                                       + t_in[i+D, j] ) / 5.0;
-          // clang-format on
+      const size_t tx = std::min(TM, M - x);
+      const size_t ty = std::min(TN, N - y);
+
+      const size_t gi_begin = std::max(x, D);
+      const size_t gi_end   = std::min(x + tx, M - D);
+      const size_t gj_begin = std::max(y, D);
+      const size_t gj_end   = std::min(y + ty, N - D);
+      if (gi_begin >= gi_end || gj_begin >= gj_end) {
+        continue;
+      }
+
+      const size_t li_begin = gi_begin - x;
+      const size_t li_end   = gi_end - x;
+      const size_t lj_begin = gj_begin - y;
+      const size_t lj_end   = gj_end - y;
+
+      const auto t_in = InTile(in.data_handle() + in.mapping().tile_offset_outer(x, y));
+      auto t_out      = OutTile(out.data_handle() + out.mapping().tile_offset_outer(x, y));
+
+      size_t fi_begin = 0;
+      size_t fi_end   = 0;
+      size_t fj_begin = 0;
+      size_t fj_end   = 0;
+      if (tx > D && ty > D) {
+        fi_begin = std::max(li_begin, D);
+        fi_end   = std::min(li_end, tx - D);
+        fj_begin = std::max(lj_begin, D);
+        fj_end   = std::min(lj_end, ty - D);
+      }
+
+      for (size_t i = fi_begin; i < fi_end; ++i) {
+        for (size_t j = fj_begin; j < fj_end; ++j) {
+          t_out[i, j] = t_in[i - D, j] + t_in[i, j - D] + t_in[i, j] + t_in[i, j + D] + t_in[i + D, j];
+        }
+      }
+
+      const auto slow_point = [&](size_t i, size_t j) {
+        const size_t gi = x + i;
+        const size_t gj = y + j;
+        out[gi, gj]     = in[gi - D, gj] + in[gi, gj - D] + in[gi, gj] + in[gi, gj + D] + in[gi + D, gj];
+      };
+
+      for (size_t i = li_begin; i < std::min(li_end, fi_begin); ++i) {
+        for (size_t j = lj_begin; j < lj_end; ++j) {
+          slow_point(i, j);
+        }
+      }
+      for (size_t i = std::max(li_begin, fi_end); i < li_end; ++i) {
+        for (size_t j = lj_begin; j < lj_end; ++j) {
+          slow_point(i, j);
+        }
+      }
+      for (size_t i = std::max(li_begin, fi_begin); i < std::min(li_end, fi_end); ++i) {
+        for (size_t j = lj_begin; j < std::min(lj_end, fj_begin); ++j) {
+          slow_point(i, j);
+        }
+        for (size_t j = std::max(lj_begin, fj_end); j < lj_end; ++j) {
+          slow_point(i, j);
         }
       }
     }
@@ -254,12 +235,10 @@ auto run_bench(const Config& cfg) -> int {
     = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L2, TILE_L2>>(lrtr_l2_out.get(), cfg.n_, cfg.n_);
 
   // Initializations
-  auto rng_naive    = ankerl::nanobench::Rng(42);
-  auto rng_tiled_l1 = rng_naive.copy();
-  auto rng_tiled_l2 = rng_naive.copy();
+  auto rng_naive = ankerl::nanobench::Rng(42);
   benchmark_utils::fill_2d_uniform01(mlr_in, rng_naive);
-  benchmark_utils::fill_2d_uniform01(mlrtr_l1_in, rng_tiled_l1);
-  benchmark_utils::fill_2d_uniform01(mlrtr_l2_in, rng_tiled_l2);
+  benchmark_utils::fill_2d_copy(mlrtr_l1_in, mlr_in);
+  benchmark_utils::fill_2d_copy(mlrtr_l2_in, mlr_in);
 
 #if defined(LAYOUT_TILED_BENCH_ENABLE_CHECKS)
   // Checks
@@ -271,23 +250,19 @@ auto run_bench(const Config& cfg) -> int {
   double ref = benchmark_utils::l2_norm(mlr_out);
 
   cache_blocked<TILE_L1, TILE_L1>(mlr_in, mlr_out);
-  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L1", big_o);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "CB-IJ-SR-L1", big_o);
   cache_blocked<TILE_L2, TILE_L2>(mlr_in, mlr_out);
-  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "R_cb-L2", big_o);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlr_out), "CB-IJ-SR-L2", big_o);
 
   naive(mlrtr_l1_in, mlrtr_l1_out);
-  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_naive", big_o);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "N-IJ-TR-L1", big_o);
   naive(mlrtr_l2_in, mlrtr_l2_out);
-  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_naive", big_o);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "N-IJ-TR-L2", big_o);
 
-  manual_blocked_tiled<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
-  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_mbt", big_o);
-  manual_blocked_tiled<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
-  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_mbt", big_o);
-  manual_blocked_tiled_subview<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
-  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "RTR-L1_mbtsv", big_o);
-  manual_blocked_tiled_subview<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
-  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "RTR-L2_mbtsv", big_o);
+  data_tiled<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l1_out), "DT-IJ-TR-L1", big_o);
+  data_tiled<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out);
+  res = benchmark_utils::check(ref, benchmark_utils::l2_norm(mlrtr_l2_out), "DT-IJ-TR-L2", big_o);
 
   return res;
 #else
@@ -306,33 +281,17 @@ auto run_bench(const Config& cfg) -> int {
     out_stream = &file_stream;
   }
 
-  bs.run("R naive", [&]() { naive(mlr_in, mlr_out, cfg.d_); });
+  bs.run("N-IJ-SR", [&]() { naive(mlr_in, mlr_out, cfg.d_); });
 
-  bs.run(fmt::format("R cb-{0}x{0}", TILE_L1), [&]() { cache_blocked<TILE_L1, TILE_L1>(mlr_in, mlr_out, cfg.d_); });
-  bs.run(fmt::format("R cb-{0}x{0}", TILE_L2), [&]() { cache_blocked<TILE_L2, TILE_L2>(mlr_in, mlr_out, cfg.d_); });
-  bs.run(fmt::format("R cb-{0}x{0} (runtime)", cfg.t_), [&]() {
-    cache_blocked(mlr_in, mlr_out, TILE_L1, TILE_L1, cfg.d_);
-  });
+  bs.run("CB-IJ-SR-L1", [&]() { cache_blocked<TILE_L1, TILE_L1>(mlr_in, mlr_out, cfg.d_); });
+  bs.run("CB-IJ-SR-L2", [&]() { cache_blocked<TILE_L2, TILE_L2>(mlr_in, mlr_out, cfg.d_); });
+  bs.run(fmt::format("CB-IJ-SR-B{}", cfg.t_), [&]() { cache_blocked(mlr_in, mlr_out, cfg.t_, cfg.t_, cfg.d_); });
 
-  bs.run(fmt::format("RTR-{0}x{0} naive", TILE_L1), [&]() { naive(mlrtr_l1_in, mlrtr_l1_out, cfg.d_); });
-  bs.run(fmt::format("RTR-{0}x{0} naive", TILE_L2), [&]() { naive(mlrtr_l2_in, mlrtr_l2_out, cfg.d_); });
+  bs.run("N-IJ-TR-L1", [&]() { naive(mlrtr_l1_in, mlrtr_l1_out, cfg.d_); });
+  bs.run("N-IJ-TR-L2", [&]() { naive(mlrtr_l2_in, mlrtr_l2_out, cfg.d_); });
 
-  bs.run(fmt::format("RTR-{0}x{0} mbt", TILE_L1), [&]() {
-    manual_blocked_tiled<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out, cfg.d_);
-  });
-  bs.run(fmt::format("RTR-{0}x{0} mbt", TILE_L2), [&]() {
-    manual_blocked_tiled<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out, cfg.d_);
-  });
-  bs.run(fmt::format("RTR-{0}x{0} mbt (runtime)", cfg.t_), [&]() {
-    manual_blocked_tiled(mlrtr_l1_in, mlrtr_l1_out, TILE_L1, TILE_L1, cfg.d_);
-  });
-
-  bs.run(fmt::format("RTR-{0}x{0} mbtsv", TILE_L1), [&]() {
-    manual_blocked_tiled_subview<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out, cfg.d_);
-  });
-  bs.run(fmt::format("RTR-{0}x{0} mbtsv", TILE_L2), [&]() {
-    manual_blocked_tiled_subview<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out, cfg.d_);
-  });
+  bs.run("DT-IJ-TR-L1", [&]() { data_tiled<TILE_L1, TILE_L1>(mlrtr_l1_in, mlrtr_l1_out, cfg.d_); });
+  bs.run("DT-IJ-TR-L2", [&]() { data_tiled<TILE_L2, TILE_L2>(mlrtr_l2_in, mlrtr_l2_out, cfg.d_); });
 
   // Output
   bs.render(ankerl::nanobench::templates::csv(), *out_stream);
