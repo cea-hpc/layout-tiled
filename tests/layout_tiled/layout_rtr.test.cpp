@@ -194,6 +194,72 @@ TEST(layout_rtr, converting_constructor_constraints) {
   check_mapping_conversions<layout_t>();
 }
 
+#if defined(LAYOUT_TILED_ENABLE_P2630_SUBMDSPAN)
+// ---------------------------------------------------------------------------
+// submdspan_mapping
+// ---------------------------------------------------------------------------
+
+TEST(layout_rtr, submdspan_mapping_full_extent) {
+  mapping_t m(extents_t(4, 6));
+  auto r = submdspan_mapping(m, std::full_extent, std::full_extent);
+  EXPECT_EQ(r.mapping.extents(), extents_t(4, 6));
+  EXPECT_EQ(r.offset, size_t(0));
+  for (size_t i = 0; i < 4; ++i)
+    for (size_t j = 0; j < 6; ++j)
+      EXPECT_EQ(r.mapping(i, j), m(i, j));
+}
+
+TEST(layout_rtr, submdspan_mapping_integral) {
+  mapping_t m(extents_t(4, 6));
+  auto r = submdspan_mapping(m, size_t(1), std::full_extent);
+  EXPECT_EQ(r.mapping.extents().rank(), 1);
+  EXPECT_EQ(r.mapping.extents().extent(0), size_t(6));
+  EXPECT_EQ(r.offset, m(1, 0));
+  for (size_t j = 0; j < 6; ++j)
+    EXPECT_EQ(r.mapping(j), m(1, j) - r.offset);
+}
+
+TEST(layout_rtr, submdspan_mapping_range) {
+  mapping_t m(extents_t(4, 6));
+  auto slices = std::pair<size_t, size_t>{2, 4};
+  auto slicer = std::pair<size_t, size_t>{3, 6};
+  auto r      = submdspan_mapping(m, slices, slicer);
+  EXPECT_EQ(r.mapping.extents().rank(), 2);
+  EXPECT_EQ(r.mapping.extents().extent(0), size_t(2));
+  EXPECT_EQ(r.mapping.extents().extent(1), size_t(3));
+  EXPECT_EQ(r.offset, m(2, 3));
+  for (size_t i = 0; i < 2; ++i)
+    for (size_t j = 0; j < 3; ++j)
+      EXPECT_EQ(r.mapping(i, j), m(2 + i, 3 + j) - r.offset);
+}
+
+TEST(layout_rtr, submdspan_mapping_mixed) {
+  mapping_t m(extents_t(4, 6));
+  auto r = submdspan_mapping(m, std::full_extent, size_t(2));
+  EXPECT_EQ(r.mapping.extents().rank(), 1);
+  EXPECT_EQ(r.mapping.extents().extent(0), size_t(4));
+  EXPECT_EQ(r.offset, m(0, 2));
+  for (size_t i = 0; i < 4; ++i)
+    EXPECT_EQ(r.mapping(i), m(i, 2) - r.offset);
+}
+
+TEST(layout_rtr, submdspan_mapping_properties) {
+  mapping_t m(extents_t(4, 6));
+  auto r     = submdspan_mapping(m, std::full_extent, std::full_extent);
+  using sm_t = std::decay_t<decltype(r.mapping)>;
+  EXPECT_TRUE(sm_t::is_always_unique());
+  EXPECT_TRUE(sm_t::is_always_exhaustive());
+  EXPECT_FALSE(sm_t::is_always_strided());
+  EXPECT_TRUE(r.mapping.is_unique());
+  EXPECT_TRUE(r.mapping.is_exhaustive());
+  EXPECT_FALSE(r.mapping.is_strided());
+}
+
+TEST(layout_rtr, submdspan_end_to_end) {
+  check_submdspan_end_to_end<layout_t>();
+}
+#endif
+
 // ---------------------------------------------------------------------------
 // TDD: converting constructors from other layouts must not be available
 // ---------------------------------------------------------------------------

@@ -8,6 +8,7 @@ option(LAYOUT_TILED_BUILD_EXAMPLES "Enable building examples. Default: OFF. Valu
 option(LAYOUT_TILED_BUILD_BENCHMARKS "Enable building benchmarks. Default: OFF. Values: { ON, OFF }." OFF)
 option(LAYOUT_TILED_ENABLE_KOKKOS_MDSPAN "Build with Kokkos reference mdspan implementation. Default: ON. Values: { ON, OFF }." ON)
 option(LAYOUT_TILED_ENABLE_DEVICE_OFFLOAD "Enable device offload. Default: OFF. Values: { ON, OFF }." OFF)
+option(LAYOUT_TILED_ENABLE_P2630_SUBMDSPAN "Enable submdspan support (submdspan_mapping). Default: OFF. Values: { ON, OFF }." OFF)
 
 # Benchmark options
 option(LAYOUT_TILED_BENCH_ENABLE_CHECKS "Enable checking benchmarks results. Default: ON. Values: { ON, OFF }." OFF)
@@ -49,6 +50,43 @@ else()
       "Set -DLAYOUT_TILED_ENABLE_KOKKOS_MDSPAN=ON "
       "or use a C++23 compiler with mdspan support."
     )
+  endif()
+endif()
+
+# Resolve submdspan support
+if(LAYOUT_TILED_ENABLE_P2630_SUBMDSPAN)
+  if(LAYOUT_TILED_ENABLE_KOKKOS_MDSPAN)
+    message(STATUS "submdspan support enabled (provided by Kokkos mdspan)")
+  else()
+    include(CheckCXXSourceCompiles)
+    set(layout_tiled_saved_cxx_standard "${CMAKE_CXX_STANDARD}")
+    set(CMAKE_CXX_STANDARD 23)
+    check_cxx_source_compiles("
+#include <mdspan>
+int main() {
+  using ext_t = std::dextents<size_t, 2>;
+  ext_t e{4, 5};
+  auto sub_exts = std::submdspan_extents(e, std::integral_constant<size_t, 0>{}, std::integral_constant<size_t, 1>{});
+  using result_t = std::submdspan_mapping_result<decltype(sub_exts)>;
+  result_t r{};
+  (void)sub_exts;
+  (void)r;
+  return 0;
+}
+" LAYOUT_TILED_HAVE_SUBMDSPAN)
+    if(layout_tiled_saved_cxx_standard)
+      set(CMAKE_CXX_STANDARD "${layout_tiled_saved_cxx_standard}")
+    else()
+      unset(CMAKE_CXX_STANDARD)
+    endif()
+    if(NOT LAYOUT_TILED_HAVE_SUBMDSPAN)
+      message(FATAL_ERROR
+        "Requested submdspan support (-DLAYOUT_TILED_ENABLE_P2630_SUBMDSPAN=ON), "
+        "but the standard library's <mdspan> lacks submdspan features "
+        "(P2630 submdspan_mapping_result / submdspan_extents). "
+        "Use a newer standard library, or set -DLAYOUT_TILED_ENABLE_KOKKOS_MDSPAN=ON."
+      )
+    endif()
   endif()
 endif()
 

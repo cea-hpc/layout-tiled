@@ -18,6 +18,9 @@
 
 #include "detail/common.hpp"
 #include "detail/macros.hpp"
+#if defined(LAYOUT_TILED_ENABLE_P2630_SUBMDSPAN)
+#include "detail/sub_tiled_mapping.hpp"
+#endif
 
 namespace layout_tiled {
 
@@ -164,6 +167,17 @@ public:
     operator==(const mapping& lhs, const mapping<OtherExtents>& rhs) noexcept -> bool {
       return lhs.extents() == rhs.extents();
     }
+
+#if defined(LAYOUT_TILED_ENABLE_P2630_SUBMDSPAN)
+    template <class... SliceSpecifiers>
+      requires (extents_type::rank() == sizeof...(SliceSpecifiers))
+    LAYOUT_TILED_INLINE_FUNCTION friend constexpr auto submdspan_mapping(const mapping& src, SliceSpecifiers... slices)
+      -> std::submdspan_mapping_result<
+        detail::
+          sub_tiled_mapping<decltype(std::submdspan_extents(src.extents(), slices...)), mapping, SliceSpecifiers...>> {
+      return detail::make_sub_tiled_mapping(src, slices...);
+    }
+#endif
 
     /// Mapping is always unique.
     LAYOUT_TILED_INLINE_FUNCTION

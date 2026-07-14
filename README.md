@@ -39,6 +39,8 @@ Ensure you have the following software installed on your system:
 By default, this project automatically fetches [Kokkos' `mdspan` reference implementation](https://github.com/kokkos/mdspan).
 Configure with `-DLAYOUT_TILED_ENABLE_KOKKOS_MDSPAN=OFF` to use the C++ standard library's `<mdspan>` implementation instead.
 
+`std::submdspan` integration is opt-in. Configure with `-DLAYOUT_TILED_ENABLE_P2630_SUBMDSPAN=ON` to enable it; the selected `mdspan` implementation must provide the P2630 submdspan interfaces.
+
 ### Build
 
 ```bash

@@ -32,12 +32,13 @@ target_sources(
     FILE_SET layout_tiled_detail_headers
     TYPE HEADERS
     BASE_DIRS ${CMAKE_SOURCE_DIR}/include
-    FILES detail/common.hpp
+    FILES detail/common.hpp detail/macros.hpp detail/sub_tiled_mapping.hpp
 )
 target_compile_definitions(
   layout_tiled
   INTERFACE
     $<$<BOOL:${LAYOUT_TILED_ENABLE_KOKKOS_MDSPAN}>:LAYOUT_TILED_KOKKOS_MDSPAN>
+    $<$<BOOL:${LAYOUT_TILED_ENABLE_P2630_SUBMDSPAN}>:LAYOUT_TILED_ENABLE_P2630_SUBMDSPAN>
     $<$<BOOL:${LAYOUT_TILED_ENABLE_DEVICE_OFFLOAD}>:LAYOUT_TILED_ENABLE_DEVICE_OFFLOAD>
 )
 target_link_libraries(layout_tiled INTERFACE layout_tiled.compile_flags)
