@@ -1,6 +1,7 @@
 set(
   ALL_BENCHMARKS
   gemm
+  gemv
   stencil_2d
   stencil_3d
   tensor_contraction
@@ -10,16 +11,33 @@ if(LAYOUT_TILED_BENCH_ENABLE_OMP)
   find_package(OpenMP REQUIRED)
 endif()
 if(LAYOUT_TILED_BENCH_ENABLE_BLAS)
-  find_package(BLAS REQUIRED)
-  find_path(
-    BLAS_INCLUDE_DIRS
-    cblas.h
-    /usr/include
-    /usr/local/include
-    /usr/include/openblas
-  )
-  message("BLA_VENDOR: ${BLA_VENDOR}")
-  message("BLAS_INCLUDE_DIRS: ${BLAS_INCLUDE_DIRS}")
+  set(LAYOUT_TILED_BENCH_BLAS_LIBRARY "" CACHE FILEPATH "Explicit BLAS library used by the linear algebra benchmarks")
+  set(LAYOUT_TILED_BENCH_BLAS_INCLUDE_DIR "" CACHE PATH "Directory containing cblas.h for the linear algebra benchmarks")
+  if(LAYOUT_TILED_BENCH_BLAS_LIBRARY)
+    add_library(layout_tiled.benchmark_blas UNKNOWN IMPORTED)
+    set_target_properties(
+      layout_tiled.benchmark_blas
+      PROPERTIES IMPORTED_LOCATION "${LAYOUT_TILED_BENCH_BLAS_LIBRARY}"
+    )
+    find_package(Threads REQUIRED)
+    set(LAYOUT_TILED_BENCH_BLAS_TARGET layout_tiled.benchmark_blas Threads::Threads)
+  else()
+    find_package(BLAS REQUIRED)
+    set(LAYOUT_TILED_BENCH_BLAS_TARGET BLAS::BLAS)
+  endif()
+  if(LAYOUT_TILED_BENCH_BLAS_INCLUDE_DIR)
+    set(LAYOUT_TILED_BENCH_BLAS_INCLUDE_DIR_RESOLVED "${LAYOUT_TILED_BENCH_BLAS_INCLUDE_DIR}")
+  else()
+    find_path(
+      LAYOUT_TILED_BENCH_BLAS_INCLUDE_DIR_RESOLVED
+      cblas.h
+      /usr/include
+      /usr/local/include
+      /usr/include/openblas
+    )
+  endif()
+  message("Benchmark BLAS library: ${LAYOUT_TILED_BENCH_BLAS_LIBRARY}")
+  message("Benchmark BLAS include directory: ${LAYOUT_TILED_BENCH_BLAS_INCLUDE_DIR_RESOLVED}")
 endif()
 
 foreach(bench ${ALL_BENCHMARKS})
@@ -57,10 +75,19 @@ foreach(bench ${ALL_BENCHMARKS})
   if(LAYOUT_TILED_BENCH_ENABLE_CHECKS)
     target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE -DLAYOUT_TILED_BENCH_ENABLE_CHECKS)
   endif()
-  if(${bench} STREQUAL "gemm" AND LAYOUT_TILED_BENCH_ENABLE_BLAS)
-    message("Enabling BLAS for GEMM benchmark")
+  if((${bench} STREQUAL "gemm" OR ${bench} STREQUAL "gemv") AND LAYOUT_TILED_BENCH_ENABLE_BLAS)
+    message("Enabling BLAS for ${bench} benchmark")
     target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE -DLAYOUT_TILED_BENCH_ENABLE_BLAS)
-    target_include_directories(layout_tiled.benchmarks.${bench} PRIVATE ${BLAS_INCLUDE_DIRS})
-    target_link_libraries(layout_tiled.benchmarks.${bench} PRIVATE BLAS::BLAS)
+    target_include_directories(
+      layout_tiled.benchmarks.${bench}
+      PRIVATE ${LAYOUT_TILED_BENCH_BLAS_INCLUDE_DIR_RESOLVED}
+    )
+    target_link_libraries(layout_tiled.benchmarks.${bench} PRIVATE ${LAYOUT_TILED_BENCH_BLAS_TARGET})
+    if(
+      LAYOUT_TILED_BENCH_BLAS_LIBRARY MATCHES "openblas"
+      OR BLAS_openblas_LIBRARY
+    )
+      target_compile_definitions(layout_tiled.benchmarks.${bench} PRIVATE -DLAYOUT_TILED_BENCH_OPENBLAS)
+    endif()
   endif()
 endforeach()

@@ -28,6 +28,9 @@ public:
     using rank_type    = typename extents_type::rank_type;
     using layout_type  = layout_rtl<TileExtents...>;
 
+    using outer_layout_type = std::layout_right;
+    using inner_layout_type = std::layout_left;
+
     static_assert(extents_type::rank() > 0, "layout_tiled::layout_rtl::mapping: number of extents must be positive");
     static_assert(
       extents_type::rank() == sizeof...(TileExtents),

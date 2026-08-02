@@ -129,7 +129,7 @@ def main() -> None:
         "-b",
         "--bench",
         type=str,
-        choices=["gemm", "stencil_2d", "stencil_3d"],
+        choices=["gemm", "gemv", "stencil_2d", "stencil_3d"],
         help="benchmark name",
         metavar="BENCH",
     )

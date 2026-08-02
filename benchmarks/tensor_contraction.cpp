@@ -17,6 +17,7 @@
 #include <fmt/core.h>
 #include <layout_tiled/layout_ltl.hpp>
 #include <layout_tiled/layout_rtr.hpp>
+#include <layout_tiled/reduce.hpp>
 #include <nanobench.h>
 #if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #include <omp.h>
@@ -41,18 +42,33 @@ constexpr size_t L2_TM = 64;
 constexpr size_t L2_TN = 64;
 constexpr size_t L2_TK = 64;
 
+constexpr size_t RECT_TB = 4;
+constexpr size_t RECT_TM = 16;
+constexpr size_t RECT_TN = 64;
+constexpr size_t RECT_TK = 32;
+
+constexpr size_t BATCH_TB = 1;
+constexpr size_t BATCH_TM = 32;
+constexpr size_t BATCH_TN = 64;
+constexpr size_t BATCH_TK = 32;
+
 constexpr auto contraction_working_set_bytes(size_t TB, size_t TM, size_t TN, size_t TK) -> size_t {
   return sizeof(Type) * (TB * TM * TN + TB * TM * TK + TB * TK * TN);
 }
 
-constexpr size_t L1_WORKING_SET_BYTES = contraction_working_set_bytes(L1_TB, L1_TM, L1_TN, L1_TK);
-constexpr size_t L2_WORKING_SET_BYTES = contraction_working_set_bytes(L2_TB, L2_TM, L2_TN, L2_TK);
+constexpr size_t L1_WORKING_SET_BYTES    = contraction_working_set_bytes(L1_TB, L1_TM, L1_TN, L1_TK);
+constexpr size_t L2_WORKING_SET_BYTES    = contraction_working_set_bytes(L2_TB, L2_TM, L2_TN, L2_TK);
+constexpr size_t RECT_WORKING_SET_BYTES  = contraction_working_set_bytes(RECT_TB, RECT_TM, RECT_TN, RECT_TK);
+constexpr size_t BATCH_WORKING_SET_BYTES = contraction_working_set_bytes(BATCH_TB, BATCH_TM, BATCH_TN, BATCH_TK);
 
 static_assert(L1_WORKING_SET_BYTES <= L1D_CACHE_BYTES);
 static_assert(L2_WORKING_SET_BYTES <= L2_CACHE_BYTES);
+static_assert(RECT_WORKING_SET_BYTES <= L2_CACHE_BYTES);
+static_assert(BATCH_WORKING_SET_BYTES <= L1D_CACHE_BYTES);
+static_assert(BATCH_TB == 1);
 
 struct Config {
-  uint64_t n_ = 64;
+  uint64_t n_ = 128;
   std::string output_;
 };
 
@@ -372,39 +388,90 @@ auto data_tiled_b_left_ijk(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void 
   }
 }
 
+template <class MdSpanA, class MdSpanB, class MdSpanC>
+  requires IsMdSpan3D<MdSpanA> && IsMdSpan3D<MdSpanB> && IsMdSpan3D<MdSpanC>
+auto layout_aware_reduce(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
+  assert(A.extent(0) == B.extent(0));
+  assert(A.extent(0) == C.extent(0));
+  assert(A.extent(1) == C.extent(1));
+  assert(A.extent(2) == B.extent(1));
+  assert(B.extent(2) == C.extent(2));
+
+  enum : size_t {
+    Batch,
+    I,
+    J,
+    K
+  };
+  layout_tiled::reduce<K>(
+    layout_tiled::out<Batch, I, J>(C, Type{0}),
+    layout_tiled::in<Batch, I, K>(A),
+    layout_tiled::in<Batch, K, J>(B),
+    [](auto& result, auto lhs, auto rhs) { result += lhs * rhs; }
+  );
+}
+
 auto run_bench(const Config& cfg) -> int {
   const auto n         = static_cast<size_t>(cfg.n_);
   const size_t ten_len = n * n * n;
 
   auto rA = MemorySlice<Type>(ten_len);
   auto rB = MemorySlice<Type>(ten_len);
-  auto lB = MemorySlice<Type>(ten_len);
   auto rC = MemorySlice<Type>(ten_len);
 
-  auto trA_l1 = MemorySlice<Type>(ten_len);
-  auto trB_l1 = MemorySlice<Type>(ten_len);
-  auto tlB_l1 = MemorySlice<Type>(ten_len);
-  auto trC_l1 = MemorySlice<Type>(ten_len);
+  auto trA_l1        = MemorySlice<Type>(ten_len);
+  auto trB_l1        = MemorySlice<Type>(ten_len);
+  auto trC_l1        = MemorySlice<Type>(ten_len);
+  auto trC_reduce_l1 = MemorySlice<Type>(ten_len);
 
-  auto trA_l2 = MemorySlice<Type>(ten_len);
-  auto trB_l2 = MemorySlice<Type>(ten_len);
-  auto tlB_l2 = MemorySlice<Type>(ten_len);
-  auto trC_l2 = MemorySlice<Type>(ten_len);
+  auto trA_l2        = MemorySlice<Type>(ten_len);
+  auto trB_l2        = MemorySlice<Type>(ten_len);
+  auto trC_l2        = MemorySlice<Type>(ten_len);
+  auto trC_reduce_l2 = MemorySlice<Type>(ten_len);
+
+  auto trA_rect        = MemorySlice<Type>(ten_len);
+  auto trB_rect        = MemorySlice<Type>(ten_len);
+  auto trC_rect        = MemorySlice<Type>(ten_len);
+  auto trC_reduce_rect = MemorySlice<Type>(ten_len);
+
+  auto trA_batch        = MemorySlice<Type>(ten_len);
+  auto trB_batch        = MemorySlice<Type>(ten_len);
+  auto trC_batch        = MemorySlice<Type>(ten_len);
+  auto trC_reduce_batch = MemorySlice<Type>(ten_len);
 
   auto mrA = std::mdspan<Type, Exts>(rA.get(), n, n, n);
   auto mrB = std::mdspan<Type, Exts>(rB.get(), n, n, n);
-  auto mlB = std::mdspan<Type, Exts, std::layout_left>(lB.get(), n, n, n);
   auto mrC = std::mdspan<Type, Exts>(rC.get(), n, n, n);
 
   auto mtrA_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TM, L1_TK>>(trA_l1.get(), n, n, n);
   auto mtrB_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TK, L1_TN>>(trB_l1.get(), n, n, n);
-  auto mtlB_l1 = std::mdspan<Type, Exts, layout_tiled::layout_ltl<L1_TK, L1_TN, L1_TB>>(tlB_l1.get(), n, n, n);
   auto mtrC_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TM, L1_TN>>(trC_l1.get(), n, n, n);
+  auto mtrC_reduce_l1
+    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TM, L1_TN>>(trC_reduce_l1.get(), n, n, n);
 
   auto mtrA_l2 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L2_TB, L2_TM, L2_TK>>(trA_l2.get(), n, n, n);
   auto mtrB_l2 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L2_TB, L2_TK, L2_TN>>(trB_l2.get(), n, n, n);
-  auto mtlB_l2 = std::mdspan<Type, Exts, layout_tiled::layout_ltl<L2_TK, L2_TN, L2_TB>>(tlB_l2.get(), n, n, n);
   auto mtrC_l2 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L2_TB, L2_TM, L2_TN>>(trC_l2.get(), n, n, n);
+  auto mtrC_reduce_l2
+    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L2_TB, L2_TM, L2_TN>>(trC_reduce_l2.get(), n, n, n);
+
+  auto mtrA_rect
+    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<RECT_TB, RECT_TM, RECT_TK>>(trA_rect.get(), n, n, n);
+  auto mtrB_rect
+    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<RECT_TB, RECT_TK, RECT_TN>>(trB_rect.get(), n, n, n);
+  auto mtrC_rect
+    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<RECT_TB, RECT_TM, RECT_TN>>(trC_rect.get(), n, n, n);
+  auto mtrC_reduce_rect
+    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<RECT_TB, RECT_TM, RECT_TN>>(trC_reduce_rect.get(), n, n, n);
+
+  auto mtrA_batch
+    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<BATCH_TB, BATCH_TM, BATCH_TK>>(trA_batch.get(), n, n, n);
+  auto mtrB_batch
+    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<BATCH_TB, BATCH_TK, BATCH_TN>>(trB_batch.get(), n, n, n);
+  auto mtrC_batch
+    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<BATCH_TB, BATCH_TM, BATCH_TN>>(trC_batch.get(), n, n, n);
+  auto mtrC_reduce_batch
+    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<BATCH_TB, BATCH_TM, BATCH_TN>>(trC_reduce_batch.get(), n, n, n);
 
   ankerl::nanobench::Rng rng_naive(42);
   benchmark_utils::fill_3d_uniform01(mrA, rng_naive);
@@ -413,18 +480,10 @@ auto run_bench(const Config& cfg) -> int {
   benchmark_utils::fill_3d_copy(mtrB_l1, mrB);
   benchmark_utils::fill_3d_copy(mtrA_l2, mrA);
   benchmark_utils::fill_3d_copy(mtrB_l2, mrB);
-#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
-#pragma omp parallel for collapse(3) schedule(static)
-#endif
-  for (size_t b = 0; b < n; ++b) {
-    for (size_t k = 0; k < n; ++k) {
-      for (size_t j = 0; j < n; ++j) {
-        mlB[k, j, b]     = mrB[b, k, j];
-        mtlB_l1[k, j, b] = mrB[b, k, j];
-        mtlB_l2[k, j, b] = mrB[b, k, j];
-      }
-    }
-  }
+  benchmark_utils::fill_3d_copy(mtrA_rect, mrA);
+  benchmark_utils::fill_3d_copy(mtrB_rect, mrB);
+  benchmark_utils::fill_3d_copy(mtrA_batch, mrA);
+  benchmark_utils::fill_3d_copy(mtrB_batch, mrB);
 
 #if defined(LAYOUT_TILED_BENCH_ENABLE_CHECKS)
   const auto dn    = static_cast<double>(n);
@@ -438,30 +497,27 @@ auto run_bench(const Config& cfg) -> int {
   res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "CB-IKJ-SRRR-L1", tol);
   cache_blocked<L2_TB, L2_TM, L2_TN, L2_TK>(mrA, mrB, mrC);
   res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "CB-IKJ-SRRR-L2", tol);
-  naive_b_left(mrA, mlB, mrC);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "N-IJK-SRLR", tol);
-  cache_blocked_b_left<L1_TB, L1_TM, L1_TN, L1_TK>(mrA, mlB, mrC);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "CB-IJK-SRLR-L1", tol);
-  cache_blocked_b_left<L2_TB, L2_TM, L2_TN, L2_TK>(mrA, mlB, mrC);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "CB-IJK-SRLR-L2", tol);
-
-  naive(mtrA_l1, mtrB_l1, mtrC_l1);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "N-IJK-TRRR-L1", tol);
-  naive_b_left(mtrA_l1, mtlB_l1, mtrC_l1);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "N-IJK-TRLR-L1", tol);
-  naive(mtrA_l2, mtrB_l2, mtrC_l2);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "N-IJK-TRRR-L2", tol);
-  naive_b_left(mtrA_l2, mtlB_l2, mtrC_l2);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "N-IJK-TRLR-L2", tol);
+  cache_blocked<RECT_TB, RECT_TM, RECT_TN, RECT_TK>(mrA, mrB, mrC);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "CB-IKJ-SRRR-RECT", tol);
+  cache_blocked<BATCH_TB, BATCH_TM, BATCH_TN, BATCH_TK>(mrA, mrB, mrC);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "CB-IKJ-SRRR-BATCH1", tol);
 
   data_tiled_ikj<L1_TB, L1_TM, L1_TN, L1_TK>(mtrA_l1, mtrB_l1, mtrC_l1);
   res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "DT-IKJ-TRRR-L1", tol);
-  data_tiled_b_left_ijk<L1_TB, L1_TM, L1_TN, L1_TK>(mtrA_l1, mtlB_l1, mtrC_l1);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "DT-IJK-TRLR-L1", tol);
   data_tiled_ikj<L2_TB, L2_TM, L2_TN, L2_TK>(mtrA_l2, mtrB_l2, mtrC_l2);
   res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "DT-IKJ-TRRR-L2", tol);
-  data_tiled_b_left_ijk<L2_TB, L2_TM, L2_TN, L2_TK>(mtrA_l2, mtlB_l2, mtrC_l2);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "DT-IJK-TRLR-L2", tol);
+  data_tiled_ikj<RECT_TB, RECT_TM, RECT_TN, RECT_TK>(mtrA_rect, mtrB_rect, mtrC_rect);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_rect), "DT-IKJ-TRRR-RECT", tol);
+  data_tiled_ikj<BATCH_TB, BATCH_TM, BATCH_TN, BATCH_TK>(mtrA_batch, mtrB_batch, mtrC_batch);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_batch), "DT-IKJ-TRRR-BATCH1", tol);
+  layout_aware_reduce(mtrA_l1, mtrB_l1, mtrC_reduce_l1);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_l1), "REDUCE-TRRR-L1", tol);
+  layout_aware_reduce(mtrA_l2, mtrB_l2, mtrC_reduce_l2);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_l2), "REDUCE-TRRR-L2", tol);
+  layout_aware_reduce(mtrA_rect, mtrB_rect, mtrC_reduce_rect);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_rect), "REDUCE-TRRR-RECT", tol);
+  layout_aware_reduce(mtrA_batch, mtrB_batch, mtrC_reduce_batch);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_batch), "REDUCE-TRRR-BATCH1", tol);
 
   return res;
 #else
@@ -481,23 +537,23 @@ auto run_bench(const Config& cfg) -> int {
     out_stream = &file_stream;
   }
 
-  bs.run("N-IJK-SRRR", [&]() { naive(mrA, mrB, mrC); });
-  bs.run("N-IJK-SRLR", [&]() { naive_b_left(mrA, mlB, mrC); });
-
   bs.run("CB-IKJ-SRRR-L1", [&]() { cache_blocked<L1_TB, L1_TM, L1_TN, L1_TK>(mrA, mrB, mrC); });
-  bs.run("CB-IJK-SRLR-L1", [&]() { cache_blocked_b_left<L1_TB, L1_TM, L1_TN, L1_TK>(mrA, mlB, mrC); });
   bs.run("CB-IKJ-SRRR-L2", [&]() { cache_blocked<L2_TB, L2_TM, L2_TN, L2_TK>(mrA, mrB, mrC); });
-  bs.run("CB-IJK-SRLR-L2", [&]() { cache_blocked_b_left<L2_TB, L2_TM, L2_TN, L2_TK>(mrA, mlB, mrC); });
-
-  bs.run("N-IJK-TRRR-L1", [&]() { naive(mtrA_l1, mtrB_l1, mtrC_l1); });
-  bs.run("N-IJK-TRLR-L1", [&]() { naive_b_left(mtrA_l1, mtlB_l1, mtrC_l1); });
-  bs.run("N-IJK-TRRR-L2", [&]() { naive(mtrA_l2, mtrB_l2, mtrC_l2); });
-  bs.run("N-IJK-TRLR-L2", [&]() { naive_b_left(mtrA_l2, mtlB_l2, mtrC_l2); });
+  bs.run("CB-IKJ-SRRR-RECT", [&]() { cache_blocked<RECT_TB, RECT_TM, RECT_TN, RECT_TK>(mrA, mrB, mrC); });
+  bs.run("CB-IKJ-SRRR-BATCH1", [&]() { cache_blocked<BATCH_TB, BATCH_TM, BATCH_TN, BATCH_TK>(mrA, mrB, mrC); });
 
   bs.run("DT-IKJ-TRRR-L1", [&]() { data_tiled_ikj<L1_TB, L1_TM, L1_TN, L1_TK>(mtrA_l1, mtrB_l1, mtrC_l1); });
-  bs.run("DT-IJK-TRLR-L1", [&]() { data_tiled_b_left_ijk<L1_TB, L1_TM, L1_TN, L1_TK>(mtrA_l1, mtlB_l1, mtrC_l1); });
   bs.run("DT-IKJ-TRRR-L2", [&]() { data_tiled_ikj<L2_TB, L2_TM, L2_TN, L2_TK>(mtrA_l2, mtrB_l2, mtrC_l2); });
-  bs.run("DT-IJK-TRLR-L2", [&]() { data_tiled_b_left_ijk<L2_TB, L2_TM, L2_TN, L2_TK>(mtrA_l2, mtlB_l2, mtrC_l2); });
+  bs.run("DT-IKJ-TRRR-RECT", [&]() {
+    data_tiled_ikj<RECT_TB, RECT_TM, RECT_TN, RECT_TK>(mtrA_rect, mtrB_rect, mtrC_rect);
+  });
+  bs.run("DT-IKJ-TRRR-BATCH1", [&]() {
+    data_tiled_ikj<BATCH_TB, BATCH_TM, BATCH_TN, BATCH_TK>(mtrA_batch, mtrB_batch, mtrC_batch);
+  });
+  bs.run("REDUCE-TRRR-L1", [&]() { layout_aware_reduce(mtrA_l1, mtrB_l1, mtrC_reduce_l1); });
+  bs.run("REDUCE-TRRR-L2", [&]() { layout_aware_reduce(mtrA_l2, mtrB_l2, mtrC_reduce_l2); });
+  bs.run("REDUCE-TRRR-RECT", [&]() { layout_aware_reduce(mtrA_rect, mtrB_rect, mtrC_reduce_rect); });
+  bs.run("REDUCE-TRRR-BATCH1", [&]() { layout_aware_reduce(mtrA_batch, mtrB_batch, mtrC_reduce_batch); });
 
   bs.render(ankerl::nanobench::templates::csv(), *out_stream);
   file_stream.close();
@@ -513,7 +569,7 @@ auto main(int argc, char* argv[]) -> int {
                                 "Computes C[b,i,j] = sum_k A[b,i,k] * B[b,k,j].\n\n"
                                 "Usage: layout_tiled.benchmarks.tensor_contraction [OPTIONS]\n\n"
                                 "Options:\n"
-                                "  -n, --size <SIZE>             Tensor extent [default: 64]\n"
+                                "  -n, --size <SIZE>             Tensor extent [default: 128]\n"
                                 "  -o, --output <FILENAME>       Output file name\n"
                                 "  -h, --help                    Show this help\n";
 
@@ -568,6 +624,32 @@ auto main(int argc, char* argv[]) -> int {
       L2_TM,
       L2_TN,
       L2_TK,
+      cfg.n_
+    );
+    return 1;
+  }
+
+  if (0 != cfg.n_ % RECT_TB || 0 != cfg.n_ % RECT_TM || 0 != cfg.n_ % RECT_TN || 0 != cfg.n_ % RECT_TK) {
+    fmt::println(
+      stderr,
+      "error: tensor extent must be divisible by the rectangular tile extents {}x{}x{}x{} (got {})",
+      RECT_TB,
+      RECT_TM,
+      RECT_TN,
+      RECT_TK,
+      cfg.n_
+    );
+    return 1;
+  }
+
+  if (0 != cfg.n_ % BATCH_TB || 0 != cfg.n_ % BATCH_TM || 0 != cfg.n_ % BATCH_TN || 0 != cfg.n_ % BATCH_TK) {
+    fmt::println(
+      stderr,
+      "error: tensor extent must be divisible by the batch-one tile extents {}x{}x{}x{} (got {})",
+      BATCH_TB,
+      BATCH_TM,
+      BATCH_TN,
+      BATCH_TK,
       cfg.n_
     );
     return 1;

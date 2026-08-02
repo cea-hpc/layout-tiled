@@ -45,6 +45,59 @@ cmake -B <BUILDDIR>
 cmake --build <BUILDDIR>
 ```
 
+### Layout-aware reductions
+
+`<layout_tiled/reduce.hpp>` provides a host-only, header-only projected N-D
+reduction. Axis identifiers are compile-time `std::size_t` values, and their
+order in a binding is the dimension order of that `mdspan`:
+
+```cpp
+#include <layout_tiled/reduce.hpp>
+
+namespace tiled = layout_tiled;
+enum : std::size_t { I, J, K };
+
+tiled::reduce<K>(
+  tiled::out<I, J>(C, 0.0),
+  tiled::in<I, K>(A),
+  tiled::in<K, J>(B),
+  [](auto& c, auto a, auto b) { c += a * b; }
+);
+```
+
+Use `out<Axes...>(view, identity)` to initialize every register accumulator
+from an identity, or `inout<Axes...>(view)` to accumulate from the current
+output value. The first argument must be the one output, one or more `in`
+bindings follow it, and the updater is last. The updater must mutate its first
+argument, accept inputs in binding order, and return `void`.
+
+The union of axis identifiers must be dense from zero, the listed reduction
+axes must be unique, and output axes must be exactly the non-reduction axes.
+All views that share an axis must have the same logical and static tile extent.
+Scalar outputs are not currently supported.
+
+As with the tiled mappings, every logical extent must be divisible by its
+physical tile extent. Output and input storage must not overlap. Dynamic shape
+disagreements and detectable overlap are checked by assertions in debug
+builds; violating either contract in a release build has undefined behavior.
+
+Traversal, cache blocking, the contiguous SIMD axis, reduction-axis order, and
+static OpenMP scheduling are inferred from the bindings and tiled mapping
+traits. When compiled with OpenMP, output tiles are parallelized; reduction
+axes are never split. Arithmetic reductions with contiguous projected inputs
+use a portable register-fragment kernel, while all valid calls have a scalar
+fallback.
+
+Reduction evaluation is allowed to reassociate according to the selected
+layout and backend. Results are therefore not guaranteed to be bitwise
+reproducible across builds, targets, or thread counts. This matches the usual
+optimized linear-algebra model used by [CUTLASS](https://docs.nvidia.com/cutlass/latest/media/docs/cpp/efficient_gemm.html);
+strict reproducibility is likewise a conditional mode in
+[oneMKL](https://www.intel.com/content/www/us/en/docs/onemkl/developer-guide-windows/2025-2/reproducibility-conditions.html).
+
+The execution strategy, register-fragment design, and a SIMD-friendly GEMV
+example are described in [docs/reduce-strategy.md](docs/reduce-strategy.md).
+
 ### Install
 
 ```bash
@@ -82,14 +135,34 @@ ctest --test-dir <BUILDDIR>
 
 ### Benchmarking
 
-There is only one benchmark for now:
-- `benchmarks/gemm`;
+```bash
+cmake -B <BUILDDIR> \
+  -DLAYOUT_TILED_BUILD_BENCHMARKS=ON \
+  -DLAYOUT_TILED_BENCH_ENABLE_OMP=ON
+cmake --build <BUILDDIR> --target layout_tiled.benchmarks.gemm
+```
+
+For controlled GEMM comparisons, an installed BLAS implementation can be
+selected without relying on CMake's vendor search:
 
 ```bash
-cmake -B <BUILDDIR> -DLayoutTiled_BUILD_BENCHMARKS=ON [-DLayoutTiled_ENABLE_OPENMP=ON]
-cmake --build <BUILDDIR> --target <BENCHMARK>
-./<BUILDDIR>/benchmarks/layout_tiled.benchmarks.<BENCHMARK>
+cmake -B <BUILDDIR> \
+  -DLAYOUT_TILED_BUILD_BENCHMARKS=ON \
+  -DLAYOUT_TILED_BENCH_ENABLE_OMP=ON \
+  -DLAYOUT_TILED_BENCH_ENABLE_BLAS=ON \
+  -DLAYOUT_TILED_BENCH_BLAS_LIBRARY=/path/to/libopenblasp.so \
+  -DLAYOUT_TILED_BENCH_BLAS_INCLUDE_DIR=/path/to/openblas/include
+
+OMP_NUM_THREADS=4 OMP_PROC_BIND=spread OMP_PLACES=threads \
+OPENBLAS_NUM_THREADS=4 \
+  ./<BUILDDIR>/benchmarks/layout_tiled.benchmarks.gemm \
+  --size 1024 --implementation reduce
 ```
+
+The GEMM implementation filter accepts `dt`, `tv`, `reduce`, or `blas`, which
+makes it straightforward to collect each sample in a fresh process. When an
+OpenBLAS library is linked, BLAS runs report the configured thread count and
+reject comparisons that are not using four threads.
 
 ## License
 

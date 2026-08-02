@@ -6,6 +6,7 @@ set(
   layout_ltr
   layout_rtl
   layout_rtr
+  reduce
 )
 
 foreach(test ${ALL_TESTS})

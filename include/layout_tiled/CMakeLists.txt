@@ -28,11 +28,11 @@ target_sources(
     FILE_SET layout_tiled_public_headers
     TYPE HEADERS
     BASE_DIRS ${CMAKE_SOURCE_DIR}/include
-    FILES layout_rtr.hpp layout_rtl.hpp layout_ltr.hpp layout_ltl.hpp
+    FILES layout_rtr.hpp layout_rtl.hpp layout_ltr.hpp layout_ltl.hpp reduce.hpp
     FILE_SET layout_tiled_detail_headers
     TYPE HEADERS
     BASE_DIRS ${CMAKE_SOURCE_DIR}/include
-    FILES detail/common.hpp
+    FILES detail/common.hpp detail/macros.hpp detail/reduce.hpp detail/tiled_view.hpp
 )
 target_link_libraries(
   layout_tiled

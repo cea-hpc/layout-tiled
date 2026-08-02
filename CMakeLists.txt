@@ -11,7 +11,7 @@ option(LAYOUT_TILED_ENABLE_DEVICE_OFFLOAD "Enable device offload. Default: OFF. 
 # Benchmark options
 option(LAYOUT_TILED_BENCH_ENABLE_CHECKS "Enable checking benchmarks results. Default: ON. Values: { ON, OFF }." OFF)
 option(LAYOUT_TILED_BENCH_ENABLE_OMP "Enable building benchmarks with OpenMP. Default: OFF. Values: { ON, OFF }." OFF)
-option(LAYOUT_TILED_BENCH_ENABLE_BLAS "Enable building GEMM benchmark with BLAS. Default: ON. Values: { ON, OFF }." OFF)
+option(LAYOUT_TILED_BENCH_ENABLE_BLAS "Enable BLAS in linear algebra benchmarks. Default: ON. Values: { ON, OFF }." OFF)
 
 # Resolve device offload
 if(LAYOUT_TILED_ENABLE_DEVICE_OFFLOAD)

@@ -12,12 +12,14 @@ from typing import Tuple
 
 ALGO_COMPLEXITY = {
     "gemm": lambda n: 2 * n * n * n,
+    "gemv": lambda n: 2 * n * n,
     "stencil_2d": lambda n: 4 * n * n,
     "stencil_3d": lambda n: 6 * n * n * n,
 }
 
 DIMS_FMT = {
     "gemm": r"(\d+)x\d+",
+    "gemv": r"(\d+)x\d+",
     "stencil_2d": r"(\d+)x\d+",
     "stencil_3d": r"(\d+)x(\d+)x\d+",
 }
@@ -45,7 +47,7 @@ def default_parser(desc: str) -> argparse.ArgumentParser:
         "--bench",
         type=str,
         help="benchmark name",
-        choices=["gemm", "stencil_2d", "stencil_3d"],
+        choices=["gemm", "gemv", "stencil_2d", "stencil_3d"],
     )
     parser.add_argument(
         "--hardware",
