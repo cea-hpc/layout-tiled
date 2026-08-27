@@ -36,12 +36,14 @@ endif()
 
 # --- PROJECT DEPENDENCIES --- #
 include(FetchContent)
+set(MDSPAN_INSTALL_STDMODE_HEADERS ON CACHE BOOL "Install the std-mode mdspan compatibility headers" FORCE)
 FetchContent_Declare(mdspan GIT_REPOSITORY https://github.com/kokkos/mdspan.git GIT_TAG origin/stable)
 FetchContent_MakeAvailable(mdspan)
 target_compile_definitions(mdspan INTERFACE -DMDSPAN_USE_BRACKET_OPERATOR)
 
 # --- PROJECT TARGETS --- #
 add_subdirectory(include/layout_tiled)
+add_subdirectory(include/iai)
 
 if(LAYOUT_TILED_BUILD_TESTS)
   enable_testing()

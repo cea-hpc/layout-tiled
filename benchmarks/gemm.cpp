@@ -12,11 +12,14 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <tuple>
+#include <utility>
 
 #include <fmt/core.h>
+#include <iai/detail/native_tiled_reduce_policy.hpp>
+#include <iai/md_reduce.hpp>
 #include <layout_tiled/layout_ltl.hpp>
 #include <layout_tiled/layout_rtr.hpp>
-#include <layout_tiled/reduce.hpp>
 #include <nanobench.h>
 #if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #include <omp.h>
@@ -31,65 +34,18 @@ using namespace std::chrono_literals;
 using Type = double;
 using Exts = std::dextents<size_t, 2>;
 
-constexpr size_t TILE_L1 = 32;
+constexpr size_t TILE_I  = LAYOUT_TILED_BENCH_GEMM_TILE_I;
+constexpr size_t TILE_J  = LAYOUT_TILED_BENCH_GEMM_TILE_J;
+constexpr size_t TILE_K  = LAYOUT_TILED_BENCH_GEMM_TILE_K;
 constexpr size_t TILE_L2 = 128;
 
 struct Config {
   uint64_t n_ = 512;
-  uint64_t t_ = TILE_L1;
   std::string output_;
   std::string implementation_;
 };
 
 namespace {
-
-/// A view of a rank-2 tiled mdspan as a rank-2 grid of affine mdspan tiles.
-///
-/// The source mapping owns the global-to-tile decomposition. Each lookup pays
-/// that mapping cost once and returns an mdspan whose mapping is the tiled
-/// layout's affine inner layout.
-template <class MdSpan>
-  requires IsMdSpan2D<MdSpan>
-class basic_tiled_view_2d {
-public:
-  using source_type       = MdSpan;
-  using mapping_type      = typename source_type::mapping_type;
-  using element_type      = typename source_type::element_type;
-  using index_type        = typename source_type::index_type;
-  using inner_layout_type = typename mapping_type::inner_layout_type;
-
-  static constexpr size_t tile_extent_0 = mapping_type::textent(0);
-  static constexpr size_t tile_extent_1 = mapping_type::textent(1);
-
-  using tile_extents_type = std::extents<index_type, tile_extent_0, tile_extent_1>;
-  using tile_type         = std::mdspan<element_type, tile_extents_type, inner_layout_type>;
-
-  explicit constexpr basic_tiled_view_2d(source_type source) noexcept : source_(source) {}
-
-  [[nodiscard]] constexpr auto extent(size_t r) const noexcept -> index_type {
-    assert(r < source_type::rank());
-    return source_.mapping().ntiles_in_extent(r);
-  }
-
-  [[nodiscard]] constexpr auto operator[](index_type tile_i, index_type tile_j) const noexcept -> tile_type {
-    assert(tile_i < extent(0));
-    assert(tile_j < extent(1));
-
-    const index_type i      = tile_i * static_cast<index_type>(tile_extent_0);
-    const index_type j      = tile_j * static_cast<index_type>(tile_extent_1);
-    const index_type offset = source_.mapping().tile_offset_outer(i, j);
-    return tile_type(source_.data_handle() + offset);
-  }
-
-private:
-  source_type source_;
-};
-
-template <class MdSpan>
-  requires IsMdSpan2D<MdSpan>
-[[nodiscard]] constexpr auto tiled_view(MdSpan source) noexcept -> basic_tiled_view_2d<MdSpan> {
-  return basic_tiled_view_2d<MdSpan>(source);
-}
 
 template <class MdSpanA, class MdSpanB, class MdSpanC>
   requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
@@ -335,72 +291,39 @@ auto data_tiled_ikj(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   }
 }
 
-template <class MdSpanA, class MdSpanB, class MdSpanC>
-  requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
-auto tiled_view_ikj(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
-  assert(A.extent(1) == B.extent(0));
-  assert(A.extent(0) == C.extent(0));
-  assert(B.extent(1) == C.extent(1));
-
-  const auto tiled_A = tiled_view(A);
-  const auto tiled_B = tiled_view(B);
-  auto tiled_C       = tiled_view(C);
-
-  assert(tiled_A.extent(1) == tiled_B.extent(0));
-  assert(tiled_A.extent(0) == tiled_C.extent(0));
-  assert(tiled_B.extent(1) == tiled_C.extent(1));
-
-#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
-#pragma omp parallel for schedule(static)
-#endif
-  for (size_t tile_i = 0; tile_i < tiled_C.extent(0); ++tile_i) {
-    for (size_t tile_j = 0; tile_j < tiled_C.extent(1); ++tile_j) {
-      auto C_tile        = tiled_C[tile_i, tile_j];
-      const size_t j_end = std::min(
-        static_cast<size_t>(C_tile.extent(1)),
-        static_cast<size_t>(C.extent(1)) - tile_j * static_cast<size_t>(C_tile.extent(1))
-      );
-      for (size_t i = 0; i < C_tile.extent(0); ++i) {
-#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
-#pragma omp simd
-#endif
-        for (size_t j = 0; j < j_end; ++j) {
-          C_tile[i, j] = Type{0};
-        }
-      }
-      for (size_t tile_k = 0; tile_k < tiled_A.extent(1); ++tile_k) {
-        const auto A_tile = tiled_A[tile_i, tile_k];
-        const auto B_tile = tiled_B[tile_k, tile_j];
-        for (size_t i = 0; i < C_tile.extent(0); ++i) {
-          for (size_t k = 0; k < A_tile.extent(1); ++k) {
-            const Type a = A_tile[i, k];
-#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
-#pragma omp simd
-#endif
-            for (size_t j = 0; j < j_end; ++j) {
-              C_tile[i, j] += a * B_tile[k, j];
-            }
-          }
-        }
-      }
-    }
-  }
-}
-
-template <class MdSpanA, class MdSpanB, class MdSpanC>
+template <
+  iai::detail::native_tiled_reduction_override Override = iai::detail::native_tiled_reduction_override::automatic,
+  class MdSpanA,
+  class MdSpanB,
+  class MdSpanC>
   requires IsMdSpan2D<MdSpanA> && IsMdSpan2D<MdSpanB> && IsMdSpan2D<MdSpanC>
 auto layout_aware_reduce(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(1) == B.extent(0));
   assert(A.extent(0) == C.extent(0));
   assert(B.extent(1) == C.extent(1));
 
-  enum Axes { I, J, K };
-  layout_tiled::reduce<K>(
-    layout_tiled::out<I, J>(C, Type{0}),
-    layout_tiled::in<I, K>(A),
-    layout_tiled::in<K, J>(B),
-    [](auto& c, auto a, auto b) { c += a * b; }
-  );
+  enum Axes {
+    I,
+    J,
+    K
+  };
+  auto output = iai::out<I, J>(C, Type{0});
+  auto lhs    = iai::in<I, K>(A);
+  auto rhs    = iai::in<K, J>(B);
+  if constexpr (Override == iai::detail::native_tiled_reduction_override::automatic) {
+    iai::md_reduce<K>(output, lhs, rhs, [](auto& result, auto lhs_value, auto rhs_value) {
+      result += lhs_value * rhs_value;
+    });
+  } else {
+    auto updater = [](auto& result, auto lhs_value, auto rhs_value) {
+      result += lhs_value * rhs_value;
+    };
+    auto arguments = std::forward_as_tuple(output, lhs, rhs, updater);
+    iai::detail::dispatch_native_tiled_reduce<iai::detail::axis_list<K>, Override>(
+      arguments,
+      std::index_sequence<0, 1>{}
+    );
+  }
 }
 
 template <size_t TM, size_t TN, size_t TO, class MdSpanA, class MdSpanB, class MdSpanC>
@@ -485,6 +408,7 @@ auto blas(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
 #endif
 
 auto run_bench(const Config& cfg) -> int {
+  fmt::println(stderr, "GEMM tiled layout: I={} J={} K={}", TILE_I, TILE_J, TILE_K);
 #if defined(LAYOUT_TILED_BENCH_OPENBLAS)
   if (cfg.implementation_.empty() || cfg.implementation_ == "blas") {
     const int blas_threads = openblas_get_num_threads();
@@ -496,18 +420,16 @@ auto run_bench(const Config& cfg) -> int {
   }
 #endif
   // Standard layout matrices
-  auto rA      = MemorySlice<Type>(cfg.n_ * cfg.n_);
-  auto rB      = MemorySlice<Type>(cfg.n_ * cfg.n_);
-  auto rC_ref  = MemorySlice<Type>(cfg.n_ * cfg.n_);
-  auto rC_blas = MemorySlice<Type>(cfg.n_ * cfg.n_);
-  auto lB      = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto rA     = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto rB     = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto rC_ref = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto rC     = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto lB     = MemorySlice<Type>(cfg.n_ * cfg.n_);
   // Tiled layout matrices (L1 tiles)
-  auto trA_l1        = MemorySlice<Type>(cfg.n_ * cfg.n_);
-  auto trB_l1        = MemorySlice<Type>(cfg.n_ * cfg.n_);
-  auto trC_dt_l1     = MemorySlice<Type>(cfg.n_ * cfg.n_);
-  auto trC_tv_l1     = MemorySlice<Type>(cfg.n_ * cfg.n_);
-  auto trC_reduce_l1 = MemorySlice<Type>(cfg.n_ * cfg.n_);
-  auto tlB_l1        = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto trA_l1 = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto trB_l1 = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto trC_l1 = MemorySlice<Type>(cfg.n_ * cfg.n_);
+  auto tlB_l1 = MemorySlice<Type>(cfg.n_ * cfg.n_);
   // Tiled layout matrices (L2 tiles)
   auto trA_l2 = MemorySlice<Type>(cfg.n_ * cfg.n_);
   auto trB_l2 = MemorySlice<Type>(cfg.n_ * cfg.n_);
@@ -515,20 +437,15 @@ auto run_bench(const Config& cfg) -> int {
   auto tlB_l2 = MemorySlice<Type>(cfg.n_ * cfg.n_);
 
   // Associated MDSPANs
-  auto mrA                       = std::mdspan<Type, Exts>(rA.get(), cfg.n_, cfg.n_);
-  auto mrB                       = std::mdspan<Type, Exts>(rB.get(), cfg.n_, cfg.n_);
-  [[maybe_unused]] auto mrC_ref  = std::mdspan<Type, Exts>(rC_ref.get(), cfg.n_, cfg.n_);
-  [[maybe_unused]] auto mrC_blas = std::mdspan<Type, Exts>(rC_blas.get(), cfg.n_, cfg.n_);
-  auto mlB                       = std::mdspan<Type, Exts, std::layout_left>(lB.get(), cfg.n_, cfg.n_);
-  auto mtrA_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L1, TILE_L1>>(trA_l1.get(), cfg.n_, cfg.n_);
-  auto mtrB_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L1, TILE_L1>>(trB_l1.get(), cfg.n_, cfg.n_);
-  auto mtrC_dt_l1
-    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L1, TILE_L1>>(trC_dt_l1.get(), cfg.n_, cfg.n_);
-  auto mtrC_tv_l1
-    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L1, TILE_L1>>(trC_tv_l1.get(), cfg.n_, cfg.n_);
-  auto mtrC_reduce_l1
-    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L1, TILE_L1>>(trC_reduce_l1.get(), cfg.n_, cfg.n_);
-  auto mtlB_l1 = std::mdspan<Type, Exts, layout_tiled::layout_ltl<TILE_L1, TILE_L1>>(tlB_l1.get(), cfg.n_, cfg.n_);
+  auto mrA                      = std::mdspan<Type, Exts>(rA.get(), cfg.n_, cfg.n_);
+  auto mrB                      = std::mdspan<Type, Exts>(rB.get(), cfg.n_, cfg.n_);
+  [[maybe_unused]] auto mrC_ref = std::mdspan<Type, Exts>(rC_ref.get(), cfg.n_, cfg.n_);
+  auto mrC                      = std::mdspan<Type, Exts>(rC.get(), cfg.n_, cfg.n_);
+  auto mlB                      = std::mdspan<Type, Exts, std::layout_left>(lB.get(), cfg.n_, cfg.n_);
+  auto mtrA_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_I, TILE_K>>(trA_l1.get(), cfg.n_, cfg.n_);
+  auto mtrB_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_K, TILE_J>>(trB_l1.get(), cfg.n_, cfg.n_);
+  auto mtrC_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_I, TILE_J>>(trC_l1.get(), cfg.n_, cfg.n_);
+  auto mtlB_l1 = std::mdspan<Type, Exts, layout_tiled::layout_ltl<TILE_K, TILE_J>>(tlB_l1.get(), cfg.n_, cfg.n_);
   auto mtrA_l2 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L2, TILE_L2>>(trA_l2.get(), cfg.n_, cfg.n_);
   auto mtrB_l2 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L2, TILE_L2>>(trB_l2.get(), cfg.n_, cfg.n_);
   auto mtrC_l2 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<TILE_L2, TILE_L2>>(trC_l2.get(), cfg.n_, cfg.n_);
@@ -556,46 +473,27 @@ auto run_bench(const Config& cfg) -> int {
   double ref = benchmark_utils::l2_norm(mrC_ref);
   benchmark_utils::fill_zeroes(mrC_ref);
 
-  cache_blocked_ikj<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC_ref);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC_ref), "CB-IKJ-SRRR-L1", big_o);
-  benchmark_utils::fill_zeroes(mrC_ref);
-  cache_blocked_ikj<TILE_L2, TILE_L2, TILE_L2>(mrA, mrB, mrC_ref);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC_ref), "CB-IKJ-SRRR-L2", big_o);
-  benchmark_utils::fill_zeroes(mrC_ref);
-
-  naive_ikj(mtrA_l1, mtrB_l1, mtrC_dt_l1);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_dt_l1), "N-IKJ-TRRR-L1", big_o);
-  benchmark_utils::fill_zeroes(mtrC_dt_l1);
-  naive_ikj(mtrA_l2, mtrB_l2, mtrC_l2);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "N-IKJ-TRRR-L2", big_o);
-  benchmark_utils::fill_zeroes(mtrC_l2);
-  naive_ijk(mtrA_l1, mtlB_l1, mtrC_dt_l1);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_dt_l1), "N-IJK-TRLR-L1", big_o);
-  benchmark_utils::fill_zeroes(mtrC_dt_l1);
-  naive_ijk(mtrA_l2, mtlB_l2, mtrC_l2);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "N-IJK-TRLR-L2", big_o);
-  benchmark_utils::fill_zeroes(mtrC_l2);
-
-  data_tiled_ijk<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_dt_l1);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_dt_l1), "DT-IJK-TRRR-L1", big_o);
-  benchmark_utils::fill_zeroes(mtrC_dt_l1);
-  data_tiled_ijk<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "DT-IJK-TRRR-L2", big_o);
-  benchmark_utils::fill_zeroes(mtrC_l2);
-
-  data_tiled_ikj<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_dt_l1);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_dt_l1), "DT-IKJ-TRRR-L1", big_o);
-  tiled_view_ikj(mtrA_l1, mtrB_l1, mtrC_tv_l1);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_tv_l1), "TV-IKJ-TRRR-L1", big_o);
-  layout_aware_reduce(mtrA_l1, mtrB_l1, mtrC_reduce_l1);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_l1), "REDUCE-TRRR-L1", big_o);
+  data_tiled_ikj<TILE_I, TILE_J, TILE_K>(mtrA_l1, mtrB_l1, mtrC_l1);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "DT-IKJ-TRRR-L1", big_o);
+  benchmark_utils::fill_zeroes(mtrC_l1);
+  layout_aware_reduce(mtrA_l1, mtrB_l1, mtrC_l1);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "IAI-TRRR-L1", big_o);
+  layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_complete_fragment>(
+    mtrA_l1,
+    mtrB_l1,
+    mtrC_l1
+  );
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "IAI-COMPLETE-TRRR-L1", big_o);
+  layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_reduction_blocked_fragment>(
+    mtrA_l1,
+    mtrB_l1,
+    mtrC_l1
+  );
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "IAI-BLOCKED-TRRR-L1", big_o);
 #if defined(LAYOUT_TILED_BENCH_ENABLE_BLAS)
-  blas(mrA, mrB, mrC_blas);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC_blas), "BLAS-SRRR", big_o);
+  blas(mrA, mrB, mrC);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "BLAS-SRRR", big_o);
 #endif
-  data_tiled_ikj<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l2), "DT-IKJ-TRRR-L2", big_o);
-  benchmark_utils::fill_zeroes(mtrC_l2);
 
   return res;
 #else
@@ -603,9 +501,12 @@ auto run_bench(const Config& cfg) -> int {
   ankerl::nanobench::Bench bs;
   bs.output(nullptr);
 #if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
+  // bs.title(fmt::format("{0}x{0} {1}C tiles={2}x{3}x{4}", cfg.n_, omp_get_max_threads(), TILE_I, TILE_J, TILE_K))
   bs.title(fmt::format("{0}x{0} {1}C", cfg.n_, omp_get_max_threads())).timeUnit(1s, "s").relative(true);
 #else
-  bs.title(fmt::format("{0}x{0} 1C", cfg.n_)).timeUnit(1s, "s").relative(true);
+  bs.title(fmt::format("{0}x{0} 1C tiles={1}x{2}x{3}", cfg.n_, TILE_I, TILE_J, TILE_K))
+    .timeUnit(1s, "s")
+    .relative(true);
 #endif
   std::ostream* out_stream = &std::cout;
   std::ofstream file_stream;
@@ -619,13 +520,17 @@ auto run_bench(const Config& cfg) -> int {
   };
 #if defined(LAYOUT_TILED_BENCH_ENABLE_BLAS)
   if (selected("blas")) {
-    bs.run("BLAS-SRRR", [&]() { blas(mrA, mrB, mrC_blas); });
+    bs.run("BLAS-SRRR", [&]() { blas(mrA, mrB, mrC); });
   }
 #endif
+  if (cfg.n_ <= 4096) {
+    bs.run("N-IKJ-SRRR", [&]() { naive_ikj(mrA, mrB, mrC); });
+    bs.run("CB-IKJ-SRRR", [&]() { cache_blocked_ikj<TILE_I, TILE_J, TILE_K>(mrA, mrB, mrC); });
+  }
 
-  // bs.run("CB-IJK-SRLR-L1", [&]() { cache_blocked_ijk<TILE_L1, TILE_L1, TILE_L1>(mrA, mlB, mrC); });
+  // bs.run("CB-IJK-SRLR-L1", [&]() { cache_blocked_ijk<TILE_I, TILE_J, TILE_K>(mrA, mlB, mrC); });
   // bs.run("CB-IJK-SRLR-L2", [&]() { cache_blocked_ijk<TILE_L2, TILE_L2, TILE_L2>(mrA, mlB, mrC); });
-  // bs.run("CB-IKJ-SRRR-L1", [&]() { cache_blocked_ikj<TILE_L1, TILE_L1, TILE_L1>(mrA, mrB, mrC); });
+  // bs.run("CB-IKJ-SRRR", [&]() { cache_blocked_ikj<TILE_I, TILE_J, TILE_K>(mrA, mrB, mrC); });
   // bs.run("CB-IKJ-SRRR-L2", [&]() { cache_blocked_ikj<TILE_L2, TILE_L2, TILE_L2>(mrA, mrB, mrC); });
 
   // bs.run("N-IKJ-TRRR-L1", [&]() { naive_ikj(mtrA_l1, mtrB_l1, mtrC_l1); });
@@ -633,19 +538,35 @@ auto run_bench(const Config& cfg) -> int {
   // bs.run("N-IJK-TRLR-L1", [&]() { naive_ijk(mtrA_l1, mtlB_l1, mtrC_l1); });
   // bs.run("N-IJK-TRLR-L2", [&]() { naive_ijk(mtrA_l2, mtlB_l2, mtrC_l2); });
 
-  // bs.run("DT-IJK-TRRR-L1", [&]() { data_tiled_ijk<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_l1); });
+  bs.run("DT-IKJ-TRRR-L1", [&]() { data_tiled_ikj<TILE_I, TILE_J, TILE_K>(mtrA_l1, mtrB_l1, mtrC_l1); });
   // bs.run("DT-IJK-TRRR-L2", [&]() { data_tiled_ijk<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2); });
-  if (selected("dt")) {
-    bs.run("DT-IKJ-TRRR-L1", [&]() { data_tiled_ikj<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtrB_l1, mtrC_dt_l1); });
-  }
-  if (selected("tv")) {
-    bs.run("TV-IKJ-TRRR-L1", [&]() { tiled_view_ikj(mtrA_l1, mtrB_l1, mtrC_tv_l1); });
-  }
-  if (selected("reduce")) {
-    bs.run("REDUCE-TRRR-L1", [&]() { layout_aware_reduce(mtrA_l1, mtrB_l1, mtrC_reduce_l1); });
-  }
+  bs.run("IAI-TRRR", [&]() { layout_aware_reduce(mtrA_l1, mtrB_l1, mtrC_l1); });
+  // if (selected("dt")) {
+  // bs.run("DT-IKJ-TRRR-L1", [&]() { data_tiled_ikj<TILE_I, TILE_J, TILE_K>(mtrA_l1, mtrB_l1, mtrC_l1); });
+  // }
+  // if (selected("iai-auto") || selected("reduce")) {
+  //   bs.run("IAI-AUTO-TRRR-L1", [&]() { layout_aware_reduce(mtrA_l1, mtrB_l1, mtrC_l1); });
+  // }
+  // if (selected("iai-complete")) {
+  //   bs.run("IAI-COMPLETE-TRRR-L1", [&]() {
+  //     layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_complete_fragment>(
+  //       mtrA_l1,
+  //       mtrB_l1,
+  //       mtrC_l1
+  //     );
+  //   });
+  // }
+  // if (selected("iai-blocked")) {
+  //   bs.run("IAI-BLOCKED-TRRR-L1", [&]() {
+  //     layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_reduction_blocked_fragment>(
+  //       mtrA_l1,
+  //       mtrB_l1,
+  //       mtrC_l1
+  //     );
+  //   });
+  // }
   // bs.run("DT-IKJ-TRRR-L2", [&]() { data_tiled_ikj<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtrB_l2, mtrC_l2); });
-  // bs.run("DT-IJK-TRLR-L1", [&]() { data_tiled_b_left_ijk<TILE_L1, TILE_L1, TILE_L1>(mtrA_l1, mtlB_l1, mtrC_l1); });
+  // bs.run("DT-IJK-TRLR-L1", [&]() { data_tiled_b_left_ijk<TILE_I, TILE_J, TILE_K>(mtrA_l1, mtlB_l1, mtrC_l1); });
   // bs.run("DT-IJK-TRLR-L2", [&]() { data_tiled_b_left_ijk<TILE_L2, TILE_L2, TILE_L2>(mtrA_l2, mtlB_l2, mtrC_l2); });
 
   // Output
@@ -663,14 +584,13 @@ auto main(int argc, char* argv[]) -> int {
                                 "Usage: layout_tiled.benchmarks.gemm [OPTIONS]\n\n"
                                 "Options:\n"
                                 "  -n, --size <SIZE>             Matrix size [default: 512]\n"
-                                "  -t, --tile <SIZE>             Tile size [default: 32]\n"
-                                "  -i, --implementation <NAME>   Run one of: dt, tv, reduce, blas\n"
+                                "  -i, --implementation <NAME>   Run one of: dt, iai-auto, iai-complete, "
+                                "iai-blocked, blas\n"
                                 "  -o, --output <FILENAME>       Output file name\n"
                                 "  -h, --help                    Show this help\n";
 
   static struct option long_options[] = {
     {.name = "size", .has_arg = required_argument, .flag = nullptr, .val = 'n'},
-    {.name = "tile", .has_arg = required_argument, .flag = nullptr, .val = 't'},
     {.name = "implementation", .has_arg = required_argument, .flag = nullptr, .val = 'i'},
     {.name = "output", .has_arg = required_argument, .flag = nullptr, .val = 'o'},
     {.name = "help", .has_arg = no_argument, .flag = nullptr, .val = 'h'},
@@ -679,8 +599,7 @@ auto main(int argc, char* argv[]) -> int {
 
   Config cfg;
   int opt{};
-  while ((opt = getopt_long(argc, argv, "n:t:i:o:h", static_cast<const struct option*>(long_options), nullptr))
-         != -1) {
+  while ((opt = getopt_long(argc, argv, "n:i:o:h", static_cast<const struct option*>(long_options), nullptr)) != -1) {
     switch (opt) {
     case 'n':
       cfg.n_ = std::stoul(optarg);
@@ -689,19 +608,13 @@ auto main(int argc, char* argv[]) -> int {
         return 1;
       }
       break;
-    case 't':
-      cfg.t_ = std::stoul(optarg);
-      if (0 == cfg.t_) {
-        fmt::println(stderr, "error: tile size must be a positive integer (got {})", optarg);
-        return 1;
-      }
-      break;
     case 'o':
       cfg.output_ = optarg;
       break;
     case 'i':
       cfg.implementation_ = optarg;
-      if (cfg.implementation_ != "dt" && cfg.implementation_ != "tv" && cfg.implementation_ != "reduce"
+      if (cfg.implementation_ != "dt" && cfg.implementation_ != "reduce" && cfg.implementation_ != "iai-auto"
+          && cfg.implementation_ != "iai-complete" && cfg.implementation_ != "iai-blocked"
           && cfg.implementation_ != "blas") {
         fmt::println(stderr, "error: unknown implementation '{}'", cfg.implementation_);
         return 1;

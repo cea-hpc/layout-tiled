@@ -47,23 +47,26 @@ cmake --build <BUILDDIR>
 
 ### Layout-aware reductions
 
-`<layout_tiled/reduce.hpp>` provides a host-only, header-only projected N-D
-reduction. Axis identifiers are compile-time `std::size_t` values, and their
-order in a binding is the dimension order of that `mdspan`:
+The separate `iai::iai` interface target provides host-only, header-only,
+projected N-D execution over the tiled mappings. Axis identifiers are
+compile-time `std::size_t` values, and their order in a binding is the dimension
+order of that `mdspan`:
 
 ```cpp
-#include <layout_tiled/reduce.hpp>
+#include <iai/md_reduce.hpp>
 
-namespace tiled = layout_tiled;
 enum : std::size_t { I, J, K };
 
-tiled::reduce<K>(
-  tiled::out<I, J>(C, 0.0),
-  tiled::in<I, K>(A),
-  tiled::in<K, J>(B),
-  [](auto& c, auto a, auto b) { c += a * b; }
+iai::md_reduce<K>(
+  iai::out<I, J>(C, 0.0),
+  iai::in<I, K>(A),
+  iai::in<K, J>(B),
+  [](auto& result, auto lhs, auto rhs) { result += lhs * rhs; }
 );
 ```
+
+CMake consumers should link `iai::iai`. The `layout_tiled::layout_tiled`
+target contains only the tiled layout mappings.
 
 Use `out<Axes...>(view, identity)` to initialize every register accumulator
 from an identity, or `inout<Axes...>(view)` to accumulate from the current
@@ -97,6 +100,8 @@ strict reproducibility is likewise a conditional mode in
 
 The execution strategy, register-fragment design, and a SIMD-friendly GEMV
 example are described in [docs/reduce-strategy.md](docs/reduce-strategy.md).
+For manual schedule tuning, see
+[docs/iai-cache-budgets.md](docs/iai-cache-budgets.md).
 
 ### Install
 
@@ -153,16 +158,39 @@ cmake -B <BUILDDIR> \
   -DLAYOUT_TILED_BENCH_BLAS_LIBRARY=/path/to/libopenblasp.so \
   -DLAYOUT_TILED_BENCH_BLAS_INCLUDE_DIR=/path/to/openblas/include
 
-OMP_NUM_THREADS=4 OMP_PROC_BIND=spread OMP_PLACES=threads \
+OMP_NUM_THREADS=4 OMP_PROC_BIND=spread OMP_PLACES='threads' \
 OPENBLAS_NUM_THREADS=4 \
   ./<BUILDDIR>/benchmarks/layout_tiled.benchmarks.gemm \
   --size 1024 --implementation reduce
 ```
 
+When both OpenMP and BLAS are enabled and no explicit BLAS library is given,
+the benchmark configuration prefers an OpenMP-enabled OpenBLAS library and
+then a pthread-enabled one before falling back to CMake's generic BLAS search.
+
 The GEMM implementation filter accepts `dt`, `tv`, `reduce`, or `blas`, which
 makes it straightforward to collect each sample in a fresh process. When an
 OpenBLAS library is linked, BLAS runs report the configured thread count and
 reject comparisons that are not using four threads.
+
+For the Phase 1 IAI baseline, first place the CPU in performance mode and,
+when possible, lock its policy minimum and maximum to the non-turbo base
+frequency. Then run:
+
+```bash
+benchmarks/scripts/run_phase1_baseline.sh build/benchmark results/baseline/phase1
+```
+
+The runner requires four distinct physical cores, starts each implementation
+in a fresh process, and sets both OpenMP and common BLAS thread controls to
+four. Its default placement is quoted as `OMP_PLACES='{0},{1},{2},{3}'` and the
+process is confined with `taskset --cpu-list 0,1,2,3`. These numbers are Linux
+CPU IDs (hwloc `P#` indices), not the logical `L#` indices printed by hwloc.
+The runner rejects SMT-sibling selections and, by default, any CPU policy whose
+minimum and maximum are not both equal to its base frequency.
+
+Raw CSVs, per-process stdout/stderr, verbose timing information, topology, and
+frequency metadata are written below the requested result directory.
 
 ## License
 

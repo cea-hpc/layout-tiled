@@ -3,6 +3,7 @@
 
 #include <getopt.h>
 
+#include <algorithm>
 #include <cassert>
 #include <chrono>
 #include <cstddef>
@@ -12,12 +13,15 @@
 #include <iostream>
 #include <string>
 #include <string_view>
+#include <tuple>
 #include <type_traits>
+#include <utility>
 
 #include <fmt/core.h>
+#include <iai/detail/native_tiled_reduce_policy.hpp>
+#include <iai/md_reduce.hpp>
 #include <layout_tiled/layout_ltl.hpp>
 #include <layout_tiled/layout_rtl.hpp>
-#include <layout_tiled/reduce.hpp>
 #include <nanobench.h>
 #if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #include <omp.h>
@@ -49,81 +53,8 @@ struct Config {
 
 namespace {
 
-template <class MdSpan>
-class basic_tiled_view_1d {
-public:
-  using source_type       = MdSpan;
-  using mapping_type      = typename source_type::mapping_type;
-  using element_type      = typename source_type::element_type;
-  using index_type        = typename source_type::index_type;
-  using inner_layout_type = typename mapping_type::inner_layout_type;
-
-  static constexpr size_t tile_extent = mapping_type::textent(0);
-  using tile_type = std::mdspan<element_type, std::extents<index_type, tile_extent>, inner_layout_type>;
-
-  explicit constexpr basic_tiled_view_1d(source_type source) noexcept : source_(source) {}
-
-  [[nodiscard]] constexpr auto extent() const noexcept -> index_type {
-    return source_.mapping().ntiles_in_extent(0);
-  }
-
-  [[nodiscard]] constexpr auto operator[](index_type tile_i) const noexcept -> tile_type {
-    assert(tile_i < extent());
-    const index_type i      = tile_i * static_cast<index_type>(tile_extent);
-    const index_type offset = source_.mapping().tile_offset_outer(i);
-    return tile_type(source_.data_handle() + offset);
-  }
-
-private:
-  source_type source_;
-};
-
-template <class MdSpan>
-class basic_tiled_view_2d {
-public:
-  using source_type       = MdSpan;
-  using mapping_type      = typename source_type::mapping_type;
-  using element_type      = typename source_type::element_type;
-  using index_type        = typename source_type::index_type;
-  using inner_layout_type = typename mapping_type::inner_layout_type;
-
-  static constexpr size_t tile_extent_0 = mapping_type::textent(0);
-  static constexpr size_t tile_extent_1 = mapping_type::textent(1);
-  using tile_type
-    = std::mdspan<element_type, std::extents<index_type, tile_extent_0, tile_extent_1>, inner_layout_type>;
-
-  explicit constexpr basic_tiled_view_2d(source_type source) noexcept : source_(source) {}
-
-  [[nodiscard]] constexpr auto extent(size_t dimension) const noexcept -> index_type {
-    assert(dimension < 2);
-    return source_.mapping().ntiles_in_extent(dimension);
-  }
-
-  [[nodiscard]] constexpr auto operator[](index_type tile_i, index_type tile_k) const noexcept -> tile_type {
-    assert(tile_i < extent(0));
-    assert(tile_k < extent(1));
-    const index_type i      = tile_i * static_cast<index_type>(tile_extent_0);
-    const index_type k      = tile_k * static_cast<index_type>(tile_extent_1);
-    const index_type offset = source_.mapping().tile_offset_outer(i, k);
-    return tile_type(source_.data_handle() + offset);
-  }
-
-private:
-  source_type source_;
-};
-
-template <class MdSpan>
-[[nodiscard]] constexpr auto tiled_view(MdSpan source) noexcept {
-  if constexpr (MdSpan::rank() == 1) {
-    return basic_tiled_view_1d<MdSpan>(source);
-  } else {
-    static_assert(MdSpan::rank() == 2);
-    return basic_tiled_view_2d<MdSpan>(source);
-  }
-}
-
 template <class Matrix, class Vector, class Output>
-auto reference_gemv(const Matrix A, const Vector x, Output y) -> void {
+auto naive_gemv(const Matrix A, const Vector x, Output y) -> void {
   assert(A.extent(1) == x.extent(0));
   assert(A.extent(0) == y.extent(0));
 #if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
@@ -135,6 +66,37 @@ auto reference_gemv(const Matrix A, const Vector x, Output y) -> void {
       value += A[i, k] * x[k];
     }
     y[i] = value;
+  }
+}
+
+template <class Matrix, class Vector, class Output>
+auto cache_blocked_gemv(const Matrix A, const Vector x, Output y) -> void {
+  assert(A.extent(1) == x.extent(0));
+  assert(A.extent(0) == y.extent(0));
+
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
+#pragma omp parallel for schedule(static)
+#endif
+  for (size_t tile_i = 0; tile_i < y.extent(0); tile_i += TILE_I) {
+    const size_t i_end = std::min(tile_i + TILE_I, y.extent(0));
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
+#pragma omp simd
+#endif
+    for (size_t i = tile_i; i < i_end; ++i) {
+      y[i] = 0.0;
+    }
+    for (size_t tile_k = 0; tile_k < x.extent(0); tile_k += TILE_K) {
+      const size_t k_end = std::min(tile_k + TILE_K, x.extent(0));
+      for (size_t k = tile_k; k < k_end; ++k) {
+        const Type xk = x[k];
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
+#pragma omp simd
+#endif
+        for (size_t i = tile_i; i < i_end; ++i) {
+          y[i] += A[i, k] * xk;
+        }
+      }
+    }
   }
 }
 
@@ -174,57 +136,38 @@ auto data_tiled_gemv(const Matrix A, const Vector x, Output y) -> void {
   }
 }
 
-template <class Matrix, class Vector, class Output>
-auto tiled_view_gemv(const Matrix A, const Vector x, Output y) -> void {
-  assert(A.extent(1) == x.extent(0));
-  assert(A.extent(0) == y.extent(0));
-
-  const auto tiled_A = tiled_view(A);
-  const auto tiled_x = tiled_view(x);
-  auto tiled_y       = tiled_view(y);
-
-#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
-#pragma omp parallel for schedule(static)
-#endif
-  for (size_t tile_i = 0; tile_i < tiled_y.extent(); ++tile_i) {
-    auto y_tile = tiled_y[tile_i];
-#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
-#pragma omp simd
-#endif
-    for (size_t i = 0; i < y_tile.extent(0); ++i) {
-      y_tile[i] = 0.0;
-    }
-    for (size_t tile_k = 0; tile_k < tiled_x.extent(); ++tile_k) {
-      const auto A_tile = tiled_A[tile_i, tile_k];
-      const auto x_tile = tiled_x[tile_k];
-      for (size_t k = 0; k < x_tile.extent(0); ++k) {
-        const Type xk = x_tile[k];
-#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
-#pragma omp simd
-#endif
-        for (size_t i = 0; i < y_tile.extent(0); ++i) {
-          y_tile[i] += A_tile[i, k] * xk;
-        }
-      }
-    }
-  }
-}
-
-template <class Matrix, class Vector, class Output>
+template <
+  iai::detail::native_tiled_reduction_override Override = iai::detail::native_tiled_reduction_override::automatic,
+  class Matrix,
+  class Vector,
+  class Output>
 auto layout_aware_reduce(const Matrix A, const Vector x, Output y) -> void {
   assert(A.extent(1) == x.extent(0));
   assert(A.extent(0) == y.extent(0));
 
-  enum : size_t {
+  enum Axes {
     I,
-    K
+    J,
   };
-  layout_tiled::reduce<K>(
-    layout_tiled::out<I>(y, Type{0}),
-    layout_tiled::in<I, K>(A),
-    layout_tiled::in<K>(x),
-    [](auto& result, auto matrix, auto vector) { result += matrix * vector; }
-  );
+
+  auto Av = iai::in<I, J>(A);
+  auto xv = iai::in<J>(x);
+  auto yv = iai::out<I>(y, 0.0);
+
+  if constexpr (Override == iai::detail::native_tiled_reduction_override::automatic) {
+    iai::md_reduce<J>(yv, Av, xv, [](auto& result, auto lhs_value, auto rhs_value) {
+      result += lhs_value * rhs_value;
+    });
+  } else {
+    auto updater = [](auto& result, auto lhs_value, auto rhs_value) {
+      result += lhs_value * rhs_value;
+    };
+    auto arguments = std::forward_as_tuple(yv, Av, xv, updater);
+    iai::detail::dispatch_native_tiled_reduce<iai::detail::axis_list<J>, Override>(
+      arguments,
+      std::index_sequence<0, 1>{}
+    );
+  }
 }
 
 #if defined(LAYOUT_TILED_BENCH_ENABLE_BLAS)
@@ -254,60 +197,66 @@ auto run_bench(const Config& cfg) -> int {
   if (cfg.implementation_.empty() || cfg.implementation_ == "blas") {
     const int blas_threads = openblas_get_num_threads();
     fmt::println(stderr, "OpenBLAS threads: {}", blas_threads);
-    if (blas_threads != 4) {
-      fmt::println(stderr, "error: GEMV comparison requires OPENBLAS_NUM_THREADS=4");
+    if (blas_threads < 2) {
+      fmt::println(stderr, "error: GEMV comparison requires OPENBLAS_NUM_THREADS>=1");
       return 1;
     }
   }
 #endif
 
-  const size_t n   = static_cast<size_t>(cfg.n_);
-  auto standard_A  = MemorySlice<Type>(n * n);
-  auto standard_x  = MemorySlice<Type>(n);
-  auto reference_y = MemorySlice<Type>(n);
-  auto blas_y      = MemorySlice<Type>(n);
-  auto tiled_A     = MemorySlice<Type>(n * n);
-  auto tiled_x     = MemorySlice<Type>(n);
-  auto dt_y        = MemorySlice<Type>(n);
-  auto tv_y        = MemorySlice<Type>(n);
-  auto reduce_y    = MemorySlice<Type>(n);
+  const size_t n = static_cast<size_t>(cfg.n_);
 
-  auto A                       = std::mdspan<Type, MatrixExts, std::layout_left>(standard_A.get(), n, n);
-  auto x                       = std::mdspan<Type, VectorExts>(standard_x.get(), n);
-  [[maybe_unused]] auto y_ref  = std::mdspan<Type, VectorExts>(reference_y.get(), n);
-  [[maybe_unused]] auto y_blas = std::mdspan<Type, VectorExts>(blas_y.get(), n);
-  auto tA                      = std::mdspan<Type, MatrixExts, MatrixLayout>(tiled_A.get(), n, n);
-  auto tx                      = std::mdspan<Type, VectorExts, layout_tiled::layout_ltl<TILE_K>>(tiled_x.get(), n);
-  auto y_dt                    = std::mdspan<Type, VectorExts, layout_tiled::layout_ltl<TILE_I>>(dt_y.get(), n);
-  auto y_tv                    = std::mdspan<Type, VectorExts, layout_tiled::layout_ltl<TILE_I>>(tv_y.get(), n);
-  auto y_reduce                = std::mdspan<Type, VectorExts, layout_tiled::layout_ltl<TILE_I>>(reduce_y.get(), n);
+  auto rA = MemorySlice<Type>(n * n);
+  auto rx = MemorySlice<Type>(n);
+  auto ry = MemorySlice<Type>(n);
+  auto tA = MemorySlice<Type>(n * n);
+  auto tx = MemorySlice<Type>(n);
+  auto ty = MemorySlice<Type>(n);
+
+  auto mrA                  = std::mdspan<Type, MatrixExts, std::layout_left>(rA.get(), n, n);
+  auto mrx                  = std::mdspan<Type, VectorExts>(rx.get(), n);
+  [[maybe_unused]] auto mry = std::mdspan<Type, VectorExts>(ry.get(), n);
+  auto mtA                  = std::mdspan<Type, MatrixExts, MatrixLayout>(tA.get(), n, n);
+  auto mtx                  = std::mdspan<Type, VectorExts, layout_tiled::layout_ltl<TILE_K>>(tx.get(), n);
+  auto mty                  = std::mdspan<Type, VectorExts, layout_tiled::layout_ltl<TILE_I>>(ty.get(), n);
 
   ankerl::nanobench::Rng rng(42);
-  for (size_t k = 0; k < n; ++k) {
-    x[k]  = rng.uniform01();
-    tx[k] = x[k];
-  }
-  for (size_t i = 0; i < n; ++i) {
-    for (size_t k = 0; k < n; ++k) {
-      A[i, k]  = rng.uniform01();
-      tA[i, k] = A[i, k];
-    }
-  }
+  benchmark_utils::fill_2d_uniform01(mrA, rng);
+  benchmark_utils::fill_1d_uniform01(mrx, rng);
+  benchmark_utils::fill_2d_copy(mtA, mrA);
+  benchmark_utils::fill_1d_copy(mtx, mrx);
 
 #if defined(LAYOUT_TILED_BENCH_ENABLE_CHECKS)
-  const double tolerance = 2.0 * static_cast<double>(n) * static_cast<double>(n);
-  int result             = 0;
-  reference_gemv(A, x, y_ref);
-  const double reference = benchmark_utils::l2_norm(y_ref);
-  data_tiled_gemv(tA, tx, y_dt);
-  result |= benchmark_utils::check(reference, benchmark_utils::l2_norm(y_dt), "DT-TRL-L1", tolerance);
-  tiled_view_gemv(tA, tx, y_tv);
-  result |= benchmark_utils::check(reference, benchmark_utils::l2_norm(y_tv), "TV-TRL-L1", tolerance);
-  layout_aware_reduce(tA, tx, y_reduce);
-  result |= benchmark_utils::check(reference, benchmark_utils::l2_norm(y_reduce), "REDUCE-TRL-L1", tolerance);
+  const double big_o = 2.0 * static_cast<double>(n) * static_cast<double>(n);
+  int result         = 0;
+  naive_gemv(mrA, mrx, mry);
+  const double reference = benchmark_utils::l2_norm(mry);
+  benchmark_utils::fill_zeroes(mry);
+
+  cache_blocked_gemv(mrA, mrx, mry);
+  result |= benchmark_utils::check(reference, benchmark_utils::l2_norm(mry), "CB-TRL", big_o);
+  benchmark_utils::fill_zeroes(mry);
+
+  data_tiled_gemv(mtA, mtx, mty);
+  result |= benchmark_utils::check(reference, benchmark_utils::l2_norm(mty), "CBDT-TRL", big_o);
+  benchmark_utils::fill_zeroes(mry);
+
+  layout_aware_reduce(mtA, mtx, mty);
+  result |= benchmark_utils::check(reference, benchmark_utils::l2_norm(mty), "IAI-AUTO-TRL", big_o);
+  benchmark_utils::fill_zeroes(mty);
+
+  layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_complete_fragment>(mtA, mtx, mty);
+  result |= benchmark_utils::check(reference, benchmark_utils::l2_norm(mty), "IAI-COMPLETE-TRL", big_o);
+  benchmark_utils::fill_zeroes(mty);
+
+  layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_reduction_blocked_fragment>(mtA, mtx, mty);
+  result |= benchmark_utils::check(reference, benchmark_utils::l2_norm(mty), "IAI-BLOCKED-TRL", big_o);
+  benchmark_utils::fill_zeroes(mty);
+
 #if defined(LAYOUT_TILED_BENCH_ENABLE_BLAS)
-  blas_gemv(A, x, y_blas);
-  result |= benchmark_utils::check(reference, benchmark_utils::l2_norm(y_blas), "BLAS-SL", tolerance);
+  blas_gemv(mrA, mrx, mry);
+  result |= benchmark_utils::check(reference, benchmark_utils::l2_norm(mry), "BLAS-SRL", big_o);
+  benchmark_utils::fill_zeroes(mry);
 #endif
   return result;
 #else
@@ -329,20 +278,35 @@ auto run_bench(const Config& cfg) -> int {
   const auto selected = [&](const std::string_view implementation) {
     return cfg.implementation_.empty() || cfg.implementation_ == implementation;
   };
+  if (cfg.n_ <= 8192) {
+    benchmark.run("N-SRL", [&]() { naive_gemv(mrA, mrx, mry); });
+    benchmark.run("CB-SRL", [&]() { cache_blocked_gemv(mrA, mrx, mry); });
+  }
+  if (selected("dt")) {
+    benchmark.run("DT-TRL", [&]() { data_tiled_gemv(mtA, mtx, mty); });
+  }
+  if (selected("iai-auto") || selected("reduce")) {
+    benchmark.run("IAI-TRL", [&]() { layout_aware_reduce(mtA, mtx, mty); });
+  }
+  if (selected("iai-complete")) {
+    benchmark.run("IAI-COMPLETE-TRL", [&]() {
+      layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_complete_fragment>(mtA, mtx, mty);
+    });
+  }
+  if (selected("iai-blocked")) {
+    benchmark.run("IAI-BLOCKED-TRL", [&]() {
+      layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_reduction_blocked_fragment>(
+        mtA,
+        mtx,
+        mty
+      );
+    });
+  }
 #if defined(LAYOUT_TILED_BENCH_ENABLE_BLAS)
   if (selected("blas")) {
-    benchmark.run("BLAS-SL", [&]() { blas_gemv(A, x, y_blas); });
+    benchmark.run("BLAS-SRL", [&]() { blas_gemv(mrA, mrx, mry); });
   }
 #endif
-  if (selected("dt")) {
-    benchmark.run("DT-TRL-L1", [&]() { data_tiled_gemv(tA, tx, y_dt); });
-  }
-  if (selected("tv")) {
-    benchmark.run("TV-TRL-L1", [&]() { tiled_view_gemv(tA, tx, y_tv); });
-  }
-  if (selected("reduce")) {
-    benchmark.run("REDUCE-TRL-L1", [&]() { layout_aware_reduce(tA, tx, y_reduce); });
-  }
 
   benchmark.render(ankerl::nanobench::templates::csv(), *output);
   file.close();
@@ -358,7 +322,8 @@ auto main(int argc, char* argv[]) -> int {
                                 "Usage: layout_tiled.benchmarks.gemv [OPTIONS]\n\n"
                                 "Options:\n"
                                 "  -n, --size <SIZE>             Matrix size [default: 4096]\n"
-                                "  -i, --implementation <NAME>   Run one of: dt, tv, reduce, blas\n"
+                                "  -i, --implementation <NAME>   Run one of: dt, tv, iai-auto, iai-complete, "
+                                "iai-blocked, blas\n"
                                 "  -o, --output <FILENAME>       Output file name\n"
                                 "  -h, --help                    Show this help\n";
 
@@ -384,7 +349,8 @@ auto main(int argc, char* argv[]) -> int {
     case 'i':
       cfg.implementation_ = optarg;
       if (cfg.implementation_ != "dt" && cfg.implementation_ != "tv" && cfg.implementation_ != "reduce"
-          && cfg.implementation_ != "blas") {
+          && cfg.implementation_ != "iai-auto" && cfg.implementation_ != "iai-complete"
+          && cfg.implementation_ != "iai-blocked" && cfg.implementation_ != "blas") {
         fmt::println(stderr, "error: unknown implementation '{}'", cfg.implementation_);
         return 1;
       }

@@ -59,7 +59,7 @@ COPY --chown=lt:lt --from=build \
 
 COPY --chown=lt:lt --from=build \
     ./layout-tiled/build/llvm \
-    ./layout-tiled/build/llvm 
+    ./layout-tiled/build/llvm
 
 COPY --chown=lt:lt --from=build \
     ./layout-tiled/benchmarks/scripts \

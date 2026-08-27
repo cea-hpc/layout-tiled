@@ -6,6 +6,8 @@
 GET_FILENAME_COMPONENT(layout_tiled_CMAKE_DIR "${CMAKE_CURRENT_LIST_FILE}" PATH)
 
 include(CMakeFindDependencyMacro)
+find_dependency(mdspan)
 
-INCLUDE("${layout_tiled_CMAKE_DIR}/LayoutTiledTargets.cmake")
+include("${layout_tiled_CMAKE_DIR}/layout-tiled-targets.cmake")
+include("${layout_tiled_CMAKE_DIR}/iai-targets.cmake")
 UNSET(layout_tiled_CMAKE_DIR)

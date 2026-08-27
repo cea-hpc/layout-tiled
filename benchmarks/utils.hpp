@@ -120,6 +120,21 @@ auto fill_zeroes(MdSpan m) -> void {
   }
 }
 
+/// Fills a 1D `mdspan` of `double`-typed elements with values of an other `mdspan` of identical extents.
+template <class MdSpanSrc, class MdSpanDst>
+  requires std::is_floating_point_v<typename MdSpanSrc::value_type>
+           && std::is_floating_point_v<typename MdSpanDst::value_type>
+auto fill_1d_copy(MdSpanDst dst, const MdSpanSrc src) -> void {
+  assert(src.extent(0) == dst.extent(0));
+
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
+#pragma omp parallel for schedule(static)
+#endif
+  for (size_t i = 0; i < dst.extent(0); ++i) {
+    dst[i] = src[i];
+  }
+}
+
 /// Fills a 2D `mdspan` of `double`-typed elements with values of an other `mdspan` of identical extents.
 template <class MdSpanSrc, class MdSpanDst>
   requires IsMdSpan2D<MdSpanSrc> && IsMdSpan2D<MdSpanDst> && std::is_floating_point_v<typename MdSpanSrc::value_type>
@@ -156,6 +171,18 @@ auto fill_3d_copy(MdSpanDst dst, const MdSpanSrc src) -> void {
         dst[i, j, k] = src[i, j, k];
       }
     }
+  }
+}
+
+/// Fills a 1D `mdspan` of `double`-typed elements with random values of uniform distribution in range [0, 1).
+template <class MdSpan>
+  requires std::is_floating_point_v<typename MdSpan::value_type> && (1 == MdSpan::rank())
+auto fill_1d_uniform01(MdSpan m, ankerl::nanobench::Rng& rng) -> void {
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
+#pragma omp parallel for schedule(static)
+#endif
+  for (size_t i = 0; i < m.extent(0); ++i) {
+    m[i] = rng.uniform01();
   }
 }
 

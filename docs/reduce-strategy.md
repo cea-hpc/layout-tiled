@@ -1,6 +1,6 @@
 # Design of layout-aware reductions
 
-`layout_tiled::reduce` describes a reduction in terms of logical axes and lets
+`iai::md_reduce` describes a reduction in terms of logical axes and lets
 the implementation derive an execution schedule from those axes and the
 physical tiled layouts of the operands. The public expression contains the
 mathematics but does not prescribe loop order, blocking, vector direction,
@@ -11,17 +11,17 @@ For example, GEMM is written as:
 ```cpp
 enum : std::size_t { I, J, K };
 
-layout_tiled::reduce<K>(
-  layout_tiled::out<I, J>(C, 0.0),
-  layout_tiled::in<I, K>(A),
-  layout_tiled::in<K, J>(B),
+iai::md_reduce<K>(
+  iai::out<I, J>(C, 0.0),
+  iai::in<I, K>(A),
+  iai::in<K, J>(B),
   [](auto& c, auto a, auto b) { c += a * b; }
 );
 ```
 
 The axis order in each binding is the dimension order of that operand's
 `mdspan`. `I` and `J` are free axes because they appear in the output, while
-`K` is a reduction axis because it is a template argument to `reduce`. The
+`K` is a reduction axis because it is a template argument to `md_reduce`. The
 implementation can consequently recover the complete iteration space and each
 operand's projection into it without a GEMM-specific interface.
 
@@ -110,7 +110,7 @@ instantiation. For a particular set of bindings, the compiler knows the
 problem rank, operand ranks, axis projections, tile extents, inner and outer
 layouts, value types, accessor types, and updater type.
 
-## The N-D tiled-view adaptor
+## The N-D native-tiled view
 
 Calling a tiled `mdspan` with global logical coordinates normally asks its
 mapping to determine both the physical tile and the element's location inside
@@ -118,7 +118,7 @@ that tile. Repeating that full mapping in a hot reduction loop can introduce
 integer division, remainder, multiplication, and layout-dependent offset work
 for every operand of every update.
 
-`basic_tiled_view` separates those two address levels. It views an N-D tiled
+`iai::detail::native_tiled_view` separates those two address levels. It views an N-D tiled
 `mdspan` as an N-D grid of ordinary affine tile `mdspan`s while preserving:
 
 - element and reference semantics;
@@ -149,9 +149,13 @@ arithmetic that the compiler can inline and strength-reduce.
 
 The important claim is not that address arithmetic disappears entirely. It is
 that the expensive global tiled mapping is moved out of the innermost element
-loop. In the fragment executor, one input-tile binding is amortized over an
-entire register fragment and all elements of that reduction tile. The hot FMA
-loop sees bound affine tiles rather than repeatedly decomposing global indices.
+loop. `native_tile_range` goes one level further for an execution block: it
+binds the range origin once and retains affine native outer-grid strides.
+Projected residual tile coordinates can then produce bound physical tiles
+without repeating the global tiled mapping. The complete executor constructs
+one range tuple per output tile, and the blocked executors construct one per
+owned output tile or rectangular reduction block. The hot FMA loop sees bound
+affine tiles rather than repeatedly decomposing global indices.
 
 ## Projection from problem coordinates to operand coordinates
 
@@ -224,7 +228,7 @@ two-dimensional fragment kernel within each one.
 For each reduction axis, compile-time analysis finds the minimum static inner
 stride among inputs that carry that axis. Reduction axes are sorted so that an
 axis with lower input stride becomes the inner recursive loop. Ties preserve
-the order supplied to `reduce<Axes...>`.
+the order supplied to `md_reduce<Axes...>`.
 
 The same order is used at two levels:
 
@@ -306,6 +310,100 @@ vector FMAs; another simple arithmetic updater can specialize into different
 instructions. Complex updater bodies are still semantically supported, though
 their code generation may not resemble a dense linear-algebra microkernel.
 
+## Native-tile reduction-blocked fragment executor
+
+The first cache-blocked executor uses one output physical tile by one native
+reduction tile. It deliberately reverses the complete-reduction fragment
+nesting:
+
+```text
+owned output physical tile
+  initialize `out` once, or retain `inout`
+  each native reduction tile
+    bind every projected input tile once
+    every output fragment
+      load partial accumulators
+      traverse the bound tile's local reduction elements
+      store partial accumulators
+```
+
+The output tile is exclusively owned by one flattened output work item, so it
+is safe temporary storage for partial accumulators. For `R` native reduction
+tiles, an `out` element is accessed once for initialization and twice per
+reduction tile; an `inout` element is loaded and stored once per reduction
+tile. Those accesses surround the local reduction loop and are intended to hit
+in cache. In exchange, the executor consumes each bound input-tile tuple across
+all full and tail fragments before advancing the reduction-tile coordinate.
+
+This unit block is a generic axis-projected schedule, not a GEMM
+specialization. Multiple reduction axes are traversed in the same mapping-
+derived order as the scalar and complete-fragment paths, broadcasts remain
+invariant through projection, and the fragment compatibility rules are shared.
+Rectangular groups of physical tiles and cache-budget-based path selection are
+separate policy layers.
+
+## Rectangular native cache-block descriptors
+
+A rectangular descriptor records one extent per problem axis in physical-tile
+coordinates. It is independent of operand roles: an output traversal visits
+only the output binding's projected axes, while a reduction traversal visits
+only the reduction axes. Materializing a descriptor at a block coordinate
+shortens every extent at the tile-grid boundary, so grouped execution does not
+require padded storage.
+
+For each binding, the cost model derives:
+
+- physical tile bytes from its recognized mapping and value type;
+- distinct tiles as the product of block extents along axes carried by the
+  binding;
+- reuse factor as the product along omitted axes; and
+- working-set bytes as physical tile bytes times distinct tile count.
+
+Consequently, the same calculation describes matrix products, higher-rank
+contractions, and broadcast operands without identifying the updater or a
+kernel name. The initial candidate selector admits shapes whose sum of
+distinct operand footprints fits a cache budget, then prefers greater
+projection-derived reuse, greater tile volume, and finally the smaller
+footprint.
+
+The rectangular executor gives one worker exclusive ownership of an output
+tile group and walks grouped reduction tiles in order. Production dispatch may
+select it through the native schedule policy. It constructs each projected
+input tile-range descriptor once for the current output/reduction block and
+derives physical tiles from the descriptor's residual affine address modes.
+Its register fragments still span one physical reduction tile at a time.
+
+## Initial native schedule policy
+
+Fragment compatibility is a compile-time property, but the schedule is chosen
+at runtime because logical extents and therefore physical-tile counts are
+commonly dynamic. Incompatible calls use the scalar semantic executor.
+
+For a compatible call, the policy estimates the complete-reduction footprint
+with a shape of one physical tile along every free axis and all physical tiles
+along every reduction axis. It retains complete-reduction fragments when there
+is only one reduction tile or when this projected footprint is at most the
+portable host budget of 256 KiB. Otherwise it selects reduction-blocked
+fragments.
+
+The initial cache-block candidates use these `(free-axis, reduction-axis)` tile
+factors:
+
+```text
+(1,1), (2,1), (1,2), (2,2), (4,1), (2,4)
+```
+
+Every factor is clamped to the actual tile grid. Candidates whose distinct
+operand footprint exceeds the 32 KiB cache-block budget are rejected; the
+remaining candidates use the projection-derived reuse ordering described
+above. If even the unit tile set exceeds that conservative budget, the unit
+shape is retained as the minimal blocked fallback. These constants belong to
+the replaceable host policy rather than to `md_reduce` semantics.
+
+Internal compile-time overrides force scalar, complete-fragment, or
+reduction-blocked execution. They make correctness and eventual crossover
+measurements deterministic without adding schedule controls to the public API.
+
 ## Why optimized code survives the abstraction
 
 The abstraction deliberately puts all structural choices in types and keeps
@@ -350,10 +448,10 @@ For `y[i] = sum_k A[i,k] * x[k]`:
 ```cpp
 enum : std::size_t { I, K };
 
-layout_tiled::reduce<K>(
-  layout_tiled::out<I>(y, 0.0),
-  layout_tiled::in<I, K>(A),
-  layout_tiled::in<K>(x),
+iai::md_reduce<K>(
+  iai::out<I>(y, 0.0),
+  iai::in<I, K>(A),
+  iai::in<K>(x),
   [](auto& yi, auto aik, auto xk) { yi += aik * xk; }
 );
 ```
@@ -381,10 +479,10 @@ Adding a batch axis requires no executor change:
 ```cpp
 enum : std::size_t { BATCH, I, J, K };
 
-layout_tiled::reduce<K>(
-  layout_tiled::out<BATCH, I, J>(C, 0.0),
-  layout_tiled::in<BATCH, I, K>(A),
-  layout_tiled::in<BATCH, K, J>(B),
+iai::md_reduce<K>(
+  iai::out<BATCH, I, J>(C, 0.0),
+  iai::in<BATCH, I, K>(A),
+  iai::in<BATCH, K, J>(B),
   [](auto& c, auto a, auto b) { c += a * b; }
 );
 ```
@@ -400,10 +498,10 @@ A rank-four contraction with two reduction axes has the same form:
 ```cpp
 enum : std::size_t { I, J, K, L };
 
-layout_tiled::reduce<K, L>(
-  layout_tiled::out<I, J>(C, 0.0),
-  layout_tiled::in<I, K, L>(A),
-  layout_tiled::in<K, L, J>(B),
+iai::md_reduce<K, L>(
+  iai::out<I, J>(C, 0.0),
+  iai::in<I, K, L>(A),
+  iai::in<K, L, J>(B),
   [](auto& c, auto a, auto b) { c += a * b; }
 );
 ```
@@ -481,15 +579,32 @@ natural extensions but are outside the current host implementation.
 
 ## Source organization
 
-The implementation is split into three headers:
+The implementation is split between the Iai public API and its native-tiled
+lowering:
 
-- `include/layout_tiled/reduce.hpp` defines `in`, `out`, `inout`, and the
-  lambda-last `reduce` entry point.
-- `include/layout_tiled/detail/tiled_view.hpp` provides the generic N-D view of
-  tiled storage as affine physical tiles.
-- `include/layout_tiled/detail/reduce.hpp` contains validation, axis analysis,
-  projection, scheduling, scalar execution, fragment execution, and host
-  dispatch.
+- `include/iai/bindings.hpp` and `include/iai/md_reduce.hpp` define the Iai
+  API. Reduction updates are supplied as ordinary callables.
+- `include/iai/detail/access_transform.hpp` provides named-axis projection,
+  rectangular tilers, restricted composition, and affine-mode simplification.
+- `include/iai/detail/native_tiled_view.hpp` provides the hierarchical N-D view
+  of tiled storage, slices it into affine physical tiles, and partially binds
+  execution-local ranges with residual affine outer-grid strides.
+- `include/iai/detail/md_reduce.hpp` contains mapping-independent validation,
+  axis analysis, projection, and updater invocation.
+- `include/iai/detail/native_tiled_reduce.hpp` contains native-tile traversal,
+  scalar execution, and common host dispatch.
+- `include/iai/detail/native_tiled_fragment_reduce.hpp` contains fragment
+  compatibility and complete-reduction fragment execution.
+- `include/iai/detail/native_tiled_cache_block.hpp` defines rectangular
+  physical-tile blocks, shortened boundary blocks, projection-derived operand
+  footprints and reuse estimates, and cache-budget-based candidate selection.
+- `include/iai/detail/native_tiled_blocked_fragment_reduce.hpp` contains the
+  unit and rectangular native cache-block executors. The rectangular executor
+  assigns disjoint output-tile groups to workers and traverses grouped reduction
+  tiles using block-scoped projected tile-range bindings.
+- `include/iai/detail/native_tiled_reduce_policy.hpp` estimates projected
+  working sets, selects complete or reduction-blocked fragment execution, and
+  supplies deterministic internal overrides.
 
 This separation keeps the public surface small while making the address,
 schedule, and backend layers independently replaceable.

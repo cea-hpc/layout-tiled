@@ -12,12 +12,15 @@
 #include <fstream>
 #include <iostream>
 #include <string>
+#include <tuple>
 #include <type_traits>
+#include <utility>
 
 #include <fmt/core.h>
+#include <iai/detail/native_tiled_reduce_policy.hpp>
+#include <iai/md_reduce.hpp>
 #include <layout_tiled/layout_ltl.hpp>
 #include <layout_tiled/layout_rtr.hpp>
-#include <layout_tiled/reduce.hpp>
 #include <nanobench.h>
 #if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #include <omp.h>
@@ -70,6 +73,7 @@ static_assert(BATCH_TB == 1);
 struct Config {
   uint64_t n_ = 128;
   std::string output_;
+  bool l1_only_ = false;
 };
 
 namespace {
@@ -104,19 +108,24 @@ auto naive(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   const size_t K  = A.extent(2);
 
 #if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
-#pragma omp parallel for collapse(3) schedule(static)
+#pragma omp parallel for collapse(2) schedule(static)
 #endif
   for (size_t b = 0; b < NB; ++b) {
     for (size_t i = 0; i < M; ++i) {
-      for (size_t j = 0; j < N; ++j) {
-        Type acc = 0.0;
 #if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
 #pragma omp simd
 #endif
-        for (size_t k = 0; k < K; ++k) {
-          acc += A[b, i, k] * B[b, k, j];
+      for (size_t j = 0; j < N; ++j) {
+        C[b, i, j] = 0.0;
+      }
+      for (size_t k = 0; k < K; ++k) {
+        const Type a = A[b, i, k];
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
+#pragma omp simd
+#endif
+        for (size_t j = 0; j < N; ++j) {
+          C[b, i, j] += a * B[b, k, j];
         }
-        C[b, i, j] = acc;
       }
     }
   }
@@ -388,7 +397,11 @@ auto data_tiled_b_left_ijk(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void 
   }
 }
 
-template <class MdSpanA, class MdSpanB, class MdSpanC>
+template <
+  iai::detail::native_tiled_reduction_override Override = iai::detail::native_tiled_reduction_override::automatic,
+  class MdSpanA,
+  class MdSpanB,
+  class MdSpanC>
   requires IsMdSpan3D<MdSpanA> && IsMdSpan3D<MdSpanB> && IsMdSpan3D<MdSpanC>
 auto layout_aware_reduce(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
   assert(A.extent(0) == B.extent(0));
@@ -403,12 +416,116 @@ auto layout_aware_reduce(const MdSpanA A, const MdSpanB B, MdSpanC C) -> void {
     J,
     K
   };
-  layout_tiled::reduce<K>(
-    layout_tiled::out<Batch, I, J>(C, Type{0}),
-    layout_tiled::in<Batch, I, K>(A),
-    layout_tiled::in<Batch, K, J>(B),
-    [](auto& result, auto lhs, auto rhs) { result += lhs * rhs; }
+  auto output = iai::out<Batch, I, J>(C, Type{0});
+  auto lhs    = iai::in<Batch, I, K>(A);
+  auto rhs    = iai::in<Batch, K, J>(B);
+  if constexpr (Override == iai::detail::native_tiled_reduction_override::automatic) {
+    iai::md_reduce<K>(output, lhs, rhs, [](auto& result, auto lhs_value, auto rhs_value) {
+      result += lhs_value * rhs_value;
+    });
+  } else {
+    auto updater = [](auto& result, auto lhs_value, auto rhs_value) {
+      result += lhs_value * rhs_value;
+    };
+    auto arguments = std::forward_as_tuple(output, lhs, rhs, updater);
+    iai::detail::dispatch_native_tiled_reduce<iai::detail::axis_list<K>, Override>(
+      arguments,
+      std::index_sequence<0, 1>{}
+    );
+  }
+}
+
+auto run_l1_bench(const Config& cfg) -> int {
+  const auto n         = static_cast<size_t>(cfg.n_);
+  const size_t ten_len = n * n * n;
+
+  auto rA            = MemorySlice<Type>(ten_len);
+  auto rB            = MemorySlice<Type>(ten_len);
+  auto rC            = MemorySlice<Type>(ten_len);
+  auto trA_l1        = MemorySlice<Type>(ten_len);
+  auto trB_l1        = MemorySlice<Type>(ten_len);
+  auto trC_l1        = MemorySlice<Type>(ten_len);
+  auto trC_reduce_l1 = MemorySlice<Type>(ten_len);
+
+  auto mrA     = std::mdspan<Type, Exts>(rA.get(), n, n, n);
+  auto mrB     = std::mdspan<Type, Exts>(rB.get(), n, n, n);
+  auto mrC     = std::mdspan<Type, Exts>(rC.get(), n, n, n);
+  auto mtrA_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TM, L1_TK>>(trA_l1.get(), n, n, n);
+  auto mtrB_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TK, L1_TN>>(trB_l1.get(), n, n, n);
+  auto mtrC_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TM, L1_TN>>(trC_l1.get(), n, n, n);
+  auto mtrC_reduce_l1
+    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TM, L1_TN>>(trC_reduce_l1.get(), n, n, n);
+
+  ankerl::nanobench::Rng rng_naive(42);
+  benchmark_utils::fill_3d_uniform01(mrA, rng_naive);
+  benchmark_utils::fill_3d_uniform01(mrB, rng_naive);
+  benchmark_utils::fill_3d_copy(mtrA_l1, mrA);
+  benchmark_utils::fill_3d_copy(mtrB_l1, mrB);
+
+#if defined(LAYOUT_TILED_BENCH_ENABLE_CHECKS)
+  const auto dn    = static_cast<double>(n);
+  const double tol = 2.0 * dn * dn * dn * dn;
+  int res          = 0;
+
+  naive(mrA, mrB, mrC);
+  const double ref = benchmark_utils::l2_norm(mrC);
+  cache_blocked<L1_TB, L1_TM, L1_TN, L1_TK>(mrA, mrB, mrC);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mrC), "CB-IKJ-SRRR-L1", tol);
+  data_tiled_ikj<L1_TB, L1_TM, L1_TN, L1_TK>(mtrA_l1, mtrB_l1, mtrC_l1);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_l1), "DT-IKJ-TRRR-L1", tol);
+  layout_aware_reduce(mtrA_l1, mtrB_l1, mtrC_reduce_l1);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_l1), "IAI-AUTO-TRRR-L1", tol);
+  layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_complete_fragment>(
+    mtrA_l1,
+    mtrB_l1,
+    mtrC_reduce_l1
   );
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_l1), "IAI-COMPLETE-TRRR-L1", tol);
+  layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_reduction_blocked_fragment>(
+    mtrA_l1,
+    mtrB_l1,
+    mtrC_reduce_l1
+  );
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_l1), "IAI-BLOCKED-TRRR-L1", tol);
+  return res;
+#else
+  ankerl::nanobench::Bench bs;
+  bs.output(nullptr);
+#if defined(LAYOUT_TILED_BENCH_ENABLE_OMP)
+  bs.title(fmt::format("{0}x{0}x{0} tensor contraction {1}C", cfg.n_, omp_get_max_threads()))
+    .timeUnit(1s, "s")
+    .relative(true);
+#else
+  bs.title(fmt::format("{0}x{0}x{0} tensor contraction 1C", cfg.n_)).timeUnit(1s, "s").relative(true);
+#endif
+
+  bs.run("CB-IKJ-SRRR-L1", [&]() { cache_blocked<L1_TB, L1_TM, L1_TN, L1_TK>(mrA, mrB, mrC); });
+  bs.run("DT-IKJ-TRRR-L1", [&]() { data_tiled_ikj<L1_TB, L1_TM, L1_TN, L1_TK>(mtrA_l1, mtrB_l1, mtrC_l1); });
+  bs.run("IAI-AUTO-TRRR-L1", [&]() { layout_aware_reduce(mtrA_l1, mtrB_l1, mtrC_reduce_l1); });
+  bs.run("IAI-COMPLETE-TRRR-L1", [&]() {
+    layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_complete_fragment>(
+      mtrA_l1,
+      mtrB_l1,
+      mtrC_reduce_l1
+    );
+  });
+  bs.run("IAI-BLOCKED-TRRR-L1", [&]() {
+    layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_reduction_blocked_fragment>(
+      mtrA_l1,
+      mtrB_l1,
+      mtrC_reduce_l1
+    );
+  });
+
+  std::ostream* out_stream = &std::cout;
+  std::ofstream file_stream;
+  if (!cfg.output_.empty()) {
+    file_stream.open(cfg.output_, std::ios::app | std::ios::binary);
+    out_stream = &file_stream;
+  }
+  bs.render(ankerl::nanobench::templates::csv(), *out_stream);
+  return 0;
+#endif
 }
 
 auto run_bench(const Config& cfg) -> int {
@@ -419,50 +536,50 @@ auto run_bench(const Config& cfg) -> int {
   auto rB = MemorySlice<Type>(ten_len);
   auto rC = MemorySlice<Type>(ten_len);
 
-  auto trA_l1        = MemorySlice<Type>(ten_len);
-  auto trB_l1        = MemorySlice<Type>(ten_len);
-  auto trC_l1        = MemorySlice<Type>(ten_len);
-  auto trC_reduce_l1 = MemorySlice<Type>(ten_len);
+  // auto trA_l1        = MemorySlice<Type>(ten_len);
+  // auto trB_l1        = MemorySlice<Type>(ten_len);
+  // auto trC_l1        = MemorySlice<Type>(ten_len);
+  // auto trC_reduce_l1 = MemorySlice<Type>(ten_len);
 
-  auto trA_l2        = MemorySlice<Type>(ten_len);
-  auto trB_l2        = MemorySlice<Type>(ten_len);
-  auto trC_l2        = MemorySlice<Type>(ten_len);
+  auto trA_l2 = MemorySlice<Type>(ten_len);
+  auto trB_l2 = MemorySlice<Type>(ten_len);
+  // auto trC_l2        = MemorySlice<Type>(ten_len);
   auto trC_reduce_l2 = MemorySlice<Type>(ten_len);
 
-  auto trA_rect        = MemorySlice<Type>(ten_len);
-  auto trB_rect        = MemorySlice<Type>(ten_len);
-  auto trC_rect        = MemorySlice<Type>(ten_len);
-  auto trC_reduce_rect = MemorySlice<Type>(ten_len);
+  // auto trA_rect        = MemorySlice<Type>(ten_len);
+  // auto trB_rect        = MemorySlice<Type>(ten_len);
+  // auto trC_rect        = MemorySlice<Type>(ten_len);
+  // auto trC_reduce_rect = MemorySlice<Type>(ten_len);
 
-  auto trA_batch        = MemorySlice<Type>(ten_len);
-  auto trB_batch        = MemorySlice<Type>(ten_len);
-  auto trC_batch        = MemorySlice<Type>(ten_len);
-  auto trC_reduce_batch = MemorySlice<Type>(ten_len);
+  auto trA_batch = MemorySlice<Type>(ten_len);
+  auto trB_batch = MemorySlice<Type>(ten_len);
+  auto trC_batch = MemorySlice<Type>(ten_len);
+  // auto trC_reduce_batch = MemorySlice<Type>(ten_len);
 
   auto mrA = std::mdspan<Type, Exts>(rA.get(), n, n, n);
   auto mrB = std::mdspan<Type, Exts>(rB.get(), n, n, n);
   auto mrC = std::mdspan<Type, Exts>(rC.get(), n, n, n);
 
-  auto mtrA_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TM, L1_TK>>(trA_l1.get(), n, n, n);
-  auto mtrB_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TK, L1_TN>>(trB_l1.get(), n, n, n);
-  auto mtrC_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TM, L1_TN>>(trC_l1.get(), n, n, n);
-  auto mtrC_reduce_l1
-    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TM, L1_TN>>(trC_reduce_l1.get(), n, n, n);
+  // auto mtrA_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TM, L1_TK>>(trA_l1.get(), n, n, n);
+  // auto mtrB_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TK, L1_TN>>(trB_l1.get(), n, n, n);
+  // auto mtrC_l1 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TM, L1_TN>>(trC_l1.get(), n, n, n);
+  // auto mtrC_reduce_l1
+  //   = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L1_TB, L1_TM, L1_TN>>(trC_reduce_l1.get(), n, n, n);
 
   auto mtrA_l2 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L2_TB, L2_TM, L2_TK>>(trA_l2.get(), n, n, n);
   auto mtrB_l2 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L2_TB, L2_TK, L2_TN>>(trB_l2.get(), n, n, n);
-  auto mtrC_l2 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L2_TB, L2_TM, L2_TN>>(trC_l2.get(), n, n, n);
+  // auto mtrC_l2 = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L2_TB, L2_TM, L2_TN>>(trC_l2.get(), n, n, n);
   auto mtrC_reduce_l2
     = std::mdspan<Type, Exts, layout_tiled::layout_rtr<L2_TB, L2_TM, L2_TN>>(trC_reduce_l2.get(), n, n, n);
 
-  auto mtrA_rect
-    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<RECT_TB, RECT_TM, RECT_TK>>(trA_rect.get(), n, n, n);
-  auto mtrB_rect
-    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<RECT_TB, RECT_TK, RECT_TN>>(trB_rect.get(), n, n, n);
-  auto mtrC_rect
-    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<RECT_TB, RECT_TM, RECT_TN>>(trC_rect.get(), n, n, n);
-  auto mtrC_reduce_rect
-    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<RECT_TB, RECT_TM, RECT_TN>>(trC_reduce_rect.get(), n, n, n);
+  // auto mtrA_rect
+  //   = std::mdspan<Type, Exts, layout_tiled::layout_rtr<RECT_TB, RECT_TM, RECT_TK>>(trA_rect.get(), n, n, n);
+  // auto mtrB_rect
+  //   = std::mdspan<Type, Exts, layout_tiled::layout_rtr<RECT_TB, RECT_TK, RECT_TN>>(trB_rect.get(), n, n, n);
+  // auto mtrC_rect
+  //   = std::mdspan<Type, Exts, layout_tiled::layout_rtr<RECT_TB, RECT_TM, RECT_TN>>(trC_rect.get(), n, n, n);
+  // auto mtrC_reduce_rect
+  //   = std::mdspan<Type, Exts, layout_tiled::layout_rtr<RECT_TB, RECT_TM, RECT_TN>>(trC_reduce_rect.get(), n, n, n);
 
   auto mtrA_batch
     = std::mdspan<Type, Exts, layout_tiled::layout_rtr<BATCH_TB, BATCH_TM, BATCH_TK>>(trA_batch.get(), n, n, n);
@@ -470,18 +587,19 @@ auto run_bench(const Config& cfg) -> int {
     = std::mdspan<Type, Exts, layout_tiled::layout_rtr<BATCH_TB, BATCH_TK, BATCH_TN>>(trB_batch.get(), n, n, n);
   auto mtrC_batch
     = std::mdspan<Type, Exts, layout_tiled::layout_rtr<BATCH_TB, BATCH_TM, BATCH_TN>>(trC_batch.get(), n, n, n);
-  auto mtrC_reduce_batch
-    = std::mdspan<Type, Exts, layout_tiled::layout_rtr<BATCH_TB, BATCH_TM, BATCH_TN>>(trC_reduce_batch.get(), n, n, n);
+  // auto mtrC_reduce_batch
+  // = std::mdspan<Type, Exts, layout_tiled::layout_rtr<BATCH_TB, BATCH_TM, BATCH_TN>>(trC_reduce_batch.get(), n, n,
+  // n);
 
   ankerl::nanobench::Rng rng_naive(42);
   benchmark_utils::fill_3d_uniform01(mrA, rng_naive);
   benchmark_utils::fill_3d_uniform01(mrB, rng_naive);
-  benchmark_utils::fill_3d_copy(mtrA_l1, mrA);
-  benchmark_utils::fill_3d_copy(mtrB_l1, mrB);
+  // benchmark_utils::fill_3d_copy(mtrA_l1, mrA);
+  // benchmark_utils::fill_3d_copy(mtrB_l1, mrB);
   benchmark_utils::fill_3d_copy(mtrA_l2, mrA);
   benchmark_utils::fill_3d_copy(mtrB_l2, mrB);
-  benchmark_utils::fill_3d_copy(mtrA_rect, mrA);
-  benchmark_utils::fill_3d_copy(mtrB_rect, mrB);
+  // benchmark_utils::fill_3d_copy(mtrA_rect, mrA);
+  // benchmark_utils::fill_3d_copy(mtrB_rect, mrB);
   benchmark_utils::fill_3d_copy(mtrA_batch, mrA);
   benchmark_utils::fill_3d_copy(mtrB_batch, mrB);
 
@@ -511,13 +629,63 @@ auto run_bench(const Config& cfg) -> int {
   data_tiled_ikj<BATCH_TB, BATCH_TM, BATCH_TN, BATCH_TK>(mtrA_batch, mtrB_batch, mtrC_batch);
   res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_batch), "DT-IKJ-TRRR-BATCH1", tol);
   layout_aware_reduce(mtrA_l1, mtrB_l1, mtrC_reduce_l1);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_l1), "REDUCE-TRRR-L1", tol);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_l1), "IAI-AUTO-TRRR-L1", tol);
   layout_aware_reduce(mtrA_l2, mtrB_l2, mtrC_reduce_l2);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_l2), "REDUCE-TRRR-L2", tol);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_l2), "IAI-AUTO-TRRR-L2", tol);
   layout_aware_reduce(mtrA_rect, mtrB_rect, mtrC_reduce_rect);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_rect), "REDUCE-TRRR-RECT", tol);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_rect), "IAI-AUTO-TRRR-RECT", tol);
   layout_aware_reduce(mtrA_batch, mtrB_batch, mtrC_reduce_batch);
-  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_batch), "REDUCE-TRRR-BATCH1", tol);
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_batch), "IAI-AUTO-TRRR-BATCH1", tol);
+
+  layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_complete_fragment>(
+    mtrA_l1,
+    mtrB_l1,
+    mtrC_reduce_l1
+  );
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_l1), "IAI-COMPLETE-TRRR-L1", tol);
+  layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_complete_fragment>(
+    mtrA_l2,
+    mtrB_l2,
+    mtrC_reduce_l2
+  );
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_l2), "IAI-COMPLETE-TRRR-L2", tol);
+  layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_complete_fragment>(
+    mtrA_rect,
+    mtrB_rect,
+    mtrC_reduce_rect
+  );
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_rect), "IAI-COMPLETE-TRRR-RECT", tol);
+  layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_complete_fragment>(
+    mtrA_batch,
+    mtrB_batch,
+    mtrC_reduce_batch
+  );
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_batch), "IAI-COMPLETE-TRRR-BATCH1", tol);
+
+  layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_reduction_blocked_fragment>(
+    mtrA_l1,
+    mtrB_l1,
+    mtrC_reduce_l1
+  );
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_l1), "IAI-BLOCKED-TRRR-L1", tol);
+  layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_reduction_blocked_fragment>(
+    mtrA_l2,
+    mtrB_l2,
+    mtrC_reduce_l2
+  );
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_l2), "IAI-BLOCKED-TRRR-L2", tol);
+  layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_reduction_blocked_fragment>(
+    mtrA_rect,
+    mtrB_rect,
+    mtrC_reduce_rect
+  );
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_rect), "IAI-BLOCKED-TRRR-RECT", tol);
+  layout_aware_reduce<iai::detail::native_tiled_reduction_override::force_reduction_blocked_fragment>(
+    mtrA_batch,
+    mtrB_batch,
+    mtrC_reduce_batch
+  );
+  res |= benchmark_utils::check(ref, benchmark_utils::l2_norm(mtrC_reduce_batch), "IAI-BLOCKED-TRRR-BATCH1", tol);
 
   return res;
 #else
@@ -537,23 +705,28 @@ auto run_bench(const Config& cfg) -> int {
     out_stream = &file_stream;
   }
 
-  bs.run("CB-IKJ-SRRR-L1", [&]() { cache_blocked<L1_TB, L1_TM, L1_TN, L1_TK>(mrA, mrB, mrC); });
-  bs.run("CB-IKJ-SRRR-L2", [&]() { cache_blocked<L2_TB, L2_TM, L2_TN, L2_TK>(mrA, mrB, mrC); });
-  bs.run("CB-IKJ-SRRR-RECT", [&]() { cache_blocked<RECT_TB, RECT_TM, RECT_TN, RECT_TK>(mrA, mrB, mrC); });
-  bs.run("CB-IKJ-SRRR-BATCH1", [&]() { cache_blocked<BATCH_TB, BATCH_TM, BATCH_TN, BATCH_TK>(mrA, mrB, mrC); });
+  if (cfg.n_ <= 256) {
+    bs.run("N-IKJ-SRRR", [&]() { naive(mrA, mrB, mrC); });
+    bs.run("CB-IKJ-SRRR", [&]() { cache_blocked<BATCH_TB, BATCH_TM, BATCH_TN, BATCH_TK>(mrA, mrB, mrC); });
+  }
 
-  bs.run("DT-IKJ-TRRR-L1", [&]() { data_tiled_ikj<L1_TB, L1_TM, L1_TN, L1_TK>(mtrA_l1, mtrB_l1, mtrC_l1); });
-  bs.run("DT-IKJ-TRRR-L2", [&]() { data_tiled_ikj<L2_TB, L2_TM, L2_TN, L2_TK>(mtrA_l2, mtrB_l2, mtrC_l2); });
-  bs.run("DT-IKJ-TRRR-RECT", [&]() {
-    data_tiled_ikj<RECT_TB, RECT_TM, RECT_TN, RECT_TK>(mtrA_rect, mtrB_rect, mtrC_rect);
-  });
-  bs.run("DT-IKJ-TRRR-BATCH1", [&]() {
+  // bs.run("CB-IKJ-SRRR-L1", [&]() { cache_blocked<L1_TB, L1_TM, L1_TN, L1_TK>(mrA, mrB, mrC); });
+  // bs.run("CB-IKJ-SRRR-L2", [&]() { cache_blocked<L2_TB, L2_TM, L2_TN, L2_TK>(mrA, mrB, mrC); });
+  // bs.run("CB-IKJ-SRRR-RECT", [&]() { cache_blocked<RECT_TB, RECT_TM, RECT_TN, RECT_TK>(mrA, mrB, mrC); });
+  // bs.run("CB-IKJ-SRRR-BATCH1", [&]() { cache_blocked<BATCH_TB, BATCH_TM, BATCH_TN, BATCH_TK>(mrA, mrB, mrC); });
+
+  // bs.run("DT-IKJ-TRRR-L1", [&]() { data_tiled_ikj<L1_TB, L1_TM, L1_TN, L1_TK>(mtrA_l1, mtrB_l1, mtrC_l1); });
+  // bs.run("DT-IKJ-TRRR-L2", [&]() { data_tiled_ikj<L2_TB, L2_TM, L2_TN, L2_TK>(mtrA_l2, mtrB_l2, mtrC_l2); });
+  // bs.run("DT-IKJ-TRRR-RECT", [&]() {
+  //   data_tiled_ikj<RECT_TB, RECT_TM, RECT_TN, RECT_TK>(mtrA_rect, mtrB_rect, mtrC_rect);
+  // });
+  bs.run("CBDT-IKJ-TRRR", [&]() {
     data_tiled_ikj<BATCH_TB, BATCH_TM, BATCH_TN, BATCH_TK>(mtrA_batch, mtrB_batch, mtrC_batch);
   });
-  bs.run("REDUCE-TRRR-L1", [&]() { layout_aware_reduce(mtrA_l1, mtrB_l1, mtrC_reduce_l1); });
-  bs.run("REDUCE-TRRR-L2", [&]() { layout_aware_reduce(mtrA_l2, mtrB_l2, mtrC_reduce_l2); });
-  bs.run("REDUCE-TRRR-RECT", [&]() { layout_aware_reduce(mtrA_rect, mtrB_rect, mtrC_reduce_rect); });
-  bs.run("REDUCE-TRRR-BATCH1", [&]() { layout_aware_reduce(mtrA_batch, mtrB_batch, mtrC_reduce_batch); });
+  // bs.run("IAI-TRRR-L1", [&]() { layout_aware_reduce(mtrA_l1, mtrB_l1, mtrC_reduce_l1); });
+  bs.run("IAI-TRRR", [&]() { layout_aware_reduce(mtrA_l2, mtrB_l2, mtrC_reduce_l2); });
+  // bs.run("IAI-TRRR-RECT", [&]() { layout_aware_reduce(mtrA_rect, mtrB_rect, mtrC_reduce_rect); });
+  // bs.run("IAI-TRRR-BATCH1", [&]() { layout_aware_reduce(mtrA_batch, mtrB_batch, mtrC_reduce_batch); });
 
   bs.render(ankerl::nanobench::templates::csv(), *out_stream);
   file_stream.close();
@@ -570,11 +743,13 @@ auto main(int argc, char* argv[]) -> int {
                                 "Usage: layout_tiled.benchmarks.tensor_contraction [OPTIONS]\n\n"
                                 "Options:\n"
                                 "  -n, --size <SIZE>             Tensor extent [default: 128]\n"
+                                "  -l, --l1-only                 Run only the L1 configurations\n"
                                 "  -o, --output <FILENAME>       Output file name\n"
                                 "  -h, --help                    Show this help\n";
 
   static struct option long_options[] = {
     {.name = "size", .has_arg = required_argument, .flag = nullptr, .val = 'n'},
+    {.name = "l1-only", .has_arg = no_argument, .flag = nullptr, .val = 'l'},
     {.name = "output", .has_arg = required_argument, .flag = nullptr, .val = 'o'},
     {.name = "help", .has_arg = no_argument, .flag = nullptr, .val = 'h'},
     {.name = nullptr, .has_arg = 0, .flag = nullptr, .val = 0}
@@ -582,7 +757,7 @@ auto main(int argc, char* argv[]) -> int {
 
   Config cfg;
   int opt{};
-  while ((opt = getopt_long(argc, argv, "n:o:h", static_cast<const struct option*>(long_options), nullptr)) != -1) {
+  while ((opt = getopt_long(argc, argv, "n:lo:h", static_cast<const struct option*>(long_options), nullptr)) != -1) {
     switch (opt) {
     case 'n':
       cfg.n_ = std::stoul(optarg);
@@ -590,6 +765,9 @@ auto main(int argc, char* argv[]) -> int {
         fmt::println(stderr, "error: tensor extent must be a positive integer (got {})", optarg);
         return 1;
       }
+      break;
+    case 'l':
+      cfg.l1_only_ = true;
       break;
     case 'o':
       cfg.output_ = optarg;
@@ -614,6 +792,15 @@ auto main(int argc, char* argv[]) -> int {
       cfg.n_
     );
     return 1;
+  }
+
+  if (cfg.l1_only_ || cfg.n_ == 32) {
+    if (cfg.n_ == 32) {
+      fmt::println(stderr, "Tensor extent 32: running the compatible L1 variants only");
+    } else {
+      fmt::println(stderr, "Tensor extent {}: --l1-only selected", cfg.n_);
+    }
+    return run_l1_bench(cfg);
   }
 
   if (0 != cfg.n_ % L2_TB || 0 != cfg.n_ % L2_TM || 0 != cfg.n_ % L2_TN || 0 != cfg.n_ % L2_TK) {
